@@ -14,4 +14,5 @@
   <depend>std_msgs</depend>
   <depend>image_transport</depend>
   <depend>cv_bridge</depend>
+  <depend>dynamic_reconfigure</depend>
 </package>

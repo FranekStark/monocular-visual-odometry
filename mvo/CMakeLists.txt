@@ -9,18 +9,27 @@ find_package(catkin REQUIRED COMPONENTS
   rospy
   image_transport
   cv_bridge
+  dynamic_reconfigure
 )
 
 include_directories(
 	${catkin_INCLUDE_DIRS}		
 )
 
+
+generate_dynamic_reconfigure_options(
+  cfg/dyn_config.cfg
+)
+
 catkin_package()
 
+
+
 add_library(MVO src/mvo.cpp)
-find_package(OpenCV REQUIRED )
+find_package(OpenCV 4.1.0 REQUIRED )
 
 add_executable(mvo_node src/mvo_node.cpp)
+
 target_link_libraries(MVO ${OpenCV_LIBS})
 target_link_libraries(mvo_node ${catkin_LIBRARIES} MVO)
-
+add_dependencies(mvo_node mvo_gencfg)

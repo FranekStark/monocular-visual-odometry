@@ -1,0 +1,4 @@
+<?xml version="1.0"?>
+<launch>
+    <node name="mvo_node" pkg="mvo" type="mvo_node" output="screen"/>
+</launch>

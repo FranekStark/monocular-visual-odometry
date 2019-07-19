@@ -23,10 +23,16 @@ void MVO_node::init()
 {
     _imageSubscriberTopic = "/pylon_camera_node/image_rect";
     _imageSubscriber = _imageTransport.subscribeCamera(_imageSubscriberTopic, 1, &MVO_node::imageCallback, this);
+    _dynamicConfigCallBackType = boost::bind(&MVO_node::dynamicConfigCallback, this, _1, _2);
+    _dynamicConfigServer.setCallback(_dynamicConfigCallBackType);
 }
 
 void MVO_node::imageCallback(const sensor_msgs::ImageConstPtr &image, const sensor_msgs::CameraInfoConstPtr &camInfo)
 {
     cv_bridge::CvImageConstPtr bridgeImage = cv_bridge::toCvShare(image);
     _mvo.handleImage(bridgeImage->image);
+}
+
+void MVO_node::dynamicConfigCallback(mvo::corner_detectorConfig & config, uint32_t level){
+   _mvo.setCornerDetectotParams(config.block_size, config.aperture_size, config.k, config.threshold);
 }
