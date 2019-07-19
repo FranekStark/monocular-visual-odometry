@@ -2,14 +2,9 @@
 
 #include <map>
 
-MVO::MVO():
-_blockSize(2),
-_apertureSize(3),
-_k(0.04),
-_thresh(200)
+MVO::MVO() : _blockSize(2), _apertureSize(3), _k(0.04), _thresh(200)
 {
   cv::namedWindow("original", cv::WINDOW_GUI_EXPANDED);
-  cv::namedWindow("grayScale", cv::WINDOW_GUI_EXPANDED);
   cv::namedWindow("cornerImage", cv::WINDOW_GUI_EXPANDED);
   cv::startWindowThread();
 }
@@ -29,71 +24,40 @@ void MVO::handleImage(const cv::Mat &image)
   cv::Mat grayImage;
   cv::cvtColor(image, grayImage, cv::COLOR_BGR2GRAY, 3);
   /*Corners */
-  std::list<cv::Point> corners = this->detectCorners(grayImage, 20);
-  ROS_INFO_STREAM("Anzahl Corner: " << corners.size() << std::endl);
-
-  if (corners.size() < 2300000)  // TODO: quickfix, weil er sonst ewig rechnet
+  std::vector<cv::Point2f> corners = this->detectCorners(grayImage, 40);
+  cv::Mat cornerImage = image.clone();
+  /*Mark Corners*/
+  for (auto const &corner : corners)
   {
-    cv::Mat cornerImage = image.clone();
-
-    /*Mark Corners*/
-    for (auto const &corner : corners)
-    {
-      cv::circle(cornerImage, corner, 10, cv::Scalar(0, 0, 255), -10);
-    }
-    imshow("cornerImage", cornerImage);
+    cv::circle(cornerImage, cv::Point(corner), 10, cv::Scalar(0, 0, 255), -10);
   }
+  imshow("cornerImage", cornerImage);
 }
 
 // Must be Grayscale
-std::list<cv::Point> MVO::detectCorners(const cv::Mat &image, int num)
+std::vector<cv::Point2f> MVO::detectCorners(const cv::Mat &image, int num)
 {
-  std::map<int, std::list<cv::Point>> corners;
+  std::vector<cv::Point2f> corners;
+  cv::goodFeaturesToTrack(image, corners, num, double(0.01), double(10.0), cv::noArray(), _blockSize, bool(true),
+                          _k);  // Corners berechnen TODO: More params
 
-  cv::Mat cornerImage = cv::Mat::zeros(image.size(), CV_32FC1);      // DST vorbereiten
-  cv::cornerHarris(image, cornerImage, _blockSize, _apertureSize, _k);  // Corners berechnen
-  cv::Mat cornerImageNorm;
-  cv::normalize(cornerImage, cornerImageNorm, 0, 255, cv::NORM_MINMAX, CV_32FC1,
-                cv::Mat());  // auf 0...255 normalisieren
+  //// Die num besten finden:
 
-  cv::Mat cornerScaledImageNorm;
-  cv::convertScaleAbs(cornerImageNorm,cornerScaledImageNorm);
-
-  imshow("grayScale", cornerScaledImageNorm);
-
-  // Die num besten finden:
-  for (int i = 0; i < cornerImageNorm.rows; i++)
+  // Subpixel-genau:
+  if (corners.size() > 0)
   {
-    for (int j = 0; j < cornerImageNorm.cols; j++)
-    {
-      int weight = (int)cornerImageNorm.at<float>(i, j);
-      if (weight > _thresh)
-      {
-        corners[weight].push_back(cv::Point(j, i));
-      }
-    }
+    cv::Size winSize = cv::Size(5, 5);
+    cv::Size zeroZone = cv::Size(-1, -1);
+    cv::TermCriteria criteria =
+        cv::TermCriteria(cv::TermCriteria::Type::EPS + cv::TermCriteria::Type::MAX_ITER, 40, 0.001);
+    cv::cornerSubPix(image, corners, winSize, zeroZone, criteria);
   }
-
-  std::list<cv::Point> result;
-  int cornersCnt = 0;
-
-  for (std::map<int, std::list<cv::Point>>::reverse_iterator rit = corners.rbegin(); rit != corners.rend(); rit++)
-  {
-    for (cv::Point point : rit->second)
-    {
-      if (cornersCnt >= num)
-      {
-        return result;
-      }
-      result.push_back(point);
-      cornersCnt++;
-    }
-  }
-  return result;
+  return corners;
 }
 
-void MVO::setCornerDetectotParams(int blockSize, int aperatureSize, double k, int thresh){
-  //TODO: Concurrent, when using more Threads
+void MVO::setCornerDetectotParams(int blockSize, int aperatureSize, double k, int thresh)
+{
+  // TODO: Concurrent, when using more Threads
   _blockSize = blockSize;
   _apertureSize = aperatureSize;
   _k = k;
