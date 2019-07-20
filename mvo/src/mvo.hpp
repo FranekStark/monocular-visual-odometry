@@ -16,6 +16,8 @@ private:
   std::vector<cv::Point2f> detectCorners(const cv::Mat &image, int num);  // TODO: return als Param?
   void trackFeatures(const cv::Mat &nowImage, const cv::Mat &prevImage, const std::vector<cv::Point2f> &prevFeatures,
                      std::vector<cv::Point2f> &trackedFeatures, std::vector<unsigned char> &found);
+
+  /*Fields */
   SlidingWindow _slidingWindow;
 
   /*For Corner-Detector */
