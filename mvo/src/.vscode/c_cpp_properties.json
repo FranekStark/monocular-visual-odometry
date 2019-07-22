@@ -1,0 +1,25 @@
+{
+    "configurations": [
+        {
+            "browse": {
+                "databaseFilename": "",
+                "limitSymbolsToIncludedHeaders": true
+            },
+            "includePath": [
+                "/home/franek/catkin_ws/devel/include",
+                "/opt/ros/melodic/include",
+                "/home/franek/catkin_ws/src/vision_opencv/cv_bridge/include",
+                "/home/franek/catkin_ws/src/vision_opencv/image_geometry/include",
+                "/home/franek/catkin_ws/src/mvo/include",
+                "/home/franek/catkin_ws/src/pylon_camera/include",
+                "/usr/include"
+            ],
+            "name": "Linux",
+            "intelliSenseMode": "gcc-x64",
+            "compilerPath": "/usr/bin/gcc",
+            "cStandard": "c11",
+            "cppStandard": "c++17"
+        }
+    ],
+    "version": 4
+}

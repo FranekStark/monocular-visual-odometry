@@ -1,6 +1,7 @@
 #include <ros/ros.h>
 #include <image_transport/image_transport.h>
 #include <cv_bridge/cv_bridge.h>
+#include <image_geometry/pinhole_camera_model.h>
 #include <dynamic_reconfigure/server.h>
 #include <mvo/corner_detectorConfig.h>
 #include "mvo.hpp"

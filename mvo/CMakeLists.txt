@@ -8,6 +8,7 @@ find_package(catkin REQUIRED COMPONENTS
   roscpp
   rospy
   image_transport
+  image_geometry
   cv_bridge
   dynamic_reconfigure
 )

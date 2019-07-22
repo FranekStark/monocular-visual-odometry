@@ -30,7 +30,9 @@ void MVO_node::imageCallback(const sensor_msgs::ImageConstPtr &image, const sens
 {
   (void)(camInfo);  // TODO: unused
   cv_bridge::CvImageConstPtr bridgeImage = cv_bridge::toCvShare(image);
-  _mvo.handleImage(bridgeImage->image);
+  image_geometry::PinholeCameraModel model;
+  model.fromCameraInfo(camInfo);
+  _mvo.handleImage(bridgeImage->image, model);
 }
 
 void MVO_node::dynamicConfigCallback(mvo::corner_detectorConfig &config, uint32_t level)
