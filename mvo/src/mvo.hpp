@@ -15,6 +15,8 @@
 #include <eigen3/Eigen/Dense>
 #include <eigen3/Eigen/SVD>
 
+#define PI 3.14159265
+
 class MVO
 {
 private:
@@ -26,6 +28,9 @@ private:
 
   Eigen::Translation3d calculateBaseLineMLESAC(const std::vector<Eigen::Vector2d> &mt,
                                          const std::vector<Eigen::Vector2d> &mhi, const Eigen::Quaterniond &rh);
+
+  void reconstructDepth(std::vector<double> &depth, const std::vector<Eigen::Vector2d> &m2L,
+                                         const std::vector<Eigen::Vector2d> &m1L,  const Eigen::Quaterniond &r, const Eigen::Translation3d &b);
   /*Fields */
   SlidingWindow _slidingWindow;
 

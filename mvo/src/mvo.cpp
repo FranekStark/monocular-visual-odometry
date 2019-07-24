@@ -68,7 +68,7 @@ void MVO::handleImage(const cv::Mat &image, const image_geometry::PinholeCameraM
       beforeFeatures[i] = Eigen::Vector2d(beforeFeatureCV.x, beforeFeatureCV.y);
     }
 
-    Eigen::Translation3d translation = this->calculateBaseLine(thisFeatures, beforeFeatures, Eigen::Quaterniond());
+    Eigen::Translation3d translation = this->calculateBaseLineMLESAC(thisFeatures, beforeFeatures, Eigen::Quaterniond());
 
     ROS_INFO_STREAM("Translation: " << std::endl
                                     << translation.x() << std::endl
@@ -80,12 +80,12 @@ void MVO::handleImage(const cv::Mat &image, const image_geometry::PinholeCameraM
      */
     int mitX = double(cornerImage.cols) / 2.0;
     int mitY = double(cornerImage.rows) / 2.0;
-    double scaleX = (mitX - cornerImage.cols) / 1.5;
-    double scaleY = (mitY - cornerImage.rows) / 1.5;
+    double scaleX = (cornerImage.cols - mitX) / 1.5;
+    double scaleY = (cornerImage.rows - mitY) / 1.5;
     cv::arrowedLine(cornerImage, cv::Point(mitX, mitY),
                     cv::Point((scaleX * translation.x()) + mitX, (scaleY * translation.y()) + mitY),
                     cv::Scalar(0, 255, 0), 10);
-    cv::line(cornerImage, cv::Point(mitX, 20), cv::Point((scaleX * translation.z()) + mitX), cv::Scalar(0, 255, 0), 10);
+    cv::line(cornerImage, cv::Point(mitY, 20), cv::Point(mitY + (scaleX * translation.z()), 20), cv::Scalar(0, 255, 0), 10);
   }
   imshow("cornerImage", cornerImage);
   cv::waitKey(1);
@@ -178,7 +178,6 @@ Eigen::Translation3d MVO::calculateBaseLine(const std::vector<Eigen::Vector2d> &
 
     // Last Column of V
     Eigen::Vector3d lastColumn = V.col(V.cols() - 1);
-    ROS_INFO_STREAM("V DIm: " << V.rows() << "x" << V.cols() << std::endl);
 
     Eigen::Translation3d translation(lastColumn);
 
@@ -203,23 +202,23 @@ Eigen::Translation3d MVO::calculateBaseLineMLESAC(const std::vector<Eigen::Vecto
 
   // unsigned int max_iterations = 500;
 
-  double threshold = cos(3);  // Threshold Laut Paper zwischen cos(7°) und cos(3°) setzten
+  const double threshold = cos(3 * PI / 180.0);  // Threshold Laut Paper zwischen cos(7°) und cos(3°) setzten
 
   unsigned int N = mt.size();  // Anzahl aller Feature-Paare
   unsigned int s = 3;          // Größe der Subsets, für die Berechnung
   double Ps = 0.99;  // Gwünschte Wahrscheinlichkeit, dass das am Ende gewählte Feature-Paar-Set keine Outlier enthält.
 
-  double inlierProbability = 0.1;  // FIRST GUESS (für die Wahrscheinlichekit, dass ein Feature-Paar ein inlier ist),
+  double inlierProbability = 0.3;  // FIRST GUESS (für die Wahrscheinlichekit, dass ein Feature-Paar ein inlier ist),
                                    // der sehr schlecht ist! (Wird später im Algorithmus noch angepasst)
 
   /*Erster Estimate der Benötigten Iterationen ---->*/
   unsigned int nInlier = N * inlierProbability;  // Anzahl der Inlier im Datensatz für die inlierProbability
   unsigned int m =
-      boost::math::binomial_coefficient<double>((double)s, (double)nInlier);  // n über k -> 3 aus N -> Alle Möglichkeiten
-                                                                           // 3 aus Inlier zu nehmen
-  unsigned int n = boost::math::binomial_coefficient<double>((double)s, (double)N);  // Alle Möglichkeiten 3 aus allen
-                                                                                  // Feature-Paaren zu Nehmen
-  double p = m / n;  // Wahrscheinlichkeit, dass in einem Sample de größe s (3), alles Inlier sind
+      boost::math::binomial_coefficient<double>(nInlier,s);  // n über k -> 3 aus N -> Alle
+                                                                              // Möglichkeiten 3 aus Inlier zu nehmen
+  unsigned int n = boost::math::binomial_coefficient<double>(N,s);  // Alle Möglichkeiten 3 aus allen
+                                                                                     // Feature-Paaren zu Nehmen
+  double p = double(m) / double(n);  // Wahrscheinlichkeit, dass in einem Sample de größe s (3), alles Inlier sind
   unsigned int nIterations = ceil(log(1 - Ps) / log(1 - p));
   ROS_INFO_STREAM("Initial erwartete Anzahl von Iterationen: " << nIterations << std::endl);
   /* <----- */
@@ -239,59 +238,64 @@ Eigen::Translation3d MVO::calculateBaseLineMLESAC(const std::vector<Eigen::Vecto
     std::vector<Eigen::Vector2d> mtSet;  // TODO: References?
     std::vector<Eigen::Vector2d> mhiSet;
 
-    ROS_INFO("Random: ");
     for (unsigned i = 0; i < s; i++)
     {
       unsigned int randomIndex = randomDist(randomGenerator);
-      ROS_INFO_STREAM(randomIndex);
       mtSet.push_back(mt[randomIndex]);
       mhiSet.push_back(mhi[randomIndex]);
     }
-    ROS_INFO("\n\r");
 
-    Eigen::Translation3d b = calculateBaseLine(mtSet, mhiSet, rh);  // Berechnung aus dem Subsample
 
+    Eigen::Translation3d translation = calculateBaseLine(mtSet, mhiSet, rh);  // Berechnung aus dem Subsample
+
+    iteration++;
+
+    Eigen::Vector3d b(translation.x(), translation.y(), translation.z());
     /*Calculate Penalty and Get Inliers*/
     nInlier = 0;  // Neu Zählen, wie viele wir haben
     std::vector<int> inLierIndexes;
     double nProbability = 0;  // Gesamtwahrscheinlichkeit dieses Datensatzes
+    inLierIndexes.clear();
     for (unsigned int i = 0; i < N; i++)
     {
-      Eigen::Vector3d m2(mt[i].x,mt[i].y,1);   // To Homgraphy
-      Eigen::Vector3d m1(mhi[i].x, mhi[i].y, 1);  // To Homography
+      Eigen::Vector3d m2 = mt[i].homogeneous();   // To Homgenous
+      Eigen::Vector3d m1 = mhi[i].homogeneous();  // To Homogenous
       // TODO: Unrotate m2
 
-      double pInlier =  // Probability of that Inlier.
-          (m2.transpose() * (Eigen::Vector3d::Ones() - b.vector() * b.vector().transpose()) * m1) /
-          (std::sqrt((m1.norm() * m1.norm()) - std::sqrt((const double)(m1.transpose() * b.vector()) *
-                                                         (const double)(m1.transpose() * b.vector()))) *
-           std::sqrt((m2.norm() * m2.norm()) - std::sqrt((const double)(m2.transpose() * b.vector()) *
-                                                         (const double)(m2.transpose() * b.vector()))));
+      Eigen::Matrix3d I;
+      I << 1, 0, 0, 0, 1, 0, 0, 0, 1;
 
+      double pInlier =  // Probability of that Inlier.
+          (m2.transpose() * (I - (b * b.transpose())) * m1)(0) /
+          //---------------------------------------------------------------------------------------
+          (sqrt(m1.squaredNorm() - pow((m1.transpose() * b)(0), 2)) *
+           sqrt(m2.squaredNorm() - pow((m2.transpose() * b)(0), 2)));
       if (pInlier > threshold)
       {  // Juhu, there is an Inlier :)
         nInlier++;
         nProbability += pInlier;
-        inLierIndexes.clear();
         inLierIndexes.push_back(i);
       }
     }
 
     /*Update der Anzahl der benötigten Iterationen */
-    if(double(nInlier)/double(N) > inlierProbability){
+    if (double(nInlier) / double(N) > inlierProbability)
+    {
       inlierProbability = double(nInlier) / double(N);
-      unsigned int m =
-          boost::math::binomial_coefficient<int>((double)s, (double)nInlier);  // n über k -> 3 aus N -> Alle
-                                                                               // Möglichkeiten 3 aus Inlier zu nehmen
-      unsigned int n = boost::math::binomial_coefficient<int>((double)s, (double)N);  // Alle Möglichkeiten 3 aus allen
-                                                                                      // Feature-Paaren zu Nehmen
-      double p = m / n;  // Wahrscheinlichkeit, dass in einem Sample de größe s (3), alles Inlier sind
-      unsigned int nIterations = ceil(log(1 - Ps) / log(1 - p));
+      unsigned int m = boost::math::binomial_coefficient<double>(nInlier,s);  // n über k -> 3 aus N ->
+                                                                                               // Alle Möglichkeiten 3
+                                                                                               // aus Inlier zu nehmen
+      unsigned int n =
+          boost::math::binomial_coefficient<double>(N,s);  // Alle Möglichkeiten 3 aus allen
+                                                                            // Feature-Paaren zu Nehmen
+      double p = double(m) / double(n);  // Wahrscheinlichkeit, dass in einem Sample de größe s (3), alles Inlier sind
+      nIterations = ceil(log(1 - Ps) / log(1 - p));
       ROS_INFO_STREAM("Iteration " << iteration << ": Neue erwartete Anzahl von Iterationen: " << nIterations
                                    << std::endl);
-    }    
+    }
 
-    if(nProbability > pBest){ //Neuer bester wurde gefunden
+    if (nProbability > pBest)
+    {  // Neuer bester wurde gefunden
       pBest = nProbability;
       nBest = nInlier;
       bestInLierIndexes = inLierIndexes;
@@ -305,8 +309,37 @@ Eigen::Translation3d MVO::calculateBaseLineMLESAC(const std::vector<Eigen::Vecto
   for (int index : bestInLierIndexes)
   {
     mtSet.push_back(mt[index]);
-    mhiSet.push_back(mt[index]);
+    mhiSet.push_back(mhi[index]);
   }
+  ROS_INFO_STREAM("Iteration " << iteration << ": Bestes Modell mit " << nBest << " und Rank: " << pBest << std::endl);
 
-  return this->calculateBaseLine(mtSet, mhiSet, rh);
+  Eigen::Translation3d baseLine = calculateBaseLine(mtSet, mhiSet, rh);
+ std::vector<double> depth;
+
+  this->reconstructDepth(depth, mtSet, mhi
+  Set, rh, baseLine);  
+  
+
+  return baseLine;
+  
+}
+
+void MVO::reconstructDepth(std::vector<double> &depth, const std::vector<Eigen::Vector2d> &m2L,
+                                         const std::vector<Eigen::Vector2d> &m1L,  const Eigen::Quaterniond &r, const Eigen::Translation3d &b){
+//TODO: ROTATION
+(void)(r);
+const std::vector<Eigen::Vector2d>::const_iterator m1, m2;
+ROS_INFO_STREAM("depth: ");
+for(unsigned int i = 0; i < m2L.size(); i++){
+  Eigen::Vector3d m2 = m2L[i].homogeneous();   // To Homgenous
+  Eigen::Vector3d m1 = m1L[i].homogeneous();  // To Homogenous
+  Eigen::Matrix3d C;
+  C <<  1,        0,        -m2.x(),//
+        0,        1,        -m2.y(),//
+        -m2.x(), -m2.y(), m2.x() * m2.x() +  m2.y() * m2.y();
+  double Z = (m1.transpose()*C*b.vector())(0) /(m1.transpose()*C * (m1))(0);  
+  ROS_INFO_STREAM(Z << ", ");
+  depth.push_back(Z);
+}
+ROS_INFO_STREAM(std::endl);
 }
