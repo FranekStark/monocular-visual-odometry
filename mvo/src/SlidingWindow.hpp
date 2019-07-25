@@ -27,12 +27,15 @@ public:
                  std::vector<unsigned char>& found, cv::Mat image);
   void addFeaturesToCurrentWindow(std::vector<cv::Point2f> features);
 
+  void addTransformationToCurrentWindow(cv::Mat translation, cv::Mat rotation);
+
   /**
    * past = 0, means Current Windows Features
    * When no Window at this time, nullptr is returned
    */
   std::vector<cv::Point2f>* getFeatures(int past);
   cv::Mat* getImage(int past);
+  cv::Mat getPosition(int past);
 
 /**
  * Gives Back Corresponding Featurelocations between two Windows.
@@ -41,4 +44,7 @@ public:
  */
   void getCorrespondingFeatures(int window1Index, int window2Index, std::vector<cv::Point2f>& features1,
                                 std::vector<cv::Point2f>& features2);
+
+  void getCorrespondingPosition(int window1Index, int window2Index, cv::Mat & position1, cv::Mat & position2, cv::Mat &rotation1, cv::Mat &rotation2);
+  
 };

@@ -112,6 +112,16 @@ cv::Mat* SlidingWindow::getImage(int past)
   return &(window->_image);
 }
 
+cv::Mat SlidingWindow::getPosition(int past)
+{
+  Window* window = this->getWindow(past);
+  if (window == nullptr)
+  {
+    return cv::Mat(); //TODO shitti here we need Exceptions
+  }
+  return (window->_position);
+}
+
 void SlidingWindow::getCorrespondingFeatures(int window1Index, int window2Index, std::vector<cv::Point2f>& features1,
                                              std::vector<cv::Point2f>& features2)
 {
@@ -128,18 +138,41 @@ void SlidingWindow::getCorrespondingFeatures(int window1Index, int window2Index,
     {
       Window* thisWindow = this->getWindow(hist);
       const auto nextIndexIt = thisWindow->_featuresBefore.left.find(nextIndex);
-      if(nextIndexIt != thisWindow->_featuresBefore.left.end()) //found
+      if (nextIndexIt != thisWindow->_featuresBefore.left.end())  // found
       {
         nextIndex = nextIndexIt->second;
-      }else //Not Found
+      }
+      else  // Not Found
       {
         found = false;
-        break;//Next Feature, because History of that Feature not long enough
+        break;  // Next Feature, because History of that Feature not long enough
       }
     }
-    if(found){
+    if (found)
+    {
       features2.push_back(this->getWindow(window2Index)->_features[firstIndex]);
       features1.push_back(this->getWindow(window1Index)->_features[nextIndex]);
     }
   }
+}
+
+void SlidingWindow::addTransformationToCurrentWindow(cv::Mat position, cv::Mat rotation)
+{
+  _lastWindow->_rotation = rotation;
+  _lastWindow->_position = position;
+}
+
+void SlidingWindow::getCorrespondingPosition(int window1Index, int window2Index, cv::Mat& position1, cv::Mat& position2,
+                                             cv::Mat& rotation1, cv::Mat& rotation2)
+{
+  Window* window1 = this->getWindow(window1Index);
+  Window* window2 = this->getWindow(window2Index);
+  if (window1 == nullptr || window2 == nullptr)
+  {
+    return;  // TODO: catch these
+  }
+  position1 = window1->_position;
+  rotation1 = window1->_rotation;
+  position2 = window2->_position;
+  rotation2 = window2->_rotation;
 }

@@ -11,6 +11,7 @@
 #include <list>
 
 #include "SlidingWindow.hpp"
+#include "IterativeRefinement.hpp"
 
 #include <eigen3/Eigen/Dense>
 #include <eigen3/Eigen/SVD>
@@ -33,6 +34,8 @@ private:
                                          const std::vector<Eigen::Vector2d> &m1L,  const Eigen::Quaterniond &r, const Eigen::Translation3d &b);
   /*Fields */
   SlidingWindow _slidingWindow;
+
+  unsigned int _frameCounter;
 
   /*For Corner-Detector */
   int _blockSize;
