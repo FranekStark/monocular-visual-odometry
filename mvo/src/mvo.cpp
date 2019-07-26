@@ -3,7 +3,7 @@
 #include <boost/math/special_functions/binomial.hpp>
 #include <map>
 #include <random>
-MVO::MVO() : _slidingWindow(5), _frameCounter(0), _blockSize(2), _apertureSize(3), _k(0.04), _thresh(200)
+MVO::MVO() : _slidingWindow(5), _frameCounter(0)
 {
   cv::namedWindow("original", cv::WINDOW_GUI_EXPANDED);
   cv::namedWindow("cornerImage", cv::WINDOW_GUI_EXPANDED);
@@ -25,21 +25,22 @@ void MVO::handleImage(const cv::Mat &image, const image_geometry::PinholeCameraM
   cv::cvtColor(image, grayImage, cv::COLOR_BayerBG2GRAY);
 
   /*Track Features */
-  std::vector<cv::Point2f> trackedFeatures;
+  std::vector<cv::Point2d> trackedFeatures;
   std::vector<unsigned char> found;
   cv::Mat *prevImage = _slidingWindow.getImage(0);
   cv::Mat prevB = _slidingWindow.getPosition(0);
-  std::vector<cv::Point2f> *prevFeatures = _slidingWindow.getFeatures(0);
+  std::vector<cv::Point2d> *prevFeatures = _slidingWindow.getFeatures(0);
   if (prevImage != nullptr)
   {  // Otherwise it is the first Frame
-    this->trackFeatures(grayImage, *prevImage, *prevFeatures, trackedFeatures, found);
+    _cornerTracker.trackFeatures(grayImage, *prevImage, *prevFeatures, trackedFeatures, found);
   }
 
   /*New Window-Frame */
   _slidingWindow.newWindow(trackedFeatures, *prevFeatures, found, grayImage);
 
   /*NewFeatures */
-  std::vector<cv::Point2f> newFeatures = this->detectCorners(grayImage, 20);
+  std::vector<cv::Point2d> newFeatures;
+  _cornerTracker.detectFeatures(newFeatures, grayImage, 20);
   _slidingWindow.addFeaturesToCurrentWindow(newFeatures);
 
   /*Mark Features*/
@@ -55,7 +56,7 @@ void MVO::handleImage(const cv::Mat &image, const image_geometry::PinholeCameraM
   if (_frameCounter > 0)
   {                                                             // Otherwise it is the first Frame
                                                                 /*Calc BaseLine */
-    std::vector<cv::Point2f> thisFeaturesCV, beforeFeaturesCV;  // TODO: Avoid the Conversion and CV to Double!
+    std::vector<cv::Point2d> thisFeaturesCV, beforeFeaturesCV;  // TODO: Avoid the Conversion and CV to Double!
     _slidingWindow.getCorrespondingFeatures(1, 0, beforeFeaturesCV, thisFeaturesCV);
     std::vector<Eigen::Vector2d> thisFeatures(thisFeaturesCV.size());
     std::vector<Eigen::Vector2d> beforeFeatures(beforeFeaturesCV.size());
@@ -103,7 +104,7 @@ void MVO::handleImage(const cv::Mat &image, const image_geometry::PinholeCameraM
     }
     else
     {  // Scale estimation (Iterative Refinement)
-      std::vector<cv::Point2f> thisFeatures, beforeFeatures;
+      std::vector<cv::Point2d> thisFeatures, beforeFeatures;
       cv::Mat thisRotation, beforeRotation;
       cv::Mat thisPosition, beforePosition;
 
@@ -128,7 +129,7 @@ void MVO::handleImage(const cv::Mat &image, const image_geometry::PinholeCameraM
         input.push_back(in);
       }
 
-      IterativeRefinement::GaussNewton(IterativeRefinement::Func, input, thisPosition);
+      _iterativeRefinement.GaussNewton(_iterativeRefinement.Func, input, thisPosition);
 
       prevB = prevB + thisPosition;
       _slidingWindow.addTransformationToCurrentWindow(prevB, cv::Mat::eye(3, 3,CV_64F));
@@ -164,52 +165,6 @@ void MVO::handleImage(const cv::Mat &image, const image_geometry::PinholeCameraM
   _frameCounter++;
 }
 
-// Must be Grayscale
-std::vector<cv::Point2f> MVO::detectCorners(const cv::Mat &image, int num)
-{
-  std::vector<cv::Point2f> corners;
-  cv::goodFeaturesToTrack(image, corners, num, double(0.01), double(10.0), cv::noArray(), _blockSize, bool(true),
-                          _k);  // Corners berechnen TODO: More params
-
-  // Subpixel-genau:
-  if (corners.size() > 0)
-  {
-    cv::Size winSize = cv::Size(5, 5);
-    cv::Size zeroZone = cv::Size(-1, -1);
-    cv::TermCriteria criteria =
-        cv::TermCriteria(cv::TermCriteria::Type::EPS + cv::TermCriteria::Type::MAX_ITER, 40, 0.001);
-    cv::cornerSubPix(image, corners, winSize, zeroZone, criteria);
-  }
-  return corners;
-  std::vector<cv::Point2f> result;
-}
-
-void MVO::setCornerDetectorParams(int blockSize, int aperatureSize, double k, int thresh)
-{
-  // TODO: Concurrent, when using more Threads
-  _blockSize = blockSize;
-  _apertureSize = aperatureSize;
-  _k = k;
-  _thresh = thresh;
-}
-
-void MVO::trackFeatures(const cv::Mat &nowImage, const cv::Mat &prevImage, const std::vector<cv::Point2f> &prevFeatures,
-                        std::vector<cv::Point2f> &trackedFeatures, std::vector<unsigned char> &found)
-{
-  std::vector<cv::Mat> nowPyramide;
-  std::vector<cv::Mat> prevPyramide;
-  cv::Size winSize(21, 21);  // Has to be the same as in calcOpeitcalcOpticalFLow
-  int maxLevel = 3;
-  // TODO: The call of these Funtions only make sense, if we store the pyramids for reuse.
-  // Otherwise calcOpticalFlow could to this on its own.
-  cv::buildOpticalFlowPyramid(nowImage, nowPyramide, winSize, maxLevel);
-  cv::buildOpticalFlowPyramid(prevImage, prevPyramide, winSize, maxLevel);
-
-  // TODO: Handle Case, when no before Features!
-  std::vector<float> error;
-  cv::calcOpticalFlowPyrLK(prevPyramide, nowPyramide, prevFeatures, trackedFeatures, found, error);  // TODO: more
-                                                                                                     // Params
-}
 
 Eigen::Translation3d MVO::calculateBaseLine(const std::vector<Eigen::Vector2d> &mt,
                                             const std::vector<Eigen::Vector2d> &mhi, const Eigen::Quaterniond &rhi)

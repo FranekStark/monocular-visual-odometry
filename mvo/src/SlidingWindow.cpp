@@ -20,8 +20,8 @@ Window* SlidingWindow::getWindow(int past)
   return window;
 }
 
-void SlidingWindow::newWindow(std::vector<cv::Point2f> trackedFeaturesNow,
-                              std::vector<cv::Point2f>& trackedFeaturesBefore, std::vector<unsigned char>& found,
+void SlidingWindow::newWindow(std::vector<cv::Point2d> trackedFeaturesNow,
+                              std::vector<cv::Point2d>& trackedFeaturesBefore, std::vector<unsigned char>& found,
                               cv::Mat image)
 {
   (void)(trackedFeaturesBefore);  // Preventing Unused TODO: use?!
@@ -59,7 +59,7 @@ void SlidingWindow::newWindow(std::vector<cv::Point2f> trackedFeaturesNow,
   }
 }
 
-void SlidingWindow::addFeaturesToCurrentWindow(std::vector<cv::Point2f> features)
+void SlidingWindow::addFeaturesToCurrentWindow(std::vector<cv::Point2d> features)
 {
   // Put them to the End
 
@@ -92,7 +92,7 @@ void SlidingWindow::addFeaturesToCurrentWindow(std::vector<cv::Point2f> features
   // No Values to the Bimap, because these Features are NEW
 }
 
-std::vector<cv::Point2f>* SlidingWindow::getFeatures(int past)
+std::vector<cv::Point2d>* SlidingWindow::getFeatures(int past)
 {
   Window* window = getWindow(past);
   if (window == nullptr)
@@ -122,8 +122,8 @@ cv::Mat SlidingWindow::getPosition(int past)
   return (window->_position);
 }
 
-void SlidingWindow::getCorrespondingFeatures(int window1Index, int window2Index, std::vector<cv::Point2f>& features1,
-                                             std::vector<cv::Point2f>& features2)
+void SlidingWindow::getCorrespondingFeatures(int window1Index, int window2Index, std::vector<cv::Point2d>& features1,
+                                             std::vector<cv::Point2d>& features2)
 {
   if (this->getWindow(window1Index) == nullptr || this->getWindow(window2Index) == nullptr)
   {

@@ -38,5 +38,5 @@ void MVO_node::imageCallback(const sensor_msgs::ImageConstPtr &image, const sens
 void MVO_node::dynamicConfigCallback(mvo::corner_detectorConfig &config, uint32_t level)
 {
   (void)(level);  // TODO: unused
-  _mvo.setCornerDetectorParams(config.block_size, config.aperture_size, config.k, config.threshold);
+  _mvo._cornerTracker.setCornerDetectorParams(config.block_size, config.aperture_size, config.k, config.threshold);
 }

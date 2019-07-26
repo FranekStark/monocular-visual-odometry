@@ -3,8 +3,8 @@
 class IterativeRefinement
 {
 private:
-  static constexpr double DERIV_STEP = 1e-5;
-  static constexpr double THRESHOLD = 1e-3;
+  double DERIV_STEP = 1e-5;
+  double THRESHOLD = 1e-3;
 
 public:
   IterativeRefinement();
@@ -19,9 +19,9 @@ public:
     const cv::Mat shi;
   };
 
-  static double Func(const Input &input, const cv::Mat &st);
-  static double Deriv(double (*Func)(const Input &input, const cv::Mat &st), const Input &input, const cv::Mat &params,
+  double Func(const Input &input, const cv::Mat &st);
+  double Deriv(double (*Func)(const Input &input, const cv::Mat &st), const Input &input, const cv::Mat &params,
                       int n);
-  static void GaussNewton(double (*Func)(const Input &input, const cv::Mat &st), const std::vector<Input> &inputs,
+  void GaussNewton(double (*Func)(const Input &input, const cv::Mat &st), const std::vector<Input> &inputs,
                           cv::Mat &params);
 };

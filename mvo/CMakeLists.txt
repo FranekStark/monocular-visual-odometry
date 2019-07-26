@@ -27,7 +27,7 @@ find_package(OpenCV 4.1.0 REQUIRED )
 
 
 
-add_executable(mvo_node src/mvo_node.cpp src/SlidingWindow.cpp src/Window.cpp src/mvo.cpp src/IterativeRefinement.cpp)
+add_executable(mvo_node src/mvo_node.cpp src/SlidingWindow.cpp src/Window.cpp src/mvo.cpp src/IterativeRefinement.cpp src/CornerTracker.cpp src/EpipolarGeometry.cpp)
 target_link_libraries(mvo_node ${catkin_LIBRARIES})
 add_dependencies(mvo_node mvo_gencfg)
 
