@@ -7,10 +7,10 @@ class Window
 {
 public:
     cv::Mat _image; //TODO:: Maybe remove TODO:maybe replace through pyramide
-    std::vector<cv::Point2d> _features;    
+    std::vector<cv::Point2f> _features;    
     
-    cv::Mat _position;
-    cv::Mat _rotation;
+    cv::Vec3d _position;
+    cv::Matx33d _rotation;
 
     /*Points to the Window before (timely)*/
     Window * _windowBefore;

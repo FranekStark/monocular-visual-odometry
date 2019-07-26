@@ -15,353 +15,150 @@ MVO::~MVO()
   cv::destroyWindow("cornerImage");
 }
 
-void MVO::handleImage(const cv::Mat &image, const image_geometry::PinholeCameraModel &cameraModel)
-{
-  // TODO: Pointer to CV shared Pointers
-  /*Original */
+void MVO::handleImage(const cv::Mat image, const image_geometry::PinholeCameraModel &cameraModel){
   cv::imshow("original", image);
-  /*Grayscale */
   cv::Mat grayImage;
   cv::cvtColor(image, grayImage, cv::COLOR_BayerBG2GRAY);
 
-  /*Track Features */
-  std::vector<cv::Point2d> trackedFeatures;
-  std::vector<unsigned char> found;
-  cv::Mat *prevImage = _slidingWindow.getImage(0);
-  cv::Mat prevB = _slidingWindow.getPosition(0);
-  std::vector<cv::Point2d> *prevFeatures = _slidingWindow.getFeatures(0);
-  if (prevImage != nullptr)
-  {  // Otherwise it is the first Frame
-    _cornerTracker.trackFeatures(grayImage, *prevImage, *prevFeatures, trackedFeatures, found);
+  std::vector<cv::Point2f> newFeatures(20);
+  _cornerTracker.detectFeatures(newFeatures, grayImage, 20); //TODO: Parametrice Number
+  cv::Matx33d r = cv::Matx33d::eye();
+  cv::Vec3d b(0,0,0);
+
+
+  if(_frameCounter == 0){
+    _slidingWindow.newWindow(std::vector<cv::Point2f>(), std::vector<uchar>(), grayImage); //First Two are Dummies
+    _slidingWindow.addFeaturesToCurrentWindow(newFeatures); //all, because first Frame
+    _slidingWindow.addTransformationToCurrentWindow(b, r);
+
+  }else{
+   std::vector<cv::Point2f> & prevFeatures = _slidingWindow.getFeatures(0);
+   cv::Mat prevImage = _slidingWindow.getImage(0);
+   std::vector<cv::Point2f> trackedFeatures;
+   std::vector<unsigned char> found;
+   _cornerTracker.trackFeatures(prevImage, grayImage, prevFeatures, trackedFeatures, found);
+    if(!(this->checkEnoughDisparity(trackedFeatures, prevFeatures))){
+      return;
+    }
+   _slidingWindow.newWindow(trackedFeatures, found, grayImage);
+   this->sortOutSameFeatures(trackedFeatures, newFeatures);
+   _slidingWindow.addFeaturesToCurrentWindow(newFeatures);
+
+  std::vector<cv::Point2f> thisCorespFeatures, beforeCorespFeatures;
+  std::vector<cv::Vec3d> thisCorespFeaturesE, beforeCorespFeaturesE; //TODO: Presize?
+  _slidingWindow.getCorrespondingFeatures(1,0,beforeCorespFeatures, thisCorespFeatures);
+  this->euclidNormFeatures(thisCorespFeatures, thisCorespFeaturesE, cameraModel);
+  this->euclidNormFeatures(beforeCorespFeatures, beforeCorespFeaturesE,cameraModel);
+
+  b = _epipolarGeometry.estimateBaseLine(beforeCorespFeaturesE, thisCorespFeaturesE, r);
+
+
+  if(_frameCounter ==1){//Scale vote 
+   std::vector<double> depths(beforeCorespFeaturesE.size());
+   this->reconstructDepth(depths, thisCorespFeaturesE, beforeCorespFeaturesE, r, b);
+   int sign = 0;
+   for(auto depth = depths.begin(); depth!=depths.end(); depth++){
+     if((*depth) < 0){
+      sign--;
+     }else if((*depth)>0){
+      sign++;
+     }
+   }
+
+   if(sign<0){
+     b = b*-1;
+   }
+  _slidingWindow.addTransformationToCurrentWindow(b, r);
+  }else{//IterativeRefinemen -> Scale Estimation?
+    std::vector<cv::Point2f> thisFirsCorespFeatures, beforeFirstCorepsFeatures;
+    std::vector<cv::Vec3d> thisFirstCorespFeaturesE, beforeFirstCorespFeaturesE;
+    _slidingWindow.getCorrespondingFeatures(2,0, beforeFirstCorepsFeatures, thisFirsCorespFeatures);
+    cv::Vec3d & shi = _slidingWindow.getPosition(2);
+    auto rhi = cv::Matx33d::eye(); //TODO real Rotation
+    this->euclidNormFeatures(beforeFirstCorepsFeatures, beforeFirstCorespFeaturesE, cameraModel);
+    this->euclidNormFeatures(thisFirsCorespFeatures, thisFirstCorespFeaturesE, cameraModel);
+    _iterativeRefinement.iterativeRefinement(thisFirstCorespFeaturesE, r, beforeFirstCorespFeaturesE, rhi, shi, b);
+    _slidingWindow.addTransformationToCurrentWindow(shi + b, r);
   }
 
-  /*New Window-Frame */
-  _slidingWindow.newWindow(trackedFeatures, *prevFeatures, found, grayImage);
+ 
+ 
+  ROS_INFO_STREAM("b: " << b << std::endl);
+}
+ this->drawDebugImage(_slidingWindow.getFeatures(0), b, grayImage);
+ cv::waitKey(1);
+  _frameCounter++;
+}
 
-  /*NewFeatures */
-  std::vector<cv::Point2d> newFeatures;
-  _cornerTracker.detectFeatures(newFeatures, grayImage, 20);
-  _slidingWindow.addFeaturesToCurrentWindow(newFeatures);
+void MVO::sortOutSameFeatures(const std::vector<cv::Point2f> & beforeFeatures, std::vector<cv::Point2f> & newFeatures){
+  for(auto beforeFeature = beforeFeatures.begin(); beforeFeature != beforeFeatures.end(); beforeFeature++){
+    for(auto newFeature = newFeatures.begin(); newFeature != newFeatures.end(); newFeature++){
+      double distance = cv::norm((*beforeFeature)-(*newFeature));
+      if(distance < 20){ //TODO: Pram Threshold
+        newFeatures.erase(newFeature);
+        break;
+      }
+    }
+  }
+}
 
-  /*Mark Features*/
-  cv::Mat cornerImage = image.clone();
+void MVO::euclidNormFeatures(const std::vector<cv::Point2f> &features, std::vector<cv::Vec3d> & featuresE,const image_geometry::PinholeCameraModel & cameraModel){
+  for(auto feature = features.begin(); feature != features.end(); feature++){
+    featuresE.push_back(cameraModel.projectPixelTo3dRay(*feature));
+  }
+}
+
+void MVO::drawDebugImage(const std::vector<cv::Point2f> points, const cv::Vec3d baseLine, cv::Mat & image){
+   cv::Mat cornerImage = image.clone();
   std::stringstream text;
-  text << "Number of Features: " << _slidingWindow.getFeatures(0)->size();
+  text << "Number of Features: " << points.size();
   cv::putText(cornerImage, text.str(), cv::Point(30, 30), cv::FONT_HERSHEY_PLAIN, 2.0, cv::Scalar(0, 0, 255));
-  for (auto const &corner : *(_slidingWindow.getFeatures(0)))
+  for (auto const &corner :points)
   {
     cv::circle(cornerImage, cv::Point(corner), 10, cv::Scalar(0, 0, 255), -10);
   }
 
-  if (_frameCounter > 0)
-  {                                                             // Otherwise it is the first Frame
-                                                                /*Calc BaseLine */
-    std::vector<cv::Point2d> thisFeaturesCV, beforeFeaturesCV;  // TODO: Avoid the Conversion and CV to Double!
-    _slidingWindow.getCorrespondingFeatures(1, 0, beforeFeaturesCV, thisFeaturesCV);
-    std::vector<Eigen::Vector2d> thisFeatures(thisFeaturesCV.size());
-    std::vector<Eigen::Vector2d> beforeFeatures(beforeFeaturesCV.size());
-    for (unsigned i = 0; i < thisFeaturesCV.size(); i++)
-    {
-      // euclid Norm:
-      const cv::Point3d beforeFeatureCV = cameraModel.projectPixelTo3dRay(beforeFeaturesCV[i]);
-      const cv::Point3d thisFeatureCV = cameraModel.projectPixelTo3dRay(thisFeaturesCV[i]);
+ auto baseLineNorm =  cv::normalize(baseLine);
 
-      thisFeatures[i] = Eigen::Vector2d(thisFeatureCV.x, thisFeatureCV.y);
-      beforeFeatures[i] = Eigen::Vector2d(beforeFeatureCV.x, beforeFeatureCV.y);
-    }
+ ROS_INFO_STREAM("Norm: " << baseLineNorm << std::endl);
 
-    Eigen::Translation3d translation =
-        this->calculateBaseLineMLESAC(thisFeatures, beforeFeatures, Eigen::Quaterniond());
-
-    if (_frameCounter == 1)
-    {
-      std::vector<double> depth;
-      int value;
-      this->reconstructDepth(depth, thisFeatures, beforeFeatures, Eigen::Quaterniond(),
-                             translation);  // TODO:: hier nur Inlier //TODO: rot
-      for (std::vector<double>::iterator it = depth.begin(); it < depth.end(); it++)
-      {
-        if ((*it) < 0)
-        {
-          value--;
-        }
-        else if ((*it) > 0)
-        {
-          value++;
-        }
-      }
-
-      cv::Mat b(3, 1, CV_64F);
-      b.at<double>(0, 0) = translation.x();
-      b.at<double>(0, 1) = translation.y();
-      b.at<double>(0, 2) = translation.z();
-      if (value < 0)
-      {
-        b = b * -1;
-      }
-      _slidingWindow.addTransformationToCurrentWindow(b, cv::Mat::eye(3, 3,CV_64F));
-      prevB = b;
-    }
-    else
-    {  // Scale estimation (Iterative Refinement)
-      std::vector<cv::Point2d> thisFeatures, beforeFeatures;
-      cv::Mat thisRotation, beforeRotation;
-      cv::Mat thisPosition, beforePosition;
-
-      _slidingWindow.getCorrespondingFeatures(2, 0, beforeFeatures, thisFeatures);
-      _slidingWindow.getCorrespondingPosition(2, 0, beforePosition, thisPosition, beforeRotation, thisRotation);
-
-      thisRotation = cv::Mat::eye(3, 3,CV_64F);  // TODO: REAL ROTATION
-      thisPosition = cv::Mat(3, 1, CV_64F);
-      thisPosition.at<double>(0) = translation.x();
-      thisPosition.at<double>(1) = translation.y();
-      thisPosition.at<double>(2) = translation.z();
-
-      std::vector<IterativeRefinement::Input> input;
-
-      for (unsigned int i = 0; i < thisFeatures.size(); i++)
-      {
-        const cv::Point3d beforeFeature = cameraModel.projectPixelTo3dRay(beforeFeatures[i]);
-        const cv::Point3d thisFeature = cameraModel.projectPixelTo3dRay(thisFeatures[i]);
-
-        IterativeRefinement::Input in = { cv::Mat(thisFeature), thisRotation, cv::Mat(beforeFeature), beforeRotation,
-                                          beforePosition };
-        input.push_back(in);
-      }
-
-      _iterativeRefinement.GaussNewton(_iterativeRefinement.Func, input, thisPosition);
-
-      prevB = prevB + thisPosition;
-      _slidingWindow.addTransformationToCurrentWindow(prevB, cv::Mat::eye(3, 3,CV_64F));
-
-      ROS_INFO_STREAM("Scaled/Refined Translation: " << std::endl << thisPosition);
-    }
-
-    ROS_INFO_STREAM("Translation: " << std::endl
-                                    << translation.x() << std::endl
-                                    << translation.y() << std::endl
-                                    << translation.z() << std::endl);
-
-    /**
-     * Draw Base-Line:
-     */
-    int mitX = double(cornerImage.cols) / 2.0;
+ int mitX = double(cornerImage.cols) / 2.0;
     int mitY = double(cornerImage.rows) / 2.0;
     double scaleX = (cornerImage.cols - mitX) / 1.5;
     double scaleY = (cornerImage.rows - mitY) / 1.5;
     cv::arrowedLine(cornerImage, cv::Point(mitX, mitY),
-                    cv::Point((scaleX * translation.x()) + mitX, (scaleY * translation.y()) + mitY),
+                    cv::Point(scaleX * baseLineNorm(0) + mitX, (scaleY * baseLineNorm(1)) + mitY),
                     cv::Scalar(0, 255, 0), 10);
-    cv::line(cornerImage, cv::Point(mitY, 20), cv::Point(mitY + (scaleX * translation.z()), 20), cv::Scalar(0, 255, 0),
+    cv::line(cornerImage, cv::Point(mitY, 20), cv::Point(mitY + (scaleX * baseLineNorm(2)), 20), cv::Scalar(0, 255, 0),
              10);
-  }
-  else if (_frameCounter == 0)
-  {
-    _slidingWindow.addTransformationToCurrentWindow(cv::Mat::zeros(3, 1, CV_64F), cv::Mat::eye(3, 3,CV_64F));
-    prevB = cv::Mat::zeros(3, 1, CV_64F);
-  }
-  imshow("cornerImage", cornerImage);
-  cv::waitKey(1);
-  _frameCounter++;
+    cv::imshow("cornerImage", cornerImage);
 }
 
 
-Eigen::Translation3d MVO::calculateBaseLine(const std::vector<Eigen::Vector2d> &mt,
-                                            const std::vector<Eigen::Vector2d> &mhi, const Eigen::Quaterniond &rhi)
-{
-  (void)(rhi);
-  // TODO: smae size vor mt and mhi check
-
-  // DIESE METHODE NIMMT NUR 3
-
-  Eigen::Matrix<double, 3, 3> A(3, 3);  // TODO: Row wise
-
-  for (unsigned int i = 0; i < 3;
-       i++)  // TODO: Hier werden nur müssten 3 genommen, sonst könnte die Determinante nicht geprüft werden
-  {
-    // TODO: Unrotate
-
-    double x1 = mhi[i][0];
-    double x2 = mt[i][0];
-    double y1 = mhi[i][1];
-    double y2 = mt[i][1];
-
-    double a1 = -(y2 - y1);
-    double a2 = (x2 - x1);
-    double a3 = ((y2 - y1) * x2 - (x2 - x1) * y2);
-
-    A(i, 0) = a1;
-    A(i, 1) = a2;
-    A(i, 2) = a3;
-  }
-
-  if (A.rows() > 3 || A.determinant() != 0)  // TODO: eigentlich  Keine Translation, wenn A singular ist
-  {
-    // A * x = 0 --> SVD
-    Eigen::BDCSVD<Eigen::Matrix<double, Eigen::Dynamic, 3>> svd(A,
-                                                                Eigen::DecompositionOptions::ComputeFullV);  // TODO:
-                                                                                                             // Thin or
-                                                                                                             // full
-    auto &V = svd.matrixV();
-
-    // Last Column of V
-    Eigen::Vector3d lastColumn = V.col(V.cols() - 1);
-
-    Eigen::Translation3d translation(lastColumn);
-
-    return translation;
-  }
-  else
-  {
-    // Eine Determinante ist gleich null, wenn
-
-    //-eine Zeile/Spalte nur aus Nullen besteht
-    //-zwei Zeilen/Spalten gleich sind
-    //-eine Zeile/Spalte eine Linearkombination anderer Zeilen/Spalten ist
-
-    return Eigen::Translation3d(0, 0, 0);
-  }
-}
-
-Eigen::Translation3d MVO::calculateBaseLineMLESAC(const std::vector<Eigen::Vector2d> &mt,
-                                                  const std::vector<Eigen::Vector2d> &mhi, const Eigen::Quaterniond &rh)
-{
-  // TODO: from: https://inside.mines.edu/~whoff/courses/EENG512/lectures/20-Ransac.pdf
-
-  // unsigned int max_iterations = 500;
-
-  const double threshold = cos(3 * PI / 180.0);  // Threshold Laut Paper zwischen cos(7°) und cos(3°) setzten
-
-  unsigned int N = mt.size();  // Anzahl aller Feature-Paare
-  unsigned int s = 3;          // Größe der Subsets, für die Berechnung
-  double Ps = 0.99;  // Gwünschte Wahrscheinlichkeit, dass das am Ende gewählte Feature-Paar-Set keine Outlier enthält.
-
-  double inlierProbability = 0.3;  // FIRST GUESS (für die Wahrscheinlichekit, dass ein Feature-Paar ein inlier ist),
-                                   // der sehr schlecht ist! (Wird später im Algorithmus noch angepasst)
-
-  /*Erster Estimate der Benötigten Iterationen ---->*/
-  unsigned int nInlier = N * inlierProbability;  // Anzahl der Inlier im Datensatz für die inlierProbability
-  unsigned int m = boost::math::binomial_coefficient<double>(nInlier, s);  // n über k -> 3 aus N -> Alle
-                                                                           // Möglichkeiten 3 aus Inlier zu nehmen
-  unsigned int n = boost::math::binomial_coefficient<double>(N, s);        // Alle Möglichkeiten 3 aus allen
-                                                                           // Feature-Paaren zu Nehmen
-  double p = double(m) / double(n);  // Wahrscheinlichkeit, dass in einem Sample de größe s (3), alles Inlier sind
-  unsigned int nIterations = ceil(log(1 - Ps) / log(1 - p));
-  ROS_INFO_STREAM("Initial erwartete Anzahl von Iterationen: " << nIterations << std::endl);
-  /* <----- */
-
-  std::random_device randomDevice;
-  std::uniform_int_distribution<unsigned int> randomDist(0, N);
-  std::mt19937 randomGenerator(randomDevice());  // TODO: ist das die beste Möglichkeit für Zufallswerte?
-
-  unsigned int iteration = 0;
-  double pBest = -1;                   // Beste Wahrscheinlichkeit, die bisher gefunden wurde
-  std::vector<int> bestInLierIndexes;  // Indices, der Inlier des Besten Sets
-  int nBest = 0;                       // Anzahl der besten
-
-  while (iteration < nIterations)
-  {
-    /*Subsets erstellen */
-    std::vector<Eigen::Vector2d> mtSet;  // TODO: References?
-    std::vector<Eigen::Vector2d> mhiSet;
-
-    for (unsigned i = 0; i < s; i++)
-    {
-      unsigned int randomIndex = randomDist(randomGenerator);
-      mtSet.push_back(mt[randomIndex]);
-      mhiSet.push_back(mhi[randomIndex]);
-    }
-
-    Eigen::Translation3d translation = calculateBaseLine(mtSet, mhiSet, rh);  // Berechnung aus dem Subsample
-
-    iteration++;
-
-    Eigen::Vector3d b(translation.x(), translation.y(), translation.z());
-    /*Calculate Penalty and Get Inliers*/
-    nInlier = 0;  // Neu Zählen, wie viele wir haben
-    std::vector<int> inLierIndexes;
-    double nProbability = 0;  // Gesamtwahrscheinlichkeit dieses Datensatzes
-    inLierIndexes.clear();
-    for (unsigned int i = 0; i < N; i++)
-    {
-      Eigen::Vector3d m2 = mt[i].homogeneous();   // To Homgenous
-      Eigen::Vector3d m1 = mhi[i].homogeneous();  // To Homogenous
-      // TODO: Unrotate m2
-
-      Eigen::Matrix3d I;
-      I << 1, 0, 0, 0, 1, 0, 0, 0, 1;
-
-      double pInlier =  // Probability of that Inlier.
-          (m2.transpose() * (I - (b * b.transpose())) * m1)(0) /
-          //---------------------------------------------------------------------------------------
-          (sqrt(m1.squaredNorm() - pow((m1.transpose() * b)(0), 2)) *
-           sqrt(m2.squaredNorm() - pow((m2.transpose() * b)(0), 2)));
-      if (pInlier > threshold)
-      {  // Juhu, there is an Inlier :)
-        nInlier++;
-        nProbability += pInlier;
-        inLierIndexes.push_back(i);
-      }
-    }
-
-    /*Update der Anzahl der benötigten Iterationen */
-    if (double(nInlier) / double(N) > inlierProbability)
-    {
-      inlierProbability = double(nInlier) / double(N);
-      unsigned int m = boost::math::binomial_coefficient<double>(nInlier, s);  // n über k -> 3 aus N ->
-                                                                               // Alle Möglichkeiten 3
-                                                                               // aus Inlier zu nehmen
-      unsigned int n = boost::math::binomial_coefficient<double>(N, s);        // Alle Möglichkeiten 3 aus allen
-                                                                               // Feature-Paaren zu Nehmen
-      double p = double(m) / double(n);  // Wahrscheinlichkeit, dass in einem Sample de größe s (3), alles Inlier sind
-      nIterations = ceil(log(1 - Ps) / log(1 - p));
-      ROS_INFO_STREAM("Iteration " << iteration << ": Neue erwartete Anzahl von Iterationen: " << nIterations
-                                   << std::endl);
-    }
-
-    if (nProbability > pBest)
-    {  // Neuer bester wurde gefunden
-      pBest = nProbability;
-      nBest = nInlier;
-      bestInLierIndexes = inLierIndexes;
-      ROS_INFO_STREAM("Iteration " << iteration << ": Neues Bestes Modell mit " << nInlier << " Inliern" << std::endl);
-    }
-  }
-
-  // Ende des Algorithmus, finale Berechnung über den Besten:
-  std::vector<Eigen::Vector2d> mtSet;  // TODO: References?
-  std::vector<Eigen::Vector2d> mhiSet;
-  for (int index : bestInLierIndexes)
-  {
-    mtSet.push_back(mt[index]);
-    mhiSet.push_back(mhi[index]);
-  }
-  ROS_INFO_STREAM("Iteration " << iteration << ": Bestes Modell mit " << nBest << " und Rank: " << pBest << std::endl);
-
-  Eigen::Translation3d baseLine = calculateBaseLine(mtSet, mhiSet, rh);
-
-  return baseLine;
-}
-
-void MVO::reconstructDepth(std::vector<double> &depth, const std::vector<Eigen::Vector2d> &m2L,
-                           const std::vector<Eigen::Vector2d> &m1L, const Eigen::Quaterniond &r,
-                           const Eigen::Translation3d &b)
+void MVO::reconstructDepth(std::vector<double> &depth, const std::vector<cv::Vec3d> &m2L,
+                           const std::vector<cv::Vec3d> &m1L, const cv::Matx33d &r,
+                           const cv::Vec3d &b)
 {
   // TODO: ROTATION
   (void)(r);
-  const std::vector<Eigen::Vector2d>::const_iterator m1, m2;
-  ROS_INFO_STREAM("depth: ");
-  for (unsigned int i = 0; i < m2L.size(); i++)
+  assert(m1L.size() == m2L.size());
+  for (auto m1 = m1L.begin(), m2 = m2L.begin(); m1 != m1L.end() && m2 != m2L.end(); m1++, m2++)
   {
-    Eigen::Vector3d m2 = m2L[i].homogeneous();  // To Homgenous
-    Eigen::Vector3d m1 = m1L[i].homogeneous();  // To Homogenous
-    Eigen::Matrix3d C;
-    C << 1, 0, -m2.x(),  //
-        0, 1, -m2.y(),   //
-        -m2.x(), -m2.y(), m2.x() * m2.x() + m2.y() * m2.y();
-    double Z = (m1.transpose() * C * b.vector())(0) / (m1.transpose() * C * (m1))(0);
-    ROS_INFO_STREAM(Z << ", ");
+    cv::Matx33d C;
+    C << 1, 0, -(*m2)(0),  //
+        0, 1, -(*m2)(1),   //
+        -(*m2)(0), -(*m2)(1), (*m2)(0) * (*m2)(0) + (*m2)(1) * (*m2)(1);
+    double Z = (m1->t() * C * b)(0) / (m1->t() * C * (*m1))(0);
     depth.push_back(Z);
   }
-  ROS_INFO_STREAM(std::endl);
+}
+
+bool MVO::checkEnoughDisparity(std::vector<cv::Point2f> & first, std::vector<cv::Point2f> & second){
+  assert(first.size() == second.size());
+  double diff = 0;
+  for(auto p1 = first.begin(), p2 = second.begin(); p1 != first.end() && p2 != second.end(); p1++, p2++){
+    diff += cv::norm((*p1)-(*p2));
+  }
+  diff = diff / first.size();
+  return diff > 20; //TODO: Thresh
 }

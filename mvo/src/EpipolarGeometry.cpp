@@ -2,14 +2,13 @@
 
 #include <ros/ros.h>
 
-EpipolarGeometry::EpipolarGeometry(image_geometry::PinholeCameraModel cameraModel):
-_cameraModel(cameraModel),
+EpipolarGeometry::EpipolarGeometry() :
 PI(3.14159265),
 THRESHOLD(cos(3*PI/180.0)),
 Ps(0.99),
 _randomGenerator(_randomDevice())
 {
-    _cameraModel = cameraModel;
+    
 }
 
 EpipolarGeometry::~EpipolarGeometry()
@@ -24,12 +23,11 @@ unsigned int EpipolarGeometry::estimateNumberOfIteration(unsigned int N, double 
                                                                            // Feature-Paaren zu Nehmen
   double p = double(m) / double(n);  // Wahrscheinlichkeit, dass in einem Sample de größe s (3), alles Inlier sind
   unsigned int nIterations = ceil(log(1 - Ps) / log(1 - p));
-  ROS_INFO_STREAM("Initial erwartete Anzahl von Iterationen: " << nIterations << std::endl);
+  //ROS_INFO_STREAM("Initial erwartete Anzahl von Iterationen: " << nIterations << std::endl);
   return nIterations;
 }
 
 unsigned int EpipolarGeometry::reEstimateNumberOfIteration(unsigned int N, unsigned int nInlier, unsigned int s){
-      double inlierProbability = double(nInlier) / double(N);
       unsigned int m = boost::math::binomial_coefficient<double>(nInlier, s);  // n über k -> 3 aus N ->
                                                                                // Alle Möglichkeiten 3
                                                                                // aus Inlier zu nehmen
@@ -37,8 +35,6 @@ unsigned int EpipolarGeometry::reEstimateNumberOfIteration(unsigned int N, unsig
                                                                                // Feature-Paaren zu Nehmen
       double p = double(m) / double(n);  // Wahrscheinlichkeit, dass in einem Sample de größe s (3), alles Inlier sind
       unsigned int nIterations = ceil(log(1 - Ps) / log(1 - p));
-      ROS_INFO_STREAM("Iteration " << iteration << ": Neue erwartete Anzahl von Iterationen: " << nIterations
-                                   << std::endl);
     return nIterations;
 }
 
@@ -59,7 +55,7 @@ cv::Vec3d EpipolarGeometry::estimateBaseLine(const std::vector<cv::Vec3d> &mhi, 
   unsigned int iteration = 0;
   double pBest = -1;                   // Beste Wahrscheinlichkeit, die bisher gefunden wurde
   std::vector<int> bestInLierIndexes;  // Indices, der Inlier des Besten Sets
-  int nBest = 0;                       // Anzahl der besten
+  int nBest = 0;    (void)(nBest);                   // Anzahl der besten
 
   while (iteration < nIterations)
   {
@@ -74,7 +70,7 @@ cv::Vec3d EpipolarGeometry::estimateBaseLine(const std::vector<cv::Vec3d> &mhi, 
       mhiSet.push_back(mhi[randomIndex]);
     }
 
-    cv::Vec3d b = this->calculateBaseLine(mtSet, mhiSet, rh);  // Berechnung aus dem Subsample
+    cv::Vec3d b = this->calculateBaseLine(mtSet, mhiSet, rhi);  // Berechnung aus dem Subsample
     iteration++;
     
     /*Calculate Penalty and Get Inliers*/
@@ -105,35 +101,33 @@ cv::Vec3d EpipolarGeometry::estimateBaseLine(const std::vector<cv::Vec3d> &mhi, 
     /*Update der Anzahl der benötigten Iterationen */
     if (double(nInlier) / double(N) > inlierProbability)
     {
-
+      inlierProbability = double(nInlier) / double(N);
       nIterations = this->reEstimateNumberOfIteration(N, nInlier, s);
+      //ROS_INFO_STREAM("Iteration " << iteration << ": Neue erwartete Anzahl von Iterationen: " << nIterations
+                                   //<< std::endl);
      
     }
-
-
 
     if (nProbability > pBest)
     {  // Neuer bester wurde gefunden
       pBest = nProbability;
       nBest = nInlier;
       bestInLierIndexes = inLierIndexes;
-      ROS_INFO_STREAM("Iteration " << iteration << ": Neues Bestes Modell mit " << nInlier << " Inliern" << std::endl);
+      //ROS_INFO_STREAM("Iteration " << iteration << ": Neues Bestes Modell mit " << nInlier << " Inliern" << std::endl);
     }
   }
 
   // Ende des Algorithmus, finale Berechnung über den Besten:
-  std::vector<Eigen::Vector2d> mtSet;  // TODO: References?
-  std::vector<Eigen::Vector2d> mhiSet;
+  std::vector<cv::Vec3d> mtSet;  // TODO: References?
+  std::vector<cv::Vec3d> mhiSet;
   for (int index : bestInLierIndexes)
   {
     mtSet.push_back(mt[index]);
     mhiSet.push_back(mhi[index]);
   }
-  ROS_INFO_STREAM("Iteration " << iteration << ": Bestes Modell mit " << nBest << " und Rank: " << pBest << std::endl);
+  //ROS_INFO_STREAM("Iteration " << iteration << ": Bestes Modell mit " << nBest << " und Rank: " << pBest << std::endl);
 
-  Eigen::Translation3d baseLine = calculateBaseLine(mtSet, mhiSet, rh);
-
-  return baseLine;
+  return this->calculateBaseLine(mtSet, mhiSet, rhi);
 }
 cv::Vec3d EpipolarGeometry::calculateBaseLine(const std::vector<cv::Vec3d> &mhi, const std::vector<cv::Vec3d> &mt, const cv::Matx33d &rhi){
     assert(mhi.size() == mt.size());

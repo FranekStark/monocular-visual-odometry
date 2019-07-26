@@ -8,7 +8,7 @@ CornerTracker::~CornerTracker()
 {
 }
 
-void CornerTracker::detectFeatures(std::vector<cv::Point2d> corner, const cv::Mat & image, int numberToDetect){
+void CornerTracker::detectFeatures(std::vector<cv::Point2f> & corner, const cv::Mat & image, int numberToDetect){
   cv::goodFeaturesToTrack(image, corner, numberToDetect, double(0.01), double(10.0), cv::noArray(), _blockSize, bool(true),
                           _k);  // Corners berechnen TODO: More params
 
@@ -23,10 +23,10 @@ void CornerTracker::detectFeatures(std::vector<cv::Point2d> corner, const cv::Ma
   }
 }
 
-void CornerTracker::trackFeatures(const cv::Mat &prevImage, const cv::Mat &currentImage, const std::vector<cv::Point2d> &prevFeatures,
-                     std::vector<cv::Point2d> &trackedFeatures, std::vector<unsigned char> &found)
+void CornerTracker::trackFeatures(const cv::Mat &prevImage, const cv::Mat &currentImage, const std::vector<cv::Point2f> &prevFeatures,
+                     std::vector<cv::Point2f> &trackedFeatures, std::vector<unsigned char> &found)
 {
-std::vector<cv::Mat> nowPyramide;
+  std::vector<cv::Mat> nowPyramide;
   std::vector<cv::Mat> prevPyramide;
   cv::Size winSize(21, 21);  // Has to be the same as in calcOpeitcalcOpticalFLow
   int maxLevel = 3;

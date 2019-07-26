@@ -31,4 +31,4 @@ add_executable(mvo_node src/mvo_node.cpp src/SlidingWindow.cpp src/Window.cpp sr
 target_link_libraries(mvo_node ${catkin_LIBRARIES})
 add_dependencies(mvo_node mvo_gencfg)
 
-target_compile_options(mvo_node PRIVATE -Werror -Wall -Wextra)
+target_compile_options(mvo_node PRIVATE -Wall -Werror -pedantic -Wextra)
