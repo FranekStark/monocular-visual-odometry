@@ -79,11 +79,17 @@ cv::Mat SlidingWindow::getImage(int past)
   return (window->_image);
 }
 
-cv::Vec3d & SlidingWindow::getPosition(int past)
+const cv::Vec3d & SlidingWindow::getPosition(int past)
 {
   Window* window = this->getWindow(past);
   assert(window != nullptr);
   return (window->_position);
+}
+
+const cv::Matx33d & SlidingWindow::getRotation(int past){
+  Window* window = this->getWindow(past);
+  assert(window != nullptr);
+  return (window->_rotation);
 }
 
 void SlidingWindow::getCorrespondingFeatures(int window1Index, int window2Index, std::vector<cv::Point2f>& features1,

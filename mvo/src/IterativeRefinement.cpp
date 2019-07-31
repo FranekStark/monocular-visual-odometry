@@ -1,5 +1,7 @@
 #include "IterativeRefinement.hpp"
 
+#include <ros/ros.h>
+
 // TODO: FROM: https://nghiaho.com/?page_id=355
 
 IterativeRefinement::IterativeRefinement(){}
@@ -7,12 +9,12 @@ IterativeRefinement::~IterativeRefinement(){}
 
 double IterativeRefinement::Func(const Input &input, const cv::Vec3d &st)
 {
-  auto b = st - input.shi;
-  auto Rhimhi = input.Rhi * input.mhi;
-  auto bCross = b.cross(Rhimhi);
-  auto RtCross = input.Rt.t() * bCross;
-  return input.mt.dot(RtCross);
-  // return cv::Mat(input.mt * input.Rt.t() * (st - input.shi).cross((input.Rhi * input.mhi))).at<double>(0,0);
+  // auto b = st - input.shi;
+  // auto Rhimhi = input.Rhi * input.mhi;
+  // auto bCross = b.cross(Rhimhi);
+  // auto RtCross = input.Rt.t() * bCross;
+  // return input.mt.dot(RtCross);
+  return input.mt.dot(input.Rt.t() * (st - input.shi).cross(input.Rhi * input.mhi));
 }
 
 double IterativeRefinement::Deriv(const Input &input,
@@ -74,6 +76,7 @@ void IterativeRefinement::GaussNewton(const std::vector<cv::Vec3d> & mt, const c
     params(0) += delta.at<double>(0,0);
     params(1) += delta.at<double>(1,0);
     params(2) += delta.at<double>(2,0);
+    ROS_INFO_STREAM("delta: " << delta << std::endl);
   } while (cv::norm(delta) > THRESHOLD);
 }
 

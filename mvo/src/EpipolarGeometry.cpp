@@ -4,7 +4,7 @@
 
 EpipolarGeometry::EpipolarGeometry() :
 PI(3.14159265),
-THRESHOLD(cos(3*PI/180.0)),
+THRESHOLD(cos(3.0*PI/180.0)),
 Ps(0.99),
 _randomGenerator(_randomDevice())
 {
@@ -38,7 +38,7 @@ unsigned int EpipolarGeometry::reEstimateNumberOfIteration(unsigned int N, unsig
     return nIterations;
 }
 
-cv::Vec3d EpipolarGeometry::estimateBaseLine(const std::vector<cv::Vec3d> &mhi, const std::vector<cv::Vec3d> &mt, const cv::Matx33d &rhi){
+cv::Vec3d EpipolarGeometry::estimateBaseLine(const std::vector<cv::Vec3d> &mhi, const std::vector<cv::Vec3d> &mt){
   assert(mhi.size() == mt.size());
 
   unsigned int N = mt.size();  // Anzahl aller Feature-Paare
@@ -70,7 +70,7 @@ cv::Vec3d EpipolarGeometry::estimateBaseLine(const std::vector<cv::Vec3d> &mhi, 
       mhiSet.push_back(mhi[randomIndex]);
     }
 
-    cv::Vec3d b = this->calculateBaseLine(mtSet, mhiSet, rhi);  // Berechnung aus dem Subsample
+    cv::Vec3d b = this->calculateBaseLine(mtSet, mhiSet);  // Berechnung aus dem Subsample
     iteration++;
     
     /*Calculate Penalty and Get Inliers*/
@@ -80,10 +80,7 @@ cv::Vec3d EpipolarGeometry::estimateBaseLine(const std::vector<cv::Vec3d> &mhi, 
     inLierIndexes.clear();
     for (auto m1 = mhi.begin(), m2 = mt.begin(); m1 != mhi.end() && m2 != mt.end(); m1++, m2++)
     {
-      // TODO: Unrotate m2
-      (void)(rhi);
-
-      cv::Matx33d I = cv::Matx33d::eye();
+        cv::Matx33d I = cv::Matx33d::eye();
       double pInlier =  // Probability of that Inlier.
           (m2->t() * (I - (b * b.t())) * (*m1))(0) /
           //---------------------------------------------------------------------------------------
@@ -126,32 +123,32 @@ cv::Vec3d EpipolarGeometry::estimateBaseLine(const std::vector<cv::Vec3d> &mhi, 
     mhiSet.push_back(mhi[index]);
   }
   //ROS_INFO_STREAM("Iteration " << iteration << ": Bestes Modell mit " << nBest << " und Rank: " << pBest << std::endl);
-
-  return this->calculateBaseLine(mtSet, mhiSet, rhi);
+  ROS_INFO_STREAM("Iteration " << iteration << ": Aussortiert wurden: " << N - mtSet.size() << "Beibehalten: " << mtSet.size() << " / " << N << std::endl);
+  return this->calculateBaseLine(mtSet, mhiSet);
 }
-cv::Vec3d EpipolarGeometry::calculateBaseLine(const std::vector<cv::Vec3d> &mhi, const std::vector<cv::Vec3d> &mt, const cv::Matx33d &rhi){
+cv::Vec3d EpipolarGeometry::calculateBaseLine(const std::vector<cv::Vec3d> &mhi, const std::vector<cv::Vec3d> &mt){
     assert(mhi.size() == mt.size());
     
-    //A*b = 0
+    //A'A*b = 0 --> Least Squares
     
    
-    cv::Mat A = cv::Mat::zeros(mhi.size(), 3, CV_64F);  //Row, Col
+    cv::Matx33d A;  //Row, Col
     cv::Vec3d b;
     
     for(auto m1 = mhi.begin(), m2 = mt.begin(); m1 != mhi.end() && m2 != mt.end(); m1++, m2++){
-        double a1 = -((*m2)(1) - (*m1)(1));
-        double a2 = ((*m2)(0) - (*m1)(0));
-        double a3 = (((*m2)(1) - (*m1)(1)) * (*m2)(1) - ((*m2)(0) - (*m1)(0))*(*m2)(1));
+        double x1 = (*m1)(0);
+        double y1 = (*m1)(1);
+        double x2 = (*m2)(0);
+        double y2 = (*m2)(1);
+        double a1 = -(y2-y1);
+        double a2 = (x2-x1);
+        double a3 = ((y2-y1)*x1 - (x2-x1)*y2);
 
-        //TODO: Unrotate!
-        (void)(rhi);
-        int i = std::distance(mhi.begin(), m1);
-        A.at<double>(i, 0) = a1;
-        A.at<double>(i, 1) = a2;
-        A.at<double>(i, 2) = a3;
+        A(0,0) += a1 * a1; A(0,1) += a1 * a2; A(0,2) += a1 * a3;
+        A(1,0) += a2 * a1; A(1,1) += a2 * a2; A(1,2) += a2 * a3;
+        A(2,0) += a3 * a1; A(2,1) += a3 * a2; A(2,2) += a3 * a3;
     }
-
-    if(A.rows > 3 || cv::determinant(A) != 0){ //TODO: Hier muss was passieren, aber was?
+    if(cv::determinant(A) != 0){ //If Matrix singular, then 
       cv::Mat w, u, vt;
       
       cv::SVD::compute(A, w, u, vt, cv::SVD::Flags::MODIFY_A | cv::SVD::Flags::FULL_UV); //Full, because we need V  
@@ -160,6 +157,8 @@ cv::Vec3d EpipolarGeometry::calculateBaseLine(const std::vector<cv::Vec3d> &mhi,
       b(1) = lastCol.at<double>(1,0);
       b(2) = lastCol.at<double>(2,0); //TODO: Ugly conversion
     }
+
+   // ROS_INFO_STREAM("calc b: " << b << std::endl);
     return b;
 }
 

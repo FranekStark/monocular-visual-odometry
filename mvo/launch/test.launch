@@ -1,0 +1,6 @@
+<?xml version="1.0"?>
+<launch>
+    <node name="mvo_node" pkg="mvo" type="mvo_node" output="screen"/>
+    <node name="imu_transform" pkg="titanic_transformation" type="imu_tf2_transformation_node" output="screen" />
+    <node type="rviz" name="rviz" pkg="rviz" args="-d $(find mvo)/cfg/rviz_test.rviz" />
+</launch>

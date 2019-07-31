@@ -35,7 +35,8 @@ public:
    */
   std::vector<cv::Point2f>& getFeatures(int past);
   cv::Mat getImage(int past);
-  cv::Vec3d & getPosition(int past);
+  const cv::Vec3d & getPosition(int past);
+  const cv::Matx33d & getRotation(int past);
 
 /**
  * Gives Back Corresponding Featurelocations between two Windows.

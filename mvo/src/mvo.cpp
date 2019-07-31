@@ -5,57 +5,70 @@
 #include <random>
 MVO::MVO() : _slidingWindow(5), _frameCounter(0)
 {
-  cv::namedWindow("original", cv::WINDOW_GUI_EXPANDED);
-  cv::namedWindow("cornerImage", cv::WINDOW_GUI_EXPANDED);
 }
 
 MVO::~MVO()
 {
-  cv::destroyWindow("original");
-  cv::destroyWindow("cornerImage");
 }
 
-void MVO::handleImage(const cv::Mat image, const image_geometry::PinholeCameraModel &cameraModel){
-  cv::imshow("original", image);
-  cv::Mat grayImage;
-  cv::cvtColor(image, grayImage, cv::COLOR_BayerBG2GRAY);
+OdomData MVO::handleImage(const cv::Mat image, const image_geometry::PinholeCameraModel &cameraModel, const cv::Matx33d &R){
+  
+  cv::cvtColor(image, _debugImage, cv::ColorConversionCodes::COLOR_GRAY2RGB);
 
   std::vector<cv::Point2f> newFeatures(20);
-  _cornerTracker.detectFeatures(newFeatures, grayImage, 20); //TODO: Parametrice Number
-  cv::Matx33d r = cv::Matx33d::eye();
+  _cornerTracker.detectFeatures(newFeatures, image, 20); //TODO: Parametrice Number
+  ROS_ERROR_STREAM_COND(newFeatures.size() < 4, "New Feature Set is very small: " << newFeatures.size() << std::endl);
   cv::Vec3d b(0,0,0);
 
-
   if(_frameCounter == 0){
-    _slidingWindow.newWindow(std::vector<cv::Point2f>(), std::vector<uchar>(), grayImage); //First Two are Dummies
+     //ROS_INFO_STREAM("-> First Frame " << std::endl);
+    _slidingWindow.newWindow(std::vector<cv::Point2f>(), std::vector<uchar>(), image); //First Two are Dummies
     _slidingWindow.addFeaturesToCurrentWindow(newFeatures); //all, because first Frame
-    _slidingWindow.addTransformationToCurrentWindow(b, r);
+    _slidingWindow.addTransformationToCurrentWindow(b, R);
 
+    this->drawDebugPoints(newFeatures, cv::Scalar(0,0,255), _debugImage);
+    //ROS_INFO_STREAM("<- First Frame " << std::endl);
   }else{
    std::vector<cv::Point2f> & prevFeatures = _slidingWindow.getFeatures(0);
    cv::Mat prevImage = _slidingWindow.getImage(0);
    std::vector<cv::Point2f> trackedFeatures;
    std::vector<unsigned char> found;
-   _cornerTracker.trackFeatures(prevImage, grayImage, prevFeatures, trackedFeatures, found);
+   //ROS_INFO_STREAM("->  Track Features " << std::endl);
+   _cornerTracker.trackFeatures(prevImage, image, prevFeatures, trackedFeatures, found);
+   //ROS_INFO_STREAM("<-  Track Features " << std::endl);
+
+   this->drawDebugPoints(trackedFeatures, cv::Scalar(0,255,0), _debugImage);
     if(!(this->checkEnoughDisparity(trackedFeatures, prevFeatures))){
-      return;
+    OdomData od;
+     od.b = b;
+     od.s = _slidingWindow.getPosition(0);
+     return od;
     }
-   _slidingWindow.newWindow(trackedFeatures, found, grayImage);
+    
+   _slidingWindow.newWindow(trackedFeatures, found, image);
    this->sortOutSameFeatures(trackedFeatures, newFeatures);
    _slidingWindow.addFeaturesToCurrentWindow(newFeatures);
 
+   this->drawDebugPoints(newFeatures, cv::Scalar(0,0,255), _debugImage);
+
+  cv::Matx33d rBefore = _slidingWindow.getRotation(1);
+  cv::Matx33d rDiff = rBefore.t() * R; //Difference Rotation
   std::vector<cv::Point2f> thisCorespFeatures, beforeCorespFeatures;
-  std::vector<cv::Vec3d> thisCorespFeaturesE, beforeCorespFeaturesE; //TODO: Presize?
+  std::vector<cv::Vec3d> thisCorespFeaturesE, beforeCorespFeaturesE;
   _slidingWindow.getCorrespondingFeatures(1,0,beforeCorespFeatures, thisCorespFeatures);
   this->euclidNormFeatures(thisCorespFeatures, thisCorespFeaturesE, cameraModel);
   this->euclidNormFeatures(beforeCorespFeatures, beforeCorespFeaturesE,cameraModel);
+  std::vector<cv::Vec3d> thisCorespFeaturesEUnrotate;
+  this->unrotateFeatures(thisCorespFeaturesE, thisCorespFeaturesEUnrotate, rDiff);
 
-  b = _epipolarGeometry.estimateBaseLine(beforeCorespFeaturesE, thisCorespFeaturesE, r);
+ //ROS_INFO_STREAM("-> Estimate Baseline " << std::endl);
+  b = _epipolarGeometry.estimateBaseLine(beforeCorespFeaturesE, thisCorespFeaturesEUnrotate);
+//ROS_INFO_STREAM("<- Estimate Baseline " << std::endl);
 
-
-  if(_frameCounter ==1){//Scale vote 
+ //Scale vote 
    std::vector<double> depths(beforeCorespFeaturesE.size());
-   this->reconstructDepth(depths, thisCorespFeaturesE, beforeCorespFeaturesE, r, b);
+   //ROS_INFO_STREAM("-> Reconstruct Depth " << std::endl);
+   this->reconstructDepth(depths, thisCorespFeaturesE, beforeCorespFeaturesE, rDiff, b);
    int sign = 0;
    for(auto depth = depths.begin(); depth!=depths.end(); depth++){
      if((*depth) < 0){
@@ -68,26 +81,32 @@ void MVO::handleImage(const cv::Mat image, const image_geometry::PinholeCameraMo
    if(sign<0){
      b = b*-1;
    }
-  _slidingWindow.addTransformationToCurrentWindow(b, r);
-  }else{//IterativeRefinemen -> Scale Estimation?
+  // ROS_INFO_STREAM("<- Reconstruct Depth " << std::endl);
+  
+  if(_frameCounter > 1){//IterativeRefinemen -> Scale Estimation?
     std::vector<cv::Point2f> thisFirsCorespFeatures, beforeFirstCorepsFeatures;
     std::vector<cv::Vec3d> thisFirstCorespFeaturesE, beforeFirstCorespFeaturesE;
     _slidingWindow.getCorrespondingFeatures(2,0, beforeFirstCorepsFeatures, thisFirsCorespFeatures);
-    cv::Vec3d & shi = _slidingWindow.getPosition(2);
-    auto rhi = cv::Matx33d::eye(); //TODO real Rotation
+    const cv::Vec3d & shi = _slidingWindow.getPosition(2);
+    cv::Vec3d st = _slidingWindow.getPosition(1) + b;
+    ROS_INFO_STREAM("st before Refinement: " << st << std::endl);
+    auto rhi = _slidingWindow.getRotation(2);
     this->euclidNormFeatures(beforeFirstCorepsFeatures, beforeFirstCorespFeaturesE, cameraModel);
     this->euclidNormFeatures(thisFirsCorespFeatures, thisFirstCorespFeaturesE, cameraModel);
-    _iterativeRefinement.iterativeRefinement(thisFirstCorespFeaturesE, r, beforeFirstCorespFeaturesE, rhi, shi, b);
-    _slidingWindow.addTransformationToCurrentWindow(shi + b, r);
+    _iterativeRefinement.iterativeRefinement(thisFirstCorespFeaturesE, R, beforeFirstCorespFeaturesE, rhi, shi, st);
+    ROS_INFO_STREAM("st after Refinement: " << st << std::endl);
+    _slidingWindow.addTransformationToCurrentWindow(st, R);
+  }else{
+    _slidingWindow.addTransformationToCurrentWindow(_slidingWindow.getPosition(1) + b, R);
   }
 
- 
- 
-  ROS_INFO_STREAM("b: " << b << std::endl);
 }
- this->drawDebugImage(_slidingWindow.getFeatures(0), b, grayImage);
- cv::waitKey(1);
-  _frameCounter++;
+this->drawDebugImage(b, _debugImage);
+ _frameCounter++;
+ OdomData od;
+ od.b = b;
+ od.s = _slidingWindow.getPosition(0);
+ return od; 
 }
 
 void MVO::sortOutSameFeatures(const std::vector<cv::Point2f> & beforeFeatures, std::vector<cv::Point2f> & newFeatures){
@@ -108,30 +127,27 @@ void MVO::euclidNormFeatures(const std::vector<cv::Point2f> &features, std::vect
   }
 }
 
-void MVO::drawDebugImage(const std::vector<cv::Point2f> points, const cv::Vec3d baseLine, cv::Mat & image){
-   cv::Mat cornerImage = image.clone();
-  std::stringstream text;
-  text << "Number of Features: " << points.size();
-  cv::putText(cornerImage, text.str(), cv::Point(30, 30), cv::FONT_HERSHEY_PLAIN, 2.0, cv::Scalar(0, 0, 255));
-  for (auto const &corner :points)
-  {
-    cv::circle(cornerImage, cv::Point(corner), 10, cv::Scalar(0, 0, 255), -10);
-  }
+void MVO::drawDebugImage(const cv::Vec3d baseLine, cv::Mat & image){
+  auto baseLineNorm =  cv::normalize(baseLine);
 
- auto baseLineNorm =  cv::normalize(baseLine);
-
- ROS_INFO_STREAM("Norm: " << baseLineNorm << std::endl);
-
- int mitX = double(cornerImage.cols) / 2.0;
-    int mitY = double(cornerImage.rows) / 2.0;
-    double scaleX = (cornerImage.cols - mitX) / 1.5;
-    double scaleY = (cornerImage.rows - mitY) / 1.5;
-    cv::arrowedLine(cornerImage, cv::Point(mitX, mitY),
+ int mitX = double(image.cols) / 2.0;
+    int mitY = double(image.rows) / 2.0;
+    double scaleX = (image.cols - mitX) / 1.5;
+    double scaleY = (image.rows - mitY) / 1.5;
+    cv::arrowedLine(image, cv::Point(mitX, mitY),
                     cv::Point(scaleX * baseLineNorm(0) + mitX, (scaleY * baseLineNorm(1)) + mitY),
                     cv::Scalar(0, 255, 0), 10);
-    cv::line(cornerImage, cv::Point(mitY, 20), cv::Point(mitY + (scaleX * baseLineNorm(2)), 20), cv::Scalar(0, 255, 0),
+    cv::line(image, cv::Point(mitY, 20), cv::Point(mitY + (scaleX * baseLineNorm(2)), 20), cv::Scalar(0, 255, 0),
              10);
-    cv::imshow("cornerImage", cornerImage);
+}
+
+void MVO::drawDebugPoints(const std::vector<cv::Point2f> & points, const cv::Scalar & color, cv::Mat & image){
+  for (auto point = points.begin(); point != points.end(); point++)
+  {
+    cv::circle(image, cv::Point(*point), 10, color, -10);
+    std::string index;
+    cv::putText(image,std::to_string(std::distance(points.begin(), point)), cv::Point(*point),cv::FONT_HERSHEY_PLAIN, 0.5, cv::Scalar(255,255,255));
+  }
 }
 
 
@@ -139,8 +155,6 @@ void MVO::reconstructDepth(std::vector<double> &depth, const std::vector<cv::Vec
                            const std::vector<cv::Vec3d> &m1L, const cv::Matx33d &r,
                            const cv::Vec3d &b)
 {
-  // TODO: ROTATION
-  (void)(r);
   assert(m1L.size() == m2L.size());
   for (auto m1 = m1L.begin(), m2 = m2L.begin(); m1 != m1L.end() && m2 != m2L.end(); m1++, m2++)
   {
@@ -148,17 +162,28 @@ void MVO::reconstructDepth(std::vector<double> &depth, const std::vector<cv::Vec
     C << 1, 0, -(*m2)(0),  //
         0, 1, -(*m2)(1),   //
         -(*m2)(0), -(*m2)(1), (*m2)(0) * (*m2)(0) + (*m2)(1) * (*m2)(1);
-    double Z = (m1->t() * C * b)(0) / (m1->t() * C * (*m1))(0);
+    double Z = (m1->t() * r * C * r.t() * b)(0) / (m1->t() * r * C * r.t() * (*m1))(0);
     depth.push_back(Z);
   }
 }
 
 bool MVO::checkEnoughDisparity(std::vector<cv::Point2f> & first, std::vector<cv::Point2f> & second){
   assert(first.size() == second.size());
+  //ROS_INFO_STREAM("Points: " << std::endl);
   double diff = 0;
   for(auto p1 = first.begin(), p2 = second.begin(); p1 != first.end() && p2 != second.end(); p1++, p2++){
     diff += cv::norm((*p1)-(*p2));
+    //ROS_INFO_STREAM(*p1 << " - " << *p2 << std::endl);
   }
   diff = diff / first.size();
-  return diff > 20; //TODO: Thresh
+  //ROS_INFO_STREAM("diff: " << diff << std::endl);
+  return diff > 10; //TODO: Thresh
+}
+
+void MVO::unrotateFeatures(const std::vector<cv::Vec3d> & features, std::vector<cv::Vec3d> & unrotatedFeatures, const cv::Matx33d & R){
+  for(auto feature = features.begin(); feature != features.end(); feature++){
+    auto unrotatedFeature = R * (*feature);
+    unrotatedFeature = unrotatedFeature / unrotatedFeature(2);
+    unrotatedFeatures.push_back(unrotatedFeature);
+  }
 }
