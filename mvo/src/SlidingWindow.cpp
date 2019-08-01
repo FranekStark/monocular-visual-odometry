@@ -14,7 +14,7 @@ Window* SlidingWindow::getWindow(int past)
   int cnt = 0;
   while (window != _firstWindow && cnt != past)
   {
-    window = _lastWindow->_windowBefore;
+    window = window->_windowBefore;
     cnt++;
   }
   return window;

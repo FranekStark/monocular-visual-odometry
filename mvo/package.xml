@@ -15,5 +15,6 @@
   <depend>image_transport</depend>
   <depend>cv_bridge</depend>
   <depend>dynamic_reconfigure</depend>
-  <depend>image_geometry</depend>
+  <depend>tf2_ros</depend>
+  <depend>nav_msgs</depend>
 </package>

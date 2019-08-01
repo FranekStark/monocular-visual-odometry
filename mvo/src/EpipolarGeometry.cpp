@@ -123,7 +123,7 @@ cv::Vec3d EpipolarGeometry::estimateBaseLine(const std::vector<cv::Vec3d> &mhi, 
     mhiSet.push_back(mhi[index]);
   }
   //ROS_INFO_STREAM("Iteration " << iteration << ": Bestes Modell mit " << nBest << " und Rank: " << pBest << std::endl);
-  ROS_INFO_STREAM("Iteration " << iteration << ": Aussortiert wurden: " << N - mtSet.size() << "Beibehalten: " << mtSet.size() << " / " << N << std::endl);
+  //ROS_INFO_STREAM("Iteration " << iteration << ": Aussortiert wurden: " << N - mtSet.size() << "Beibehalten: " << mtSet.size() << " / " << N << std::endl);
   return this->calculateBaseLine(mtSet, mhiSet);
 }
 cv::Vec3d EpipolarGeometry::calculateBaseLine(const std::vector<cv::Vec3d> &mhi, const std::vector<cv::Vec3d> &mt){

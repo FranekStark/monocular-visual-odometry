@@ -11,6 +11,8 @@ find_package(catkin REQUIRED COMPONENTS
   image_geometry
   cv_bridge
   dynamic_reconfigure
+  tf2_ros
+  nav_msgs
 )
 
 include_directories(

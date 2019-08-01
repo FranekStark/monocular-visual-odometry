@@ -64,19 +64,20 @@ void IterativeRefinement::GaussNewton(const std::vector<cv::Vec3d> & mt, const c
         shi
       };
 
-      f.at<double>(i, 0) = -1 * (this->Func(input, params));
+      f.at<double>(i, 0) = (this->Func(input, params));
       for (int j = 0; j < k; j++)
       {
         J.at<double>(i, j) = Deriv(input, params, j);
       }
     }
 
-    // J * delta = f;
-    cv::solve(J, f, delta, cv::DECOMP_NORMAL);
+    //J'*J * d = -J'*f 
+
+    cv::solve(J.t()*J, (-1 * J.t()) * f, delta, cv::DECOMP_NORMAL);
+    //ROS_INFO_STREAM("delta: " << delta << std::endl);
     params(0) += delta.at<double>(0,0);
     params(1) += delta.at<double>(1,0);
     params(2) += delta.at<double>(2,0);
-    ROS_INFO_STREAM("delta: " << delta << std::endl);
   } while (cv::norm(delta) > THRESHOLD);
 }
 

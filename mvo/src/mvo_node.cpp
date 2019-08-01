@@ -9,8 +9,9 @@ int main(int argc, char *argv[])
 }
 
 MVO_node::MVO_node(ros::NodeHandle nh, ros::NodeHandle pnh)
-  : _nodeHandle(nh), _privateNodeHandle(pnh), _imageTransport(nh), _transFormListener(_tfBuffer)
+  : _nodeHandle(nh), _privateNodeHandle(pnh), _imageTransport(nh), _transFormListener(_tfBuffer), _worldToCameraProjectionMatrix(0,0,1,-1,0,0,0,-1,0)
 {
+  ROS_INFO_STREAM("M = " << _worldToCameraProjectionMatrix << std::endl);
   this->init();
 }
 
@@ -43,9 +44,11 @@ void MVO_node::imageCallback(const sensor_msgs::ImageConstPtr &image, const sens
                                 rotationMatrice[1][0], rotationMatrice[1][1], rotationMatrice[1][2], //
                                 rotationMatrice[2][0], rotationMatrice[2][1], rotationMatrice[2][2]);
 
-  auto od = _mvo.handleImage(bridgeImage->image, model, rotationMatriceCV);  
- 
-
+  auto od = _mvo.handleImage(bridgeImage->image, model, _worldToCameraProjectionMatrix * rotationMatriceCV);  
+  ROS_INFO_STREAM("before: " << od.s << std::endl);
+  od.b = _worldToCameraProjectionMatrix * od.b;
+  od.s = _worldToCameraProjectionMatrix * od.s; 
+  ROS_INFO_STREAM("after: " << od.s << std::endl);
   /*Publish */
   nav_msgs::Odometry odomMsg;
   odomMsg.header.stamp = ros::Time::now();

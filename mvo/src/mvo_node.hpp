@@ -31,6 +31,8 @@ private:
 
     MVO _mvo;
 
+    cv::Matx33d _worldToCameraProjectionMatrix;
+
     void init();
 
 public:

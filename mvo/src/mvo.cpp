@@ -12,7 +12,7 @@ MVO::~MVO()
 }
 
 OdomData MVO::handleImage(const cv::Mat image, const image_geometry::PinholeCameraModel &cameraModel, const cv::Matx33d &R){
-  
+  ROS_INFO_STREAM("Rotation: " << R << std::endl);
   cv::cvtColor(image, _debugImage, cv::ColorConversionCodes::COLOR_GRAY2RGB);
 
   std::vector<cv::Point2f> newFeatures(20);
@@ -53,6 +53,7 @@ OdomData MVO::handleImage(const cv::Mat image, const image_geometry::PinholeCame
 
   cv::Matx33d rBefore = _slidingWindow.getRotation(1);
   cv::Matx33d rDiff = rBefore.t() * R; //Difference Rotation
+  //ROS_INFO_STREAM("Relative Rotation: " << rDiff << std::endl);
   std::vector<cv::Point2f> thisCorespFeatures, beforeCorespFeatures;
   std::vector<cv::Vec3d> thisCorespFeaturesE, beforeCorespFeaturesE;
   _slidingWindow.getCorrespondingFeatures(1,0,beforeCorespFeatures, thisCorespFeatures);
@@ -64,7 +65,7 @@ OdomData MVO::handleImage(const cv::Mat image, const image_geometry::PinholeCame
  //ROS_INFO_STREAM("-> Estimate Baseline " << std::endl);
   b = _epipolarGeometry.estimateBaseLine(beforeCorespFeaturesE, thisCorespFeaturesEUnrotate);
 //ROS_INFO_STREAM("<- Estimate Baseline " << std::endl);
-
+  ROS_INFO_STREAM("b: " << b << std::endl);
  //Scale vote 
    std::vector<double> depths(beforeCorespFeaturesE.size());
    //ROS_INFO_STREAM("-> Reconstruct Depth " << std::endl);
@@ -82,19 +83,19 @@ OdomData MVO::handleImage(const cv::Mat image, const image_geometry::PinholeCame
      b = b*-1;
    }
   // ROS_INFO_STREAM("<- Reconstruct Depth " << std::endl);
+   ROS_INFO_STREAM("b after Depth: " << b << std::endl);
   
-  if(_frameCounter > 1){//IterativeRefinemen -> Scale Estimation?
+  if(false && _frameCounter > 1){//IterativeRefinemen -> Scale Estimation?
     std::vector<cv::Point2f> thisFirsCorespFeatures, beforeFirstCorepsFeatures;
     std::vector<cv::Vec3d> thisFirstCorespFeaturesE, beforeFirstCorespFeaturesE;
     _slidingWindow.getCorrespondingFeatures(2,0, beforeFirstCorepsFeatures, thisFirsCorespFeatures);
     const cv::Vec3d & shi = _slidingWindow.getPosition(2);
     cv::Vec3d st = _slidingWindow.getPosition(1) + b;
-    ROS_INFO_STREAM("st before Refinement: " << st << std::endl);
+    //ROS_INFO_STREAM("st before Refinement: " << st << std::endl);
     auto rhi = _slidingWindow.getRotation(2);
     this->euclidNormFeatures(beforeFirstCorepsFeatures, beforeFirstCorespFeaturesE, cameraModel);
     this->euclidNormFeatures(thisFirsCorespFeatures, thisFirstCorespFeaturesE, cameraModel);
     _iterativeRefinement.iterativeRefinement(thisFirstCorespFeaturesE, R, beforeFirstCorespFeaturesE, rhi, shi, st);
-    ROS_INFO_STREAM("st after Refinement: " << st << std::endl);
     _slidingWindow.addTransformationToCurrentWindow(st, R);
   }else{
     _slidingWindow.addTransformationToCurrentWindow(_slidingWindow.getPosition(1) + b, R);
