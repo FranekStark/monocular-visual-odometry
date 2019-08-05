@@ -31,13 +31,15 @@ private:
   void sortOutSameFeatures(const std::vector<cv::Point2f> & beforeFeatures, std::vector<cv::Point2f> & newFeatures);
   void euclidNormFeatures(const std::vector<cv::Point2f> &features, std::vector<cv::Vec3d> & featuresE, const image_geometry::PinholeCameraModel & cameraModel);
   void drawDebugPoints(const std::vector<cv::Point2f> & points, const cv::Scalar & color, cv::Mat & image);
-  void drawDebugImage(const cv::Vec3d baseLine, cv::Mat & image);
+  void drawDebugImage(const cv::Vec3d baseLine, cv::Mat & image, const cv::Scalar & color);
   /*Fields */
   SlidingWindow _slidingWindow;
 
   unsigned int _frameCounter;
 
-  bool checkEnoughDisparity(std::vector<cv::Point2f> & first, std::vector<cv::Point2f> & second);
+  unsigned int _NUMBEROFFEATURES = 60;
+
+  bool checkEnoughDisparity(const std::vector<cv::Point2f> & first, const std::vector<cv::Point2f> & second);
 
   void unrotateFeatures(const std::vector<cv::Vec3d> & features, std::vector<cv::Vec3d> & unrotatedFeatures, const cv::Matx33d & R);
 

@@ -1,3 +1,5 @@
+#ifndef SLIDING_WINDOW_HPP
+#define SLIDING_WINDOW_HPP
 #include <opencv2/core.hpp>
 #include <vector>
 
@@ -17,7 +19,7 @@ private:
    * 0 means the Window NOW/Current
    * If the Window is not available, then nullptr
    */
-  Window* getWindow(int past);
+  Window* getWindow(int past) const;
 
 public:
   SlidingWindow(int len);
@@ -33,10 +35,10 @@ public:
    * past = 0, means Current Windows Features
    * When no Window at this time, nullptr is returned
    */
-  std::vector<cv::Point2f>& getFeatures(int past);
-  cv::Mat getImage(int past);
-  const cv::Vec3d & getPosition(int past);
-  const cv::Matx33d & getRotation(int past);
+  const std::vector<cv::Point2f>& getFeatures(int past) const;
+  const cv::Mat getImage(int past) const;
+  cv::Vec3d & getPosition(int past) const;
+  cv::Matx33d & getRotation(int past) const;
 
 /**
  * Gives Back Corresponding Featurelocations between two Windows.
@@ -44,8 +46,14 @@ public:
  * Usually Window 2 is 0.
  */
   void getCorrespondingFeatures(int window1Index, int window2Index, std::vector<cv::Point2f>& features1,
-                                std::vector<cv::Point2f>& features2);
+                                std::vector<cv::Point2f>& features2) const;
 
-  void getCorrespondingPosition(int window1Index, int window2Index, cv::Vec3d & position1, cv::Vec3d & position2, cv::Matx33d &rotation1, cv::Matx33d &rotation2);
+  void getCorrespondingPosition(int window1Index, int window2Index, cv::Vec3d & position1, cv::Vec3d & position2, cv::Matx33d &rotation1, cv::Matx33d &rotation2) const;
   
+
+
+  unsigned int getNumberOfCurrentTrackedFeatures() const;
+
+  void removeFeatureFromCurrentWindow(const cv::Point2f & feature);
 };
+#endif //SLIDING_WINDOW_HPP

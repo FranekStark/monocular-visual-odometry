@@ -1,5 +1,7 @@
 #include "SlidingWindow.hpp"
 
+#include <ros/ros.h>
+
 SlidingWindow::SlidingWindow(int len) : _length(len), _firstWindow(nullptr), _lastWindow(nullptr)
 {
 }
@@ -8,7 +10,7 @@ SlidingWindow::~SlidingWindow()
 {
 }
 
-Window* SlidingWindow::getWindow(int past)
+Window* SlidingWindow::getWindow(int past) const
 {
   Window* window = _lastWindow;
   int cnt = 0;
@@ -65,35 +67,36 @@ void SlidingWindow::addFeaturesToCurrentWindow(std::vector<cv::Point2f> & featur
   // No Values to the Bimap, because these Features are NEW
 }
 
-std::vector<cv::Point2f>& SlidingWindow::getFeatures(int past)
+const std::vector<cv::Point2f>& SlidingWindow::getFeatures(int past) const
 {
   Window* window = getWindow(past);
   assert(window != nullptr);
   return (window->_features);
 }
 
-cv::Mat SlidingWindow::getImage(int past)
+const cv::Mat SlidingWindow::getImage(int past) const
 {
   Window* window = this->getWindow(past);
    assert(window != nullptr);
   return (window->_image);
 }
 
-const cv::Vec3d & SlidingWindow::getPosition(int past)
+cv::Vec3d & SlidingWindow::getPosition(int past) const
 {
   Window* window = this->getWindow(past);
   assert(window != nullptr);
   return (window->_position);
 }
 
-const cv::Matx33d & SlidingWindow::getRotation(int past){
+cv::Matx33d & SlidingWindow::getRotation(int past) const
+{
   Window* window = this->getWindow(past);
   assert(window != nullptr);
   return (window->_rotation);
 }
 
 void SlidingWindow::getCorrespondingFeatures(int window1Index, int window2Index, std::vector<cv::Point2f>& features1,
-                                             std::vector<cv::Point2f>& features2)
+                                             std::vector<cv::Point2f>& features2) const
 {
   if (this->getWindow(window1Index) == nullptr || this->getWindow(window2Index) == nullptr)
   {
@@ -133,7 +136,7 @@ void SlidingWindow::addTransformationToCurrentWindow(const cv::Vec3d & position,
 }
 
 void SlidingWindow::getCorrespondingPosition(int window1Index, int window2Index, cv::Vec3d& position1, cv::Vec3d& position2,
-                                             cv::Matx33d& rotation1, cv::Matx33d& rotation2)
+                                             cv::Matx33d& rotation1, cv::Matx33d& rotation2) const
 {
   Window* window1 = this->getWindow(window1Index);
   Window* window2 = this->getWindow(window2Index);
@@ -144,3 +147,21 @@ void SlidingWindow::getCorrespondingPosition(int window1Index, int window2Index,
   position2 = window2->_position;
   rotation2 = window2->_rotation;
 }
+
+unsigned int SlidingWindow::getNumberOfCurrentTrackedFeatures() const{
+  if(_lastWindow == nullptr){
+    return 0;
+  }else{
+    return _lastWindow->_features.size();
+  }
+}
+
+ void SlidingWindow::removeFeatureFromCurrentWindow(const cv::Point2f & feature){
+   for(auto windowFeature = _lastWindow->_features.begin(); windowFeature != _lastWindow->_features.end(); windowFeature++){
+    if(feature == *windowFeature){
+      unsigned int index = std::distance(_lastWindow->_features.begin(), windowFeature);
+      _lastWindow->_featuresBefore.left.erase(index);
+      ROS_INFO("Deleted\n\r");
+    }
+   }
+ }

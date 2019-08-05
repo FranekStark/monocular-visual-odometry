@@ -38,7 +38,7 @@ unsigned int EpipolarGeometry::reEstimateNumberOfIteration(unsigned int N, unsig
     return nIterations;
 }
 
-cv::Vec3d EpipolarGeometry::estimateBaseLine(const std::vector<cv::Vec3d> &mhi, const std::vector<cv::Vec3d> &mt){
+cv::Vec3d EpipolarGeometry::estimateBaseLine(const std::vector<cv::Vec3d> &mhi, const std::vector<cv::Vec3d> &mt, std::vector<unsigned int> & inlierIndexes){
   assert(mhi.size() == mt.size());
 
   unsigned int N = mt.size();  // Anzahl aller Feature-Paare
@@ -121,9 +121,10 @@ cv::Vec3d EpipolarGeometry::estimateBaseLine(const std::vector<cv::Vec3d> &mhi, 
   {
     mtSet.push_back(mt[index]);
     mhiSet.push_back(mhi[index]);
+    inlierIndexes.push_back(index);
   }
   //ROS_INFO_STREAM("Iteration " << iteration << ": Bestes Modell mit " << nBest << " und Rank: " << pBest << std::endl);
-  //ROS_INFO_STREAM("Iteration " << iteration << ": Aussortiert wurden: " << N - mtSet.size() << "Beibehalten: " << mtSet.size() << " / " << N << std::endl);
+  ROS_INFO_STREAM("Iteration " << iteration << ": Aussortiert wurden: " << N - mtSet.size() << "Beibehalten: " << mtSet.size() << " / " << N << std::endl);
   return this->calculateBaseLine(mtSet, mhiSet);
 }
 cv::Vec3d EpipolarGeometry::calculateBaseLine(const std::vector<cv::Vec3d> &mhi, const std::vector<cv::Vec3d> &mt){

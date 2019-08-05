@@ -24,5 +24,5 @@ private:
 public:
     EpipolarGeometry();
     ~EpipolarGeometry();
-    cv::Vec3d estimateBaseLine(const std::vector<cv::Vec3d> &mhi, const std::vector<cv::Vec3d> &mt);
+    cv::Vec3d estimateBaseLine(const std::vector<cv::Vec3d> &mhi, const std::vector<cv::Vec3d> &mt, std::vector<unsigned int> & inlierIndexes);
 };

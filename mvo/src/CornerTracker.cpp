@@ -9,6 +9,9 @@ CornerTracker::~CornerTracker()
 }
 
 void CornerTracker::detectFeatures(std::vector<cv::Point2f> & corner, const cv::Mat & image, int numberToDetect){
+  if(numberToDetect <= 0){
+    return;
+  }
   cv::goodFeaturesToTrack(image, corner, numberToDetect, double(0.01), double(10.0), cv::noArray(), _blockSize, bool(true),
                           _k);  // Corners berechnen TODO: More params
 
@@ -41,7 +44,7 @@ void CornerTracker::trackFeatures(const cv::Mat &prevImage, const cv::Mat &curre
   
 }
   void CornerTracker::setCornerDetectorParams(int blockSize, int aperatureSize, double k, int thresh){
-        _blockSize = blockSize;
+  _blockSize = blockSize;
   _apertureSize = aperatureSize;
   _k = k;
   _thresh = thresh;
