@@ -111,8 +111,8 @@ for(auto feature = thisCorespFeatures.begin(); feature != thisCorespFeatures.end
   if(_frameCounter > 1){//IterativeRefinemen -> Scale Estimation?
     std::vector<cv::Point2f> thisFirsCorespFeatures, beforeFirstCorepsFeatures;
     std::vector<cv::Vec3d> thisFirstCorespFeaturesE, beforeFirstCorespFeaturesE;
-    _slidingWindow.getCorrespondingFeatures(2,0, beforeFirstCorepsFeatures, thisFirsCorespFeatures);
-    const cv::Vec3d & shi = _slidingWindow.getPosition(2);
+    _slidingWindow.getCorrespondingFeatures(1,0, beforeFirstCorepsFeatures, thisFirsCorespFeatures);
+    const cv::Vec3d & shi = _slidingWindow.getPosition(1);
     cv::Vec3d st = _slidingWindow.getPosition(1) + b;
     //
     auto rhi = _slidingWindow.getRotation(1);
@@ -123,7 +123,7 @@ for(auto feature = thisCorespFeatures.begin(); feature != thisCorespFeatures.end
     _slidingWindow.addTransformationToCurrentWindow(st, R);
     ROS_INFO_STREAM("new ST: " << st << std::endl);
    // b = st - shi; //For Debug
-    this->drawDebugImage(st - _slidingWindow.getPosition(2), _debugImage, cv::Scalar(0,0,255));
+    this->drawDebugImage(st - _slidingWindow.getPosition(1), _debugImage, cv::Scalar(0,0,255));
   }else{
     _slidingWindow.addTransformationToCurrentWindow(_slidingWindow.getPosition(1) + sign * b, R);
   }
@@ -205,7 +205,7 @@ bool MVO::checkEnoughDisparity(const std::vector<cv::Point2f> & first, const std
   }
   diff = diff / first.size();
   //
-  return diff > 80; //TODO: Thresh
+  return diff > 40; //TODO: Thresh
 }
 
 void MVO::unrotateFeatures(const std::vector<cv::Vec3d> & features, std::vector<cv::Vec3d> & unrotatedFeatures, const cv::Matx33d & R){

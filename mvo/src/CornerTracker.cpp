@@ -8,11 +8,14 @@ CornerTracker::~CornerTracker()
 {
 }
 
-void CornerTracker::detectFeatures(std::vector<cv::Point2f> & corner, const cv::Mat & image, int numberToDetect){
-  if(numberToDetect <= 0){
+void CornerTracker::detectFeatures(std::vector<cv::Point2f> &corner, const cv::Mat &image, int numberToDetect)
+{
+  if (numberToDetect <= 0)
+  {
     return;
   }
-  cv::goodFeaturesToTrack(image, corner, numberToDetect, double(0.10), double(10.0), cv::noArray(), _blockSize, bool(true),
+  cv::goodFeaturesToTrack(image, corner, numberToDetect, double(0.10), double(10.0), cv::noArray(), _blockSize,
+                          bool(true),
                           _k);  // Corners berechnen TODO: More params -> especially the detection Quality
 
   // Subpixel-genau:
@@ -26,8 +29,9 @@ void CornerTracker::detectFeatures(std::vector<cv::Point2f> & corner, const cv::
   }
 }
 
-void CornerTracker::trackFeatures(const cv::Mat &prevImage, const cv::Mat &currentImage, const std::vector<cv::Point2f> &prevFeatures,
-                     std::vector<cv::Point2f> &trackedFeatures, std::vector<unsigned char> &found)
+void CornerTracker::trackFeatures(const cv::Mat &prevImage, const cv::Mat &currentImage,
+                                  const std::vector<cv::Point2f> &prevFeatures,
+                                  std::vector<cv::Point2f> &trackedFeatures, std::vector<unsigned char> &found)
 {
   std::vector<cv::Mat> nowPyramide;
   std::vector<cv::Mat> prevPyramide;
@@ -41,11 +45,11 @@ void CornerTracker::trackFeatures(const cv::Mat &prevImage, const cv::Mat &curre
   // TODO: Handle Case, when no before Features!
   std::vector<float> error;
   cv::calcOpticalFlowPyrLK(prevPyramide, nowPyramide, prevFeatures, trackedFeatures, found, error);  // TODO: more
-  
 }
-  void CornerTracker::setCornerDetectorParams(int blockSize, int aperatureSize, double k, int thresh){
+void CornerTracker::setCornerDetectorParams(int blockSize, int aperatureSize, double k, int thresh)
+{
   _blockSize = blockSize;
   _apertureSize = aperatureSize;
   _k = k;
   _thresh = thresh;
-  }
+}
