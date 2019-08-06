@@ -1,6 +1,6 @@
 #include "CornerTracker.hpp"
 
-CornerTracker::CornerTracker() : _blockSize(2), _apertureSize(3), _k(0.04), _thresh(200)
+CornerTracker::CornerTracker() : _blockSize(2), _apertureSize(3), _k(0.02), _thresh(200)
 {
 }
 
@@ -12,8 +12,8 @@ void CornerTracker::detectFeatures(std::vector<cv::Point2f> & corner, const cv::
   if(numberToDetect <= 0){
     return;
   }
-  cv::goodFeaturesToTrack(image, corner, numberToDetect, double(0.01), double(10.0), cv::noArray(), _blockSize, bool(true),
-                          _k);  // Corners berechnen TODO: More params
+  cv::goodFeaturesToTrack(image, corner, numberToDetect, double(0.10), double(10.0), cv::noArray(), _blockSize, bool(true),
+                          _k);  // Corners berechnen TODO: More params -> especially the detection Quality
 
   // Subpixel-genau:
   if (corner.size() > 0)

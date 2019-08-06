@@ -5,6 +5,7 @@
 #include <random>
 MVO::MVO() : _slidingWindow(5), _frameCounter(0)
 {
+  
 }
 
 MVO::~MVO()
@@ -100,16 +101,18 @@ for(auto feature = thisCorespFeatures.begin(); feature != thisCorespFeatures.end
 
    if(sign<0){
      sign = -1;
+     b = -1.0 *b;
    }else{
      sign = 1;
    }
+   sign = 1.0;
 
   
   if(_frameCounter > 1){//IterativeRefinemen -> Scale Estimation?
     std::vector<cv::Point2f> thisFirsCorespFeatures, beforeFirstCorepsFeatures;
     std::vector<cv::Vec3d> thisFirstCorespFeaturesE, beforeFirstCorespFeaturesE;
-    _slidingWindow.getCorrespondingFeatures(1,0, beforeFirstCorepsFeatures, thisFirsCorespFeatures);
-    const cv::Vec3d & shi = _slidingWindow.getPosition(1);
+    _slidingWindow.getCorrespondingFeatures(2,0, beforeFirstCorepsFeatures, thisFirsCorespFeatures);
+    const cv::Vec3d & shi = _slidingWindow.getPosition(2);
     cv::Vec3d st = _slidingWindow.getPosition(1) + b;
     //
     auto rhi = _slidingWindow.getRotation(1);
@@ -120,7 +123,7 @@ for(auto feature = thisCorespFeatures.begin(); feature != thisCorespFeatures.end
     _slidingWindow.addTransformationToCurrentWindow(st, R);
     ROS_INFO_STREAM("new ST: " << st << std::endl);
    // b = st - shi; //For Debug
-    this->drawDebugImage(st - _slidingWindow.getPosition(1), _debugImage, cv::Scalar(0,0,255));
+    this->drawDebugImage(st - _slidingWindow.getPosition(2), _debugImage, cv::Scalar(0,0,255));
   }else{
     _slidingWindow.addTransformationToCurrentWindow(_slidingWindow.getPosition(1) + sign * b, R);
   }

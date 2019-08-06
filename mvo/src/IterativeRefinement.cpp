@@ -2,6 +2,8 @@
 
 #include <ros/ros.h>
 
+#include <limits>
+
 // TODO: FROM: https://nghiaho.com/?page_id=355
 
 IterativeRefinement::IterativeRefinement(){}
@@ -16,17 +18,37 @@ double IterativeRefinement::Func(const Input &input, const double & a, const dou
   return input.mt.dot(input.Rt.t() * (input.sign * scale * baseLine).cross(input.Rhi * input.mhi));
 }
 
-// double IterativeRefinement::DeriveA(const Input &input, const double & a, const double & b, const double & t){
+double IterativeRefinement::DeriveA(const Input &input, const double & a, const double & b, const double & t){
+  cv::Vec3d baseLine(1.0 - a*a - b*b, 2.0 * a, 2.0 * b);
+  cv::Vec3d baseLineDerive(-2.0 * a, 2.0, 0);
 
-// }
+  double baseLineNormer = 1.0 / (1.0+a*a+b*b);
+  double baseLineDerivNormer = (-2.0*a) / ((a*a + b*b + 1) * (a*a + b*b + 1));
+  double scale = LOW_VALUE + ((HIGH_VALUE - LOW_VALUE)/(1.0+std::exp(-1.0 * t)));
 
-// double IterativeRefinement::DeriveB(const Input &input, const double & a, const double & b, const double & t){
+  return input.mt.dot(input.Rt.t() * (input.sign * scale * (baseLineDerive * baseLineNormer + baseLine * baseLineDerivNormer)).cross(input.Rhi * input.mhi));
+}
 
-// }
+double IterativeRefinement::DeriveB(const Input &input, const double & a, const double & b, const double & t){
+  cv::Vec3d baseLine(1.0 - a*a - b*b, 2.0 * a, 2.0 * b);
+  cv::Vec3d baseLineDerive(-2.0 * b, 0, 2.0);
 
-// double IterativeRefinement::DeriveT(const Input &input, const double & a, const double & b, const double & t){
+  double baseLineNormer = 1.0 / (1.0+a*a+b*b);
+  double baseLineDerivNormer = (-2.0*b) / ((a*a + b*b + 1) * (a*a + b*b + 1));
+  double scale = LOW_VALUE + ((HIGH_VALUE - LOW_VALUE)/(1.0+std::exp(-1.0 * t)));
 
-// }
+  return input.mt.dot(input.Rt.t() * (input.sign * scale * (baseLineDerive * baseLineNormer + baseLine * baseLineDerivNormer)).cross(input.Rhi * input.mhi));
+}
+
+double IterativeRefinement::DeriveT(const Input &input, const double & a, const double & b, const double & t){
+   cv::Vec3d baseLine(1.0 - a*a - b*b, 2.0 * a, 2.0 * b);
+  double baseLineNormer = 1.0 / (1.0+a*a+b*b);
+ 
+  double scale = std::exp(-1.0 * t)*(HIGH_VALUE - LOW_VALUE)/std::pow((1.0+std::exp(-1.0 * t)),2);
+
+  return input.mt.dot(input.Rt.t() * (input.sign * scale * (baseLineNormer * baseLine )).cross(input.Rhi * input.mhi));
+
+}
 
 double IterativeRefinement::Deriv(const Input &input,
                                  const double & a, const double & b, const double & t, unsigned int n)
@@ -67,23 +89,10 @@ double IterativeRefinement::Deriv(const Input &input,
   return d;
 }
 
-void IterativeRefinement::GaussNewton(const std::vector<cv::Vec3d> & mt, const cv::Matx33d & Rt, const std::vector<cv::Vec3d> & mhi, const cv::Matx33d & Rhi, const double &sign, double & a, double &b, double & t)
-{
+void IterativeRefinement::CreateJacobianAndFunction(cv::Mat & J, cv::Mat & F, const std::vector<cv::Vec3d> & mt, const cv::Matx33d & Rt, const std::vector<cv::Vec3d> & mhi, const cv::Matx33d & Rhi, const double &sign, const double & a, const double & b, const double & t){
   assert(mt.size() == mhi.size());
-  int k = 2; //Three Params
   int n = mt.size();
-  cv::Mat delta;
-
-  cv::Mat J(n, k, CV_64F);  // Jacobian of Func()
-  cv::Mat f(n, 1, CV_64F);  // f
-
-  do
-  {
-    /**
-     * Generate Jacobi and F
-     */
-    // at(row, col)
-    for (int i = 0; i < n; i++)
+  for (int i = 0; i < n; i++)
     {
       const Input input{
         mt[i],
@@ -93,23 +102,117 @@ void IterativeRefinement::GaussNewton(const std::vector<cv::Vec3d> & mt, const c
         sign
       };
 
-      f.at<double>(i, 0) = (this->Func(input, a,b,t));
-      for (int j = 0; j < k; j++)
-      {
-        J.at<double>(i, j) = Deriv(input, a,b,t,j);
-      }
+      
+       F.at<double>(i, 0) = (this->Func(input, a,b,t));
+       J.at<double>(i, 0) = this->DeriveA(input, a, b, t);
+       J.at<double>(i, 1) = this->DeriveB(input, a, b, t);
+       J.at<double>(i, 2) = this->DeriveT(input, a, b, t);
+    }
+}
+
+cv::Mat IterativeRefinement::CreateFunction(const std::vector<cv::Vec3d> & mt, const cv::Matx33d & Rt, const std::vector<cv::Vec3d> & mhi, const cv::Matx33d & Rhi, const double &sign, const double & a, const double & b, const double & t){
+  assert(mt.size() == mhi.size());
+  int n = mt.size();
+   cv::Mat f(n, 1, CV_64F); 
+  for (int i = 0; i < n; i++)
+    {
+      const Input input{
+        mt[i],
+        Rt,
+        mhi[i],
+        Rhi,
+        sign
+      };
+
+      
+       f.at<double>(i, 0) = (this->Func(input, a,b,t));
     }
 
-    //J'*J * d = -J'*f 
+    return f;
+}
 
-    cv::solve(J.t()*J, (-1 * J.t()) * f, delta, cv::DECOMP_NORMAL);
-    //ROS_INFO_STREAM("delta: " << delta << std::endl);
-    //delta = -(J.t()+J).inv()*J.t()*f;
-    a += delta.at<double>(0,0);
-    b += delta.at<double>(1,0);
-    //t += delta.at<double>(2,0);
-    ROS_INFO_STREAM("delta: " << delta << std::endl);
-  } while (cv::norm(delta) > THRESHOLD);
+
+void IterativeRefinement::GaussNewton(const std::vector<cv::Vec3d> & mt, const cv::Matx33d & Rt, const std::vector<cv::Vec3d> & mhi, const cv::Matx33d & Rhi, const double &sign, double & a, double &b, double & t)
+{
+  assert(mt.size() == mhi.size());
+  int n = mt.size();
+
+  /*params */
+  double tau = 0.001;
+  double epsilon1, epsilon2, epsilon3, epsilon4;
+  epsilon1 = epsilon2 = epsilon3 = 10.0E-12;
+  epsilon4 = 0;
+  unsigned int kmax = 100;
+
+
+  cv::Mat delta;
+
+  cv::Mat J(n, 3, CV_64F);  // Jacobian of Func()
+  cv::Mat f(n, 1, CV_64F);  // f
+
+ 
+    this->CreateJacobianAndFunction(J,f,mt, Rt, mhi, Rhi, sign,a,b,t);
+
+    //ROS_INFO_STREAM("J: " << J << std::endl << "f: " << f << std::endl); 
+
+    auto gradient = J.t() * f;
+    auto A = J.t()*J;
+    ROS_INFO_STREAM("gradient: " << gradient << std::endl);
+    double mue = std::numeric_limits<double>::min(); //Finding Max in Diagonal
+    for(int i = 0; i < A.size().height; i++){
+      double value = cv::Mat(A).at<double>(i,i);
+      if(value > mue){
+        mue = value;
+      }
+    }
+    mue = mue * tau;
+
+  bool stop = (cv::norm(gradient,cv::NormTypes::NORM_INF) <= epsilon1);
+  unsigned int k = 0;
+  int v = 2;
+  while(!stop && (k < kmax))
+  {
+    k++;
+    double rho = 0;
+    do
+    {
+      cv::solve(A + mue*cv::Mat::eye(3,3,CV_64F), gradient, delta, cv::DECOMP_QR);  
+      
+      if(cv::norm(delta, cv::NormTypes::NORM_L2) <= epsilon2*(cv::norm(cv::Vec3d(a,b,t),cv::NormTypes::NORM_L2)+epsilon2)){
+        stop = true;
+      }
+      else
+       {
+        double aNew = a + delta.at<double>(0,0);
+        double bNew = b + delta.at<double>(1,0);
+        double tNew = t + delta.at<double>(2,0);tNew
+        ROS_INFO_STREAM("delta: " << delta << sttNew
+        cv::Mat fNew = this->CreateFunction(mt, tNew
+        rho = (cv::norm(f, cv::NormTypes::NORM_LtNewR)) / cv::Mat(delta.t()*(mue*delta + gradient)).at<double>(0,0); //TODO: DEBUG HERE -> rho ist immer null
+        if(rho > 0){
+          stop = ((cv::norm(f, cv::NormTypes::NORM_L2)-cv::norm(fNew, cv::NormTypes::NORM_L2)) < (epsilon4 * cv::norm(f, cv::NormTypes::NORM_L2)));
+          a = aNew;
+          b = bNew;
+          t = tNew;
+          ROS_INFO_STREAM("Set Params" << std::endl);
+          
+          this->CreateJacobianAndFunction(J,f,mt, Rt, mhi, Rhi, sign,a,b,t);
+          //ROS_INFO_STREAM("J: " << J << std::endl << "f: " << f << std::endl); 
+          gradient = J.t() * f;
+          A = J.t()*J;
+
+          stop = stop || (cv::norm(gradient,cv::NormTypes::NORM_INF) <= epsilon1);
+          mue = mue * std::max(1.0/3.0, 1.0 - std::pow(2.0*rho-1, 3));
+        }
+        else
+        {
+          mue = mue * v;
+          v = 2 * v;
+        }
+      }
+    } while (rho<=0 && !stop);
+    stop = (cv::norm(f, cv::NormTypes::NORM_L2) <= epsilon3);
+  } 
 }
 
 void IterativeRefinement::iterativeRefinement(const std::vector<cv::Vec3d> & mt, const cv::Matx33d & Rt, const std::vector<cv::Vec3d> & mhi, const cv::Matx33d & Rhi, const cv::Vec3d & shi, cv::Vec3d & st, const double & sign){
