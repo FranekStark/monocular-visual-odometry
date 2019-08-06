@@ -15,6 +15,9 @@ private:
     const cv::Vec3d & mhi;
     const cv::Matx33d & Rhi;
     const double & sign;
+    const double xBefore;
+    const double yBefore;
+    const double zBefore;
   };
 
 
@@ -24,11 +27,13 @@ private:
   double DeriveT(const Input &input, const double & a, const double & b, const double & t);
 
 
- void CreateJacobianAndFunction(cv::Mat & J, cv::Mat & F, const std::vector<cv::Vec3d> & mt, const cv::Matx33d & Rt, const std::vector<cv::Vec3d> & mhi, const cv::Matx33d & Rhi, const double &sign, const double & a, const double & b, const double & t);
- cv::Mat CreateFunction(const std::vector<cv::Vec3d> & mt, const cv::Matx33d & Rt, const std::vector<cv::Vec3d> & mhi, const cv::Matx33d & Rhi, const double &sign, const double & a, const double & b, const double & t);
+ void CreateJacobianAndFunction(cv::Mat & J, cv::Mat & F, const std::vector<cv::Vec3d> & mt, const cv::Matx33d & Rt, const std::vector<cv::Vec3d> & mhi, const cv::Matx33d & Rhi, const double &sign, const double & a, const double & b, const double & t,const double &x, const double &y, const double &z);
+ cv::Mat CreateFunction(const std::vector<cv::Vec3d> & mt, const cv::Matx33d & Rt, const std::vector<cv::Vec3d> & mhi, const cv::Matx33d & Rhi, const double &sign, const double & a, const double & b, const double & t,const double &x, const double &y, const double &z);
 
   double Deriv(const Input &input, const double & a, const double & b, const double & t, unsigned int n);
-  void GaussNewton(const std::vector<cv::Vec3d> & mt, const cv::Matx33d & Rt, const std::vector<cv::Vec3d> & mhi, const cv::Matx33d & Rhi, const double &sign, double & a, double &b, double & t);
+  void GaussNewton(const std::vector<cv::Vec3d> & mt, const cv::Matx33d & Rt, const std::vector<cv::Vec3d> & mhi, const cv::Matx33d & Rhi, const double &sign, double & a, double &b, double & t, double &x, double &y, double &z);
+
+  cv::Vec3d CalculateEstimatedBaseLine(const double & a, const double & b, const double &x, const double &y, const double &z);
 
 public:
   IterativeRefinement();
