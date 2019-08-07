@@ -19,9 +19,10 @@ cv::Vec3d IterativeRefinement::CalculateEstimatedBaseLine(const double &a, const
   cv::Vec3d baseLine(1.0 - a * a - b * b, 2.0 * a, 2.0 * b);
   baseLine = baseLine / (1.0 + a * a + b * b);
   cv::Vec3d baseLineL;
-  baseLineL(0) = y * baseLine(2) - z * baseLine(1);
-  baseLineL(1) = z * baseLine(0) - x * baseLine(2);
-  baseLineL(2) = x * baseLine(1) - y * baseLine(0);
+                                                                   //TODO: faste Computation!
+  baseLineL(0) = x * baseLine(0) - y * baseLine(1) - z * baseLine(2);
+  baseLineL(1) = x * baseLine(1) + y * baseLine(0);
+  baseLineL(2) = x * baseLine(2) + z * baseLine(0);
   return baseLineL;
 }
 
@@ -188,7 +189,6 @@ void IterativeRefinement::GaussNewton(const std::vector<cv::Vec3d> &mt, const cv
     do
     {
       cv::solve(A + mue * cv::Mat::eye(3, 3, CV_64F), gradient, delta, cv::DECOMP_QR);
-
       if (cv::norm(delta, cv::NormTypes::NORM_L2) <=
           epsilon2 * (cv::norm(cv::Vec3d(a, b, t), cv::NormTypes::NORM_L2) + epsilon2))
       {
@@ -208,13 +208,14 @@ void IterativeRefinement::GaussNewton(const std::vector<cv::Vec3d> &mt, const cv
           stop = ((cv::norm(f, cv::NormTypes::NORM_L2) - cv::norm(fNew, cv::NormTypes::NORM_L2)) <
                   (epsilon4 * cv::norm(f, cv::NormTypes::NORM_L2)));
 
-          auto newBaseLineEstimation = this->CalculateEstimatedBaseLine(a, b, x, y, z);
+          auto newBaseLineEstimation = this->CalculateEstimatedBaseLine(aNew, bNew, x, y, z);
           a = 0;
           b = 0;
           t = tNew;
           x = newBaseLineEstimation(0);
           y = newBaseLineEstimation(1);
           z = newBaseLineEstimation(2);
+
 
           this->CreateJacobianAndFunction(J, f, mt, Rt, mhi, Rhi, sign, a, b, t, x, y, z);
           // ROS_INFO_STREAM("J: " << J << std::endl << "f: " << f << std::endl);
@@ -267,7 +268,8 @@ void IterativeRefinement::iterativeRefinement(const std::vector<cv::Vec3d> &mt, 
   // }
 
   // ROS_INFO_STREAM("Before: a: " << a << ", b: " << b << ", t: " << t << std::endl);
-  // ROS_INFO_STREAM("Before Bas_Line(x,y,z): " << baseLine << std::endl);
+  ROS_INFO_STREAM("Before BaseLine(x,y,z): " << baseLine << std::endl);
+  ROS_INFO_STREAM("Before Scale(t): " << scale  << std::endl);
   // ROS_INFO_STREAM("-> Before Base_Line(a,b): "
   //                 << cv::Vec3d(1.0 - a * a - b * b, 2.0 * a, 2.0 * b) / (1.0 + a * a + b * b) << std::endl);
   // ROS_INFO_STREAM("-> Before Scale(a,b): " << LOW_VALUE + ((HIGH_VALUE - LOW_VALUE) / (1 + std::exp(-t))) <<
@@ -285,16 +287,16 @@ void IterativeRefinement::iterativeRefinement(const std::vector<cv::Vec3d> &mt, 
   // x = 1.0 - a * a - b * b;
   // y = 2.0 * a;
   // z = 2.0 * b;
-
   baseLine(0) = x;
   baseLine(1) = y;
   baseLine(2) = z;
 
   // baseLine = baseLine / (1.0 + a * a + b * b);
 
-  // scale = LOW_VALUE + ((HIGH_VALUE - LOW_VALUE) / (1 + std::exp(-t)));
-
+  scale = LOW_VALUE + ((HIGH_VALUE - LOW_VALUE) / (1 + std::exp(-t)));
+  ROS_INFO_STREAM("After BaseLine(x,y,z): " << baseLine << std::endl);
+  ROS_INFO_STREAM("Afer Scale(t): " << scale  << std::endl);
   baseLine = baseLine * scale;
-
+  
   st = shi + sign * baseLine;
 }

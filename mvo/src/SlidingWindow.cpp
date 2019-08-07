@@ -161,7 +161,6 @@ unsigned int SlidingWindow::getNumberOfCurrentTrackedFeatures() const{
     if(feature == *windowFeature){
       unsigned int index = std::distance(_lastWindow->_features.begin(), windowFeature);
       _lastWindow->_featuresBefore.left.erase(index);
-      ROS_INFO("Deleted\n\r");
     }
    }
  }
