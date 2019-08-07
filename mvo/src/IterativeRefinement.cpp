@@ -6,7 +6,7 @@
 
 // TODO: FROM: https://nghiaho.com/?page_id=355
 
-IterativeRefinement::IterativeRefinement()
+IterativeRefinement::IterativeRefinement(SlidingWindow slidingWindow): _slidingWindow(slidingWindow)
 {
 }
 IterativeRefinement::~IterativeRefinement()
@@ -110,7 +110,7 @@ double IterativeRefinement::Deriv(const Input &input, const double &a, const dou
   return d;
 }
 
-void IterativeRefinement::CreateJacobianAndFunction(cv::Mat &J, cv::Mat &F, const std::vector<cv::Vec3d> &mt,
+void IterativeRefinement::CreateJacobianAndFunction(cv::Mat J, cv::Mat F, const std::vector<cv::Vec3d> &mt,
                                                     const cv::Matx33d &Rt, const std::vector<cv::Vec3d> &mhi,
                                                     const cv::Matx33d &Rhi, const double &sign, const double &a,
                                                     const double &b, const double &t, const double &x, const double &y,
@@ -148,15 +148,40 @@ cv::Mat IterativeRefinement::CreateFunction(const std::vector<cv::Vec3d> &mt, co
   return f;
 }
 
+void IterativeRefinement::CreateMultiJacobianAndFunction(cv::Mat J, cv::Mat F, const std::vector<RefinementData> & data){
+  unsigned int nSamplesBefore = 0;
+  for(unsigned int i = 0; i < data.size(); i++){ //TODO: Faster Access
+    unsigned int nSamples = data[i].mhi.size();
+    double sign = 1.0; //TODO: fake sign
+    this->CreateJacobianAndFunction(J.colRange(i*3, (i*3)+3).rowRange(nSamplesBefore, nSamplesBefore + nSamples), F.rowRange(nSamplesBefore, nSamplesBefore + nSamples), 
+    data[i].mt, data[i].Rt, data[i].mhi, data[i].Rhi, sign, data[i].a, data[i].b, data[i].t, data[i].x, data[i].y, data[i].z);
+    nSamplesBefore += nSamples;
+  }
+}
+cv::Mat IterativeRefinement::CreateMultiFunction(const std::vector<RefinementData> & data, cv::Mat newParams){
+  cv::Mat f(0,1,CV_64F);
+  for(unsigned int i = 0; i < data.size(); i++){ //TODO: Faster Access
+    double sign = 1.0; //TODO: fake sign
+    f.push_back(this->CreateFunction(data[i].mt, data[i].Rt, data[i].mhi, data[i].Rhi, sign, newParams.at<double>(3 * i + 0),newParams.at<double>(3*i + 1),newParams.at<double>(3 * i + 2), data[i].x, data[i].y, data[i].z));
+
+  }
+}
+
+cv::Mat IterativeRefinement::GetAllParamsValues(std::vector<RefinementData> & data){
+  std::vector<double> params;
+  for(auto d: data){
+    params.push_back(d.a);
+    params.push_back(d.b);
+    params.push_back(d.t);
+  }
+
+  return cv::Mat(params);
+}
+
 /*Isn't Gauss-Newotn! -> It's now Levemberg Marquardt... */
 // TODO: From https://www.mrpt.org/Levenberg-Marquardt_algorithm
-void IterativeRefinement::GaussNewton(const std::vector<cv::Vec3d> &mt, const cv::Matx33d &Rt,
-                                      const std::vector<cv::Vec3d> &mhi, const cv::Matx33d &Rhi, const double &sign,
-                                      double &a, double &b, double &t, double &x, double &y, double &z)
+void IterativeRefinement::GaussNewton(std::vector<RefinementData> & data)
 {
-  assert(mt.size() == mhi.size());
-  int n = mt.size();
-
   /*params */
   double tau = 10E-3;
   double epsilon1, epsilon2, epsilon3, epsilon4;
@@ -166,12 +191,15 @@ void IterativeRefinement::GaussNewton(const std::vector<cv::Vec3d> &mt, const cv
 
   cv::Mat delta;
 
-  cv::Mat J(n, 3, CV_64F);  // Jacobian of Func()
+  unsigned int n;
+  for(auto d : data){
+    n += d.mhi.size();
+  }
+
+  cv::Mat J(n, 3 * data.size(), CV_64F);  // Jacobian of Func()
   cv::Mat f(n, 1, CV_64F);  // f
-
-  this->CreateJacobianAndFunction(J, f, mt, Rt, mhi, Rhi, sign, a, b, t, x, y, z);
-
-  // ROS_INFO_STREAM("J: " << J << std::endl << "f: " << f << std::endl);
+  
+  this->CreateMultiJacobianAndFunction(J,f,data);
 
   cv::Mat gradient = J.t() * f;
   cv::Mat A = J.t() * J;
@@ -190,16 +218,15 @@ void IterativeRefinement::GaussNewton(const std::vector<cv::Vec3d> &mt, const cv
     {
       cv::solve(A + mue * cv::Mat::eye(3, 3, CV_64F), gradient, delta, cv::DECOMP_QR);
       if (cv::norm(delta, cv::NormTypes::NORM_L2) <=
-          epsilon2 * (cv::norm(cv::Vec3d(a, b, t), cv::NormTypes::NORM_L2) + epsilon2))
+          epsilon2 * (cv::norm(this->GetAllParamsValues(data), cv::NormTypes::NORM_L2) + epsilon2))
       {
         stop = true;
       }
       else
       {
-        double aNew = a + delta.at<double>(0, 0);
-        double bNew = b + delta.at<double>(1, 0);
-        double tNew = t + delta.at<double>(2, 0);
-        cv::Mat fNew = this->CreateFunction(mt, Rt, mhi, Rhi, sign, aNew, bNew, tNew, x, y, z);
+        cv::Mat params = this->GetAllParamsValues(data);
+        cv::Mat newParams = params + delta;
+        cv::Mat fNew = this->CreateMultiFunction(data, newParams);
 
         rho = (cv::norm(f, cv::NormTypes::NORM_L2SQR) - cv::norm(fNew, cv::NormTypes::NORM_L2SQR)) /
               (0.5 * cv::Mat(delta.t() * ((mue * delta) - gradient)).at<double>(0, 0));
@@ -208,16 +235,22 @@ void IterativeRefinement::GaussNewton(const std::vector<cv::Vec3d> &mt, const cv
           stop = ((cv::norm(f, cv::NormTypes::NORM_L2) - cv::norm(fNew, cv::NormTypes::NORM_L2)) <
                   (epsilon4 * cv::norm(f, cv::NormTypes::NORM_L2)));
 
-          auto newBaseLineEstimation = this->CalculateEstimatedBaseLine(aNew, bNew, x, y, z);
-          a = 0;
-          b = 0;
-          t = tNew;
-          x = newBaseLineEstimation(0);
-          y = newBaseLineEstimation(1);
-          z = newBaseLineEstimation(2);
+
+          //TODO: entkoppel params
+          for(unsigned int i = 0; i < data.size(); i++){
+            auto newBaseLineEstimation = this->CalculateEstimatedBaseLine(newParams.at<double>(3 * i + 0), newParams.at<double>(3 * i + 1), data[i].x, data[i].y, data[i].z);
+            data[i].a = 0;
+            data[i].b = 0;
+            data[i].t = newParams.at<double>(3 * i + 2);
+            data[i].x = newBaseLineEstimation(0);
+            data[i].y = newBaseLineEstimation(1);
+            data[i].z = newBaseLineEstimation(2);
+          }
+          
+          
 
 
-          this->CreateJacobianAndFunction(J, f, mt, Rt, mhi, Rhi, sign, a, b, t, x, y, z);
+          this->CreateMultiJacobianAndFunction(J,f,data);
           // ROS_INFO_STREAM("J: " << J << std::endl << "f: " << f << std::endl);
           gradient = J.t() * f;
           A = J.t() * J;
@@ -299,4 +332,28 @@ void IterativeRefinement::iterativeRefinement(const std::vector<cv::Vec3d> &mt, 
   baseLine = baseLine * scale;
   
   st = shi + sign * baseLine;
+}
+
+void IterativeRefinement::refine(unsigned int n){
+  std::vector<RefinementData> data(n);
+
+  for(unsigned int i = 0; i < n; i++){
+    cv::Vec3d & stNow = _slidingWindow.getPosition(i);
+    cv::Vec3d & stBefore = _slidingWindow.getPosition(i+1);
+    double norm = cv::norm(stNow - stBefore, cv::NormTypes::NORM_L2);
+    cv::Vec3d baseLine = (stNow - stBefore) / norm; 
+    data[i].a = 0;
+    data[i].b = 0;
+    data[i].t = -1.0 * std::log((HIGH_VALUE - norm) / (norm - LOW_VALUE));
+    data[i].x = baseLine(0);
+    data[i].y = baseLine(1);
+    data[i].z = baseLine(2);
+    data[i].Rhi = _slidingWindow.getRotation(n+1);
+    data[i].Rt = _slidingWindow.getRotation(n);
+    _slidingWindow.getCorrespondingFeatures(n+1,n, data[i].mhi, data[i].mt);
+  }
+
+
+
+  
 }

@@ -20,9 +20,11 @@ OdomData MVO::handleImage(const cv::Mat image, const image_geometry::PinholeCame
   if(_frameCounter == 0){
      //
      std::vector<cv::Point2f> newFeatures(_NUMBEROFFEATURES);
+     std::vector<cv::Vec3d> newFeaturesE;
+     this->euclidNormFeatures(newFeatures, newFeaturesE, cameraModel);
     _cornerTracker.detectFeatures(newFeatures, image, _NUMBEROFFEATURES);
-    _slidingWindow.newWindow(std::vector<cv::Point2f>(), std::vector<uchar>(), image); //First Two are Dummies
-    _slidingWindow.addFeaturesToCurrentWindow(newFeatures); //all, because first Frame
+    _slidingWindow.newWindow(std::vector<cv::Point2f>(), std::vector<cv::Vec3d>(),std::vector<uchar>(), image); //First Two are Dummies
+    _slidingWindow.addFeaturesToCurrentWindow(newFeatures, newFeaturesE); //all, because first Frame
     _slidingWindow.addTransformationToCurrentWindow(b, R);
 
     this->drawDebugPoints(newFeatures, cv::Scalar(0,0,255), _debugImage);
@@ -31,12 +33,15 @@ OdomData MVO::handleImage(const cv::Mat image, const image_geometry::PinholeCame
    const std::vector<cv::Point2f> & prevFeatures = _slidingWindow.getFeatures(0);
    cv::Mat prevImage = _slidingWindow.getImage(0);
    std::vector<cv::Point2f> trackedFeatures;
+   std::vector<cv::Vec3d> trackedFeaturesE;
    std::vector<unsigned char> found;
    //
    _cornerTracker.trackFeatures(prevImage, image, prevFeatures, trackedFeatures, found);
    //
 
-   this->drawDebugPoints(trackedFeatures, cv::Scalar(0,255,0), _debugImage);
+  this->euclidNormFeatures(trackedFeatures, trackedFeaturesE, cameraModel);
+
+   this->drawDebugPoints(trackedFeatures, cv::Scalar(0,255,0), _debugImage); //TODO: use normed?
     if(!(this->checkEnoughDisparity(trackedFeatures, prevFeatures))){
     OdomData od;
      od.b = b;
@@ -44,7 +49,7 @@ OdomData MVO::handleImage(const cv::Mat image, const image_geometry::PinholeCame
      return od;
     }
     
-   _slidingWindow.newWindow(trackedFeatures, found, image);
+   _slidingWindow.newWindow(trackedFeatures, trackedFeaturesE, found, image);
 
   int neededFeatures = _NUMBEROFFEATURES - _slidingWindow.getNumberOfCurrentTrackedFeatures();
   //ROS_INFO_STREAM("Current: " << _slidingWindow.getNumberOfCurrentTrackedFeatures() << std::endl);
@@ -53,18 +58,17 @@ OdomData MVO::handleImage(const cv::Mat image, const image_geometry::PinholeCame
   _cornerTracker.detectFeatures(newFeatures, image, neededFeatures);
    
    this->sortOutSameFeatures(trackedFeatures, newFeatures);
-   _slidingWindow.addFeaturesToCurrentWindow(newFeatures);
+   std::vector<cv::Vec3d> newFeaturesE;
+   this->euclidNormFeatures(newFeatures, newFeaturesE, cameraModel);
+   _slidingWindow.addFeaturesToCurrentWindow(newFeatures, newFeaturesE);
 
    this->drawDebugPoints(newFeatures, cv::Scalar(0,0,255), _debugImage);
 
   cv::Matx33d rBefore = _slidingWindow.getRotation(1);
   cv::Matx33d rDiff = rBefore.t() * R; //Difference Rotation
   //
-  std::vector<cv::Point2f> thisCorespFeatures, beforeCorespFeatures;
   std::vector<cv::Vec3d> thisCorespFeaturesE, beforeCorespFeaturesE;
-  _slidingWindow.getCorrespondingFeatures(1,0,beforeCorespFeatures, thisCorespFeatures);
-  this->euclidNormFeatures(thisCorespFeatures, thisCorespFeaturesE, cameraModel);
-  this->euclidNormFeatures(beforeCorespFeatures, beforeCorespFeaturesE,cameraModel);
+  _slidingWindow.getCorrespondingFeatures(1,0,beforeCorespFeaturesE, thisCorespFeaturesE);
   std::vector<cv::Vec3d> thisCorespFeaturesEUnrotate;
   this->unrotateFeatures(thisCorespFeaturesE, thisCorespFeaturesEUnrotate, rDiff);
 
@@ -72,8 +76,8 @@ OdomData MVO::handleImage(const cv::Mat image, const image_geometry::PinholeCame
  std::vector<unsigned int> inlier;
   b = _epipolarGeometry.estimateBaseLine(beforeCorespFeaturesE, thisCorespFeaturesEUnrotate, inlier);
 //Remove Outlier //TODO: very expensive!
-for(auto feature = thisCorespFeatures.begin(); feature != thisCorespFeatures.end(); feature++){
-  unsigned int index = std::distance(thisCorespFeatures.begin(), feature);
+for(auto feature = thisCorespFeaturesE.begin(); feature != thisCorespFeaturesE.end(); feature++){
+  unsigned int index = std::distance(thisCorespFeaturesE.begin(), feature);
   bool found = false;
   for(auto inlierIndex : inlier){
     if (inlierIndex == index){

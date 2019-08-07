@@ -23,6 +23,7 @@ Window* SlidingWindow::getWindow(int past) const
 }
 
 void SlidingWindow::newWindow(const std::vector<cv::Point2f>& trackedFeaturesNow,
+                              const std::vector<cv::Vec3d>& trackedFeaturesNowE,
                               const std::vector<unsigned char>& found,
                               cv::Mat image)
 {
@@ -56,14 +57,16 @@ void SlidingWindow::newWindow(const std::vector<cv::Point2f>& trackedFeaturesNow
     {
       window->_featuresBefore.insert({ window->_features.size(), i });  // The size is the last (new) Index
       window->_features.push_back(trackedFeaturesNow[i]);
+      window->_euclidNormedFeatures.push_back(trackedFeaturesNowE[i]);
     }  // Else do nothing and Skip these Point
   }
 }
 
-void SlidingWindow::addFeaturesToCurrentWindow(std::vector<cv::Point2f> & features)
+void SlidingWindow::addFeaturesToCurrentWindow(std::vector<cv::Point2f> & features, const std::vector<cv::Vec3d> & featuresE)
 {
   // Put them to the End
   _lastWindow->_features.insert(_lastWindow->_features.end(), features.begin(), features.end());
+  _lastWindow->_euclidNormedFeatures.insert(_lastWindow->_euclidNormedFeatures.end(), featuresE.begin(), featuresE.end());
   // No Values to the Bimap, because these Features are NEW
 }
 
@@ -72,6 +75,13 @@ const std::vector<cv::Point2f>& SlidingWindow::getFeatures(int past) const
   Window* window = getWindow(past);
   assert(window != nullptr);
   return (window->_features);
+}
+
+const std::vector<cv::Vec3d>& SlidingWindow::getFeaturesE(int past) const
+{
+  Window* window = getWindow(past);
+  assert(window != nullptr);
+  return (window->_euclidNormedFeatures);
 }
 
 const cv::Mat SlidingWindow::getImage(int past) const
@@ -129,6 +139,39 @@ void SlidingWindow::getCorrespondingFeatures(int window1Index, int window2Index,
   }
 }
 
+void SlidingWindow::getCorrespondingFeatures(int window1Index, int window2Index, std::vector<cv::Vec3d>& features1,
+                                std::vector<cv::Vec3d>& features2) const{
+      if (this->getWindow(window1Index) == nullptr || this->getWindow(window2Index) == nullptr)
+  {
+    return;  // TODO: catch these
+  }
+
+  for (unsigned int firstIndex = 0; firstIndex < this->getWindow(window2Index)->_features.size(); firstIndex++)
+  {
+    int nextIndex = firstIndex;
+    bool found = true;
+    for (int hist = window2Index; hist < window1Index; hist++)
+    {
+      Window* thisWindow = this->getWindow(hist);
+      const auto nextIndexIt = thisWindow->_featuresBefore.left.find(nextIndex);
+      if (nextIndexIt != thisWindow->_featuresBefore.left.end())  // found
+      {
+        nextIndex = nextIndexIt->second;
+      }
+      else  // Not Found
+      {
+        found = false;
+        break;  // Next Feature, because History of that Feature not long enough
+      }
+    }
+    if (found)
+    {
+      features2.push_back(this->getWindow(window2Index)->_euclidNormedFeatures[firstIndex]);
+      features1.push_back(this->getWindow(window1Index)->_euclidNormedFeatures[nextIndex]);
+    }
+  }
+}
+
 void SlidingWindow::addTransformationToCurrentWindow(const cv::Vec3d & position,const cv::Matx33d & rotation)
 {
   _lastWindow->_rotation = rotation;
@@ -160,6 +203,18 @@ unsigned int SlidingWindow::getNumberOfCurrentTrackedFeatures() const{
    for(auto windowFeature = _lastWindow->_features.begin(); windowFeature != _lastWindow->_features.end(); windowFeature++){
     if(feature == *windowFeature){
       unsigned int index = std::distance(_lastWindow->_features.begin(), windowFeature);
+      _lastWindow->_featuresBefore.left.erase(index);
+    }
+   }
+ }
+
+/*
+* This also deletes the not Euclided Variant
+ */
+ void SlidingWindow::removeFeatureFromCurrentWindow(const cv::Vec3d & feature){
+   for(auto windowFeature = _lastWindow->_euclidNormedFeatures.begin(); windowFeature != _lastWindow->_euclidNormedFeatures.end(); windowFeature++){
+    if(feature == *windowFeature){
+      unsigned int index = std::distance(_lastWindow->_euclidNormedFeatures.begin(), windowFeature);
       _lastWindow->_featuresBefore.left.erase(index);
     }
    }
