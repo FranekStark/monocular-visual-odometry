@@ -6,7 +6,7 @@
 
 // TODO: FROM: https://nghiaho.com/?page_id=355
 
-IterativeRefinement::IterativeRefinement(SlidingWindow slidingWindow): _slidingWindow(slidingWindow)
+IterativeRefinement::IterativeRefinement(SlidingWindow & slidingWindow): _slidingWindow(slidingWindow)
 {
 }
 IterativeRefinement::~IterativeRefinement()
@@ -151,28 +151,30 @@ cv::Mat IterativeRefinement::CreateFunction(const std::vector<cv::Vec3d> &mt, co
 void IterativeRefinement::CreateMultiJacobianAndFunction(cv::Mat J, cv::Mat F, const std::vector<RefinementData> & data){
   unsigned int nSamplesBefore = 0;
   for(unsigned int i = 0; i < data.size(); i++){ //TODO: Faster Access
+    assert(data[i].mhi.size() == data[i].mt.size());
     unsigned int nSamples = data[i].mhi.size();
     double sign = 1.0; //TODO: fake sign
     this->CreateJacobianAndFunction(J.colRange(i*3, (i*3)+3).rowRange(nSamplesBefore, nSamplesBefore + nSamples), F.rowRange(nSamplesBefore, nSamplesBefore + nSamples), 
     data[i].mt, data[i].Rt, data[i].mhi, data[i].Rhi, sign, data[i].a, data[i].b, data[i].t, data[i].x, data[i].y, data[i].z);
-    nSamplesBefore += nSamples;
+    nSamplesBefore = nSamples;
   }
 }
 cv::Mat IterativeRefinement::CreateMultiFunction(const std::vector<RefinementData> & data, cv::Mat newParams){
   cv::Mat f(0,1,CV_64F);
   for(unsigned int i = 0; i < data.size(); i++){ //TODO: Faster Access
     double sign = 1.0; //TODO: fake sign
-    f.push_back(this->CreateFunction(data[i].mt, data[i].Rt, data[i].mhi, data[i].Rhi, sign, newParams.at<double>(3 * i + 0),newParams.at<double>(3*i + 1),newParams.at<double>(3 * i + 2), data[i].x, data[i].y, data[i].z));
+    f.push_back(this->CreateFunction(data[i].mt, data[i].Rt, data[i].mhi, data[i].Rhi, sign, newParams.at<double>((3 * i) + 0),newParams.at<double>((3*i) + 1),newParams.at<double>((3 * i) + 2), data[i].x, data[i].y, data[i].z));
 
   }
+  return f;
 }
 
 cv::Mat IterativeRefinement::GetAllParamsValues(std::vector<RefinementData> & data){
   std::vector<double> params;
-  for(auto d: data){
-    params.push_back(d.a);
-    params.push_back(d.b);
-    params.push_back(d.t);
+  for(unsigned int i = 0; i < data.size(); i++){
+    params.push_back(data[i].a);
+    params.push_back(data[i].b);
+    params.push_back(data[i].t);
   }
 
   return cv::Mat(params);
@@ -216,7 +218,7 @@ void IterativeRefinement::GaussNewton(std::vector<RefinementData> & data)
     double rho = 0;
     do
     {
-      cv::solve(A + mue * cv::Mat::eye(3, 3, CV_64F), gradient, delta, cv::DECOMP_QR);
+      cv::solve(A + mue * cv::Mat::eye(A.rows, A.cols, CV_64F), gradient, delta, cv::DECOMP_QR);
       if (cv::norm(delta, cv::NormTypes::NORM_L2) <=
           epsilon2 * (cv::norm(this->GetAllParamsValues(data), cv::NormTypes::NORM_L2) + epsilon2))
       {
@@ -238,10 +240,10 @@ void IterativeRefinement::GaussNewton(std::vector<RefinementData> & data)
 
           //TODO: entkoppel params
           for(unsigned int i = 0; i < data.size(); i++){
-            auto newBaseLineEstimation = this->CalculateEstimatedBaseLine(newParams.at<double>(3 * i + 0), newParams.at<double>(3 * i + 1), data[i].x, data[i].y, data[i].z);
+            auto newBaseLineEstimation = this->CalculateEstimatedBaseLine(newParams.at<double>((3 * i) + 0), newParams.at<double>((3 * i) + 1), data[i].x, data[i].y, data[i].z);
             data[i].a = 0;
             data[i].b = 0;
-            data[i].t = newParams.at<double>(3 * i + 2);
+            data[i].t = newParams.at<double>((3 * i) + 2);
             data[i].x = newBaseLineEstimation(0);
             data[i].y = newBaseLineEstimation(1);
             data[i].z = newBaseLineEstimation(2);
@@ -274,6 +276,7 @@ void IterativeRefinement::iterativeRefinement(const std::vector<cv::Vec3d> &mt, 
                                               const std::vector<cv::Vec3d> &mhi, const cv::Matx33d &Rhi,
                                               const cv::Vec3d &shi, cv::Vec3d &st, const double &sign)
 {
+  (void)(mt); (void)(Rt); (void)(mhi); (void)(Rhi);
   cv::Vec3d baseLine = st - shi;
   double scale = cv::norm(baseLine, cv::NORM_L2);
   scale = 1;
@@ -283,6 +286,7 @@ void IterativeRefinement::iterativeRefinement(const std::vector<cv::Vec3d> &mt, 
   double z = baseLine(2);
   double a, b, t;
   a = b = 0;
+  (void)(a);(void)(b);(void)(t);
   ROS_INFO_STREAM("Scale: " << scale << std::endl);
   t = -1.0 * std::log((HIGH_VALUE - scale) / (scale - LOW_VALUE));
   // if (x >= 0)
@@ -308,7 +312,7 @@ void IterativeRefinement::iterativeRefinement(const std::vector<cv::Vec3d> &mt, 
   // ROS_INFO_STREAM("-> Before Scale(a,b): " << LOW_VALUE + ((HIGH_VALUE - LOW_VALUE) / (1 + std::exp(-t))) <<
   // std::endl);
 
-  this->GaussNewton(mt, Rt, mhi, Rhi, sign, a, b, t, x, y, z);
+  //this->GaussNewton(mt, Rt, mhi, Rhi, sign, a, b, t, x, y, z);
 
   // ROS_INFO_STREAM("Refined: a: " << a << ", b: " << b << ", t: " << t << std::endl);
   // ROS_INFO_STREAM("-> After Base_Line(a,b): "
@@ -335,6 +339,16 @@ void IterativeRefinement::iterativeRefinement(const std::vector<cv::Vec3d> &mt, 
 }
 
 void IterativeRefinement::refine(unsigned int n){
+
+  /*DEBUG*/
+  ROS_INFO_STREAM("--------------------------------------------------------------" << std::endl);
+  for(int i = 0; i < 3; i++){
+    ROS_INFO_STREAM("Before Window k- " << i << "-> position: " << _slidingWindow.getPosition(i) << std::endl);
+  }
+
+  /******** */
+
+
   std::vector<RefinementData> data(n);
 
   for(unsigned int i = 0; i < n; i++){
@@ -348,12 +362,31 @@ void IterativeRefinement::refine(unsigned int n){
     data[i].x = baseLine(0);
     data[i].y = baseLine(1);
     data[i].z = baseLine(2);
-    data[i].Rhi = _slidingWindow.getRotation(n+1);
-    data[i].Rt = _slidingWindow.getRotation(n);
-    _slidingWindow.getCorrespondingFeatures(n+1,n, data[i].mhi, data[i].mt);
+    data[i].Rhi = _slidingWindow.getRotation(i+1);
+    data[i].Rt = _slidingWindow.getRotation(i);
+    _slidingWindow.getCorrespondingFeatures(i+1,i, data[i].mhi, data[i].mt);
+    ROS_INFO_STREAM("Before: " << norm << " * " << baseLine << std::endl);
   }
 
+  this->GaussNewton(data);
+  
+   for(int i = (n-1) ; i >= 0; i--){
+     auto st = cv::Vec3d(data[i].x, data[i].y, data[i].z);
+     double scale = LOW_VALUE + ((HIGH_VALUE - LOW_VALUE) / (1 + std::exp(-1.0 * data[i].t)));
+     auto stBefore = _slidingWindow.getPosition(i+1);
+     _slidingWindow.setPosition(stBefore + scale * st, i);
+     ROS_INFO_STREAM("After: " << scale << " * " << st << std::endl);
+   }
 
+
+   /*DEBUG*/
+  
+  for(int i = 0; i < 3; i++){
+    ROS_INFO_STREAM("After Window k- " << i << "-> position: " << _slidingWindow.getPosition(i) << std::endl);
+  }
+  ROS_INFO_STREAM("--------------------------------------------------------------" << std::endl);
+
+  /******** */
 
   
 }

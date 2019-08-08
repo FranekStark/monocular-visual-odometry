@@ -3,7 +3,7 @@
 #include <boost/math/special_functions/binomial.hpp>
 #include <map>
 #include <random>
-MVO::MVO() : _slidingWindow(5), _frameCounter(0)
+MVO::MVO() : _slidingWindow(5), _frameCounter(0), _iterativeRefinement(_slidingWindow)
 {
   
 }
@@ -113,21 +113,10 @@ for(auto feature = thisCorespFeaturesE.begin(); feature != thisCorespFeaturesE.e
 
   
   if(_frameCounter > 1){//IterativeRefinemen -> Scale Estimation?
-    std::vector<cv::Point2f> thisFirsCorespFeatures, beforeFirstCorepsFeatures;
-    std::vector<cv::Vec3d> thisFirstCorespFeaturesE, beforeFirstCorespFeaturesE;
-    _slidingWindow.getCorrespondingFeatures(1,0, beforeFirstCorepsFeatures, thisFirsCorespFeatures);
-    const cv::Vec3d & shi = _slidingWindow.getPosition(1);
     cv::Vec3d st = _slidingWindow.getPosition(1) + b;
-    //
-    auto rhi = _slidingWindow.getRotation(1);
-    this->euclidNormFeatures(beforeFirstCorepsFeatures, beforeFirstCorespFeaturesE, cameraModel);
-    this->euclidNormFeatures(thisFirsCorespFeatures, thisFirstCorespFeaturesE, cameraModel);
-    ROS_INFO_STREAM("before ST: " << st << std::endl);
-    _iterativeRefinement.iterativeRefinement(thisFirstCorespFeaturesE, R, beforeFirstCorespFeaturesE, rhi, shi, st, sign);
     _slidingWindow.addTransformationToCurrentWindow(st, R);
-    ROS_INFO_STREAM("new ST: " << st << std::endl);
-   // b = st - shi; //For Debug
-    this->drawDebugImage(st - _slidingWindow.getPosition(1), _debugImage, cv::Scalar(0,0,255));
+    _iterativeRefinement.refine(1);
+    this->drawDebugImage(_slidingWindow.getPosition(0) - _slidingWindow.getPosition(1), _debugImage, cv::Scalar(0,0,255));
   }else{
     _slidingWindow.addTransformationToCurrentWindow(_slidingWindow.getPosition(1) + sign * b, R);
   }
@@ -209,7 +198,7 @@ bool MVO::checkEnoughDisparity(const std::vector<cv::Point2f> & first, const std
   }
   diff = diff / first.size();
   //
-  return diff > 40; //TODO: Thresh
+  return diff > 20; //TODO: Thresh
 }
 
 void MVO::unrotateFeatures(const std::vector<cv::Vec3d> & features, std::vector<cv::Vec3d> & unrotatedFeatures, const cv::Matx33d & R){

@@ -219,3 +219,9 @@ unsigned int SlidingWindow::getNumberOfCurrentTrackedFeatures() const{
     }
    }
  }
+
+ void SlidingWindow::setPosition(const cv::Vec3d & position, int past){
+   Window * window = this->getWindow(past);
+   assert(window != nullptr);
+   window->_position = position;
+ }

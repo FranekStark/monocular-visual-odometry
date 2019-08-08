@@ -37,10 +37,11 @@ public:
    * When no Window at this time, nullptr is returned
    */
   const std::vector<cv::Point2f>& getFeatures(int past) const;
-  const std::vector<cv::Vec3d>& SlidingWindow::getFeaturesE(int past) const;
+  const std::vector<cv::Vec3d>& getFeaturesE(int past) const;
   const cv::Mat getImage(int past) const;
   cv::Vec3d & getPosition(int past) const;
   cv::Matx33d & getRotation(int past) const;
+  void setPosition(const cv::Vec3d & position, int past);
 
 /**
  * Gives Back Corresponding Featurelocations between two Windows.
@@ -59,6 +60,6 @@ public:
   unsigned int getNumberOfCurrentTrackedFeatures() const;
 
   void removeFeatureFromCurrentWindow(const cv::Point2f & feature);
-  void removeFeatureFromCurrentWindow(const cv::Vec3d & feature)
+  void removeFeatureFromCurrentWindow(const cv::Vec3d & feature);
 };
 #endif //SLIDING_WINDOW_HPP

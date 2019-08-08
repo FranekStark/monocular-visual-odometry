@@ -4,7 +4,7 @@
 class IterativeRefinement
 {
 private:
-  SlidingWindow _slidingWindow;
+  SlidingWindow & _slidingWindow;
   double DERIV_STEP = 1e-5;
   double THRESHOLD = 0.0001;
   double HIGH_VALUE = 10;
@@ -56,7 +56,7 @@ private:
   cv::Mat GetAllParamsValues(std::vector<RefinementData> & data);
 
 public:
-  IterativeRefinement(SlidingWindow slidingWindow);
+  IterativeRefinement(SlidingWindow & slidingWindow);
   ~IterativeRefinement();
 
   void iterativeRefinement(const std::vector<cv::Vec3d> & mt, const cv::Matx33d & Rt, const std::vector<cv::Vec3d> & mhi, const cv::Matx33d & Rhi, const cv::Vec3d & shi, cv::Vec3d & st,const double & sign);
