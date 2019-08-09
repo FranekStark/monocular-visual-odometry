@@ -14,7 +14,7 @@ private:
 public:
   CornerTracker();
   ~CornerTracker();
-  void detectFeatures(std::vector<cv::Point2f> &corner, const cv::Mat &image, int numberToDetect);
+  void detectFeatures(std::vector<cv::Point2f> &corner, const cv::Mat &image, int numberToDetect, const std::vector<cv::Point2f> & existingFeatures);
   void trackFeatures(const cv::Mat &prevImage, const cv::Mat &currentImage,
                      const std::vector<cv::Point2f> &prevFeatures, std::vector<cv::Point2f> &trackedFeatures,
                      std::vector<unsigned char> &found);

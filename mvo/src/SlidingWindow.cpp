@@ -53,7 +53,7 @@ void SlidingWindow::newWindow(const std::vector<cv::Point2f>& trackedFeaturesNow
   /*Finding Pairs */
   for (long unsigned int i = 0; i < found.size(); i++)
   {
-    if (found[i])
+    if (found[i] == 1)
     {
       window->_featuresBefore.insert({ window->_features.size(), i });  // The size is the last (new) Index
       window->_features.push_back(trackedFeaturesNow[i]);

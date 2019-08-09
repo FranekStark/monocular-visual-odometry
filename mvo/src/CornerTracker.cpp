@@ -1,4 +1,5 @@
 #include "CornerTracker.hpp"
+#include  <ros/ros.h>
 
 CornerTracker::CornerTracker() : _blockSize(2), _apertureSize(3), _k(0.02), _thresh(200)
 {
@@ -8,13 +9,20 @@ CornerTracker::~CornerTracker()
 {
 }
 
-void CornerTracker::detectFeatures(std::vector<cv::Point2f> &corner, const cv::Mat &image, int numberToDetect)
+void CornerTracker::detectFeatures(std::vector<cv::Point2f> &corner, const cv::Mat &image, int numberToDetect, const std::vector<cv::Point2f> & existingFeatures)
 {
   if (numberToDetect <= 0)
   {
     return;
   }
-  cv::goodFeaturesToTrack(image, corner, numberToDetect, double(0.10), double(10.0), cv::noArray(), _blockSize,
+  //Create Mask
+  cv::Mat mask(image.size(), CV_8U);
+  mask = cv::Scalar(255); //First use all Pixels
+  for(auto existingFeature : existingFeatures){
+    cv::circle(mask, existingFeature, 40, cv::Scalar(0), -1); //Here no Feature Detection! //TODO: param
+  }
+
+  cv::goodFeaturesToTrack(image, corner, numberToDetect, double(0.10), double(50.0), mask, _blockSize,
                           bool(true),
                           _k);  // Corners berechnen TODO: More params -> especially the detection Quality
 
@@ -45,6 +53,29 @@ void CornerTracker::trackFeatures(const cv::Mat &prevImage, const cv::Mat &curre
   // TODO: Handle Case, when no before Features!
   std::vector<float> error;
   cv::calcOpticalFlowPyrLK(prevPyramide, nowPyramide, prevFeatures, trackedFeatures, found, error);  // TODO: more
+
+  //TODO: Sort out to Close features!
+  std::vector<cv::Point2f>::iterator f1,f2;
+   std::vector<unsigned char>::iterator f1Found, f2Found;
+  for(f1 = trackedFeatures.begin(), f1Found = found.begin(); f1 != trackedFeatures.end(); f1++, f1Found++){
+    if(*f1Found == 0){
+      continue;
+    }
+    for(f2 = trackedFeatures.begin(), f2Found = found.begin(); f2 != trackedFeatures.end(); f2++, f2Found++){
+      if(*f2Found == 0){
+        continue;
+      }
+      if(f1 == f2){
+        continue; //Don't sort out the same Feature
+      }
+
+      if(cv::norm(*f1 - *f2) < 40){ //TODO: Param
+        *f2Found = 0; //Sort Out
+      }
+
+    }
+  }
+
 }
 void CornerTracker::setCornerDetectorParams(int blockSize, int aperatureSize, double k, int thresh)
 {

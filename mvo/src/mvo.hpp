@@ -37,7 +37,7 @@ private:
 
   unsigned int _frameCounter;
 
-  unsigned int _NUMBEROFFEATURES = 200;
+  unsigned int _NUMBEROFFEATURES = 60;
 
   bool checkEnoughDisparity(const std::vector<cv::Point2f> & first, const std::vector<cv::Point2f> & second);
 

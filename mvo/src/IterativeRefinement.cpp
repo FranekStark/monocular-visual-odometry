@@ -342,7 +342,7 @@ void IterativeRefinement::refine(unsigned int n){
 
   /*DEBUG*/
   ROS_INFO_STREAM("--------------------------------------------------------------" << std::endl);
-  for(int i = 0; i < 3; i++){
+  for(int i = 0; i < n; i++){
     ROS_INFO_STREAM("Before Window k- " << i << "-> position: " << _slidingWindow.getPosition(i) << std::endl);
   }
 
@@ -381,7 +381,7 @@ void IterativeRefinement::refine(unsigned int n){
 
    /*DEBUG*/
   
-  for(int i = 0; i < 3; i++){
+  for(int i = 0; i < n; i++){
     ROS_INFO_STREAM("After Window k- " << i << "-> position: " << _slidingWindow.getPosition(i) << std::endl);
   }
   ROS_INFO_STREAM("--------------------------------------------------------------" << std::endl);

@@ -22,7 +22,7 @@ OdomData MVO::handleImage(const cv::Mat image, const image_geometry::PinholeCame
      std::vector<cv::Point2f> newFeatures(_NUMBEROFFEATURES);
      std::vector<cv::Vec3d> newFeaturesE;
      this->euclidNormFeatures(newFeatures, newFeaturesE, cameraModel);
-    _cornerTracker.detectFeatures(newFeatures, image, _NUMBEROFFEATURES);
+    _cornerTracker.detectFeatures(newFeatures, image, _NUMBEROFFEATURES, std::vector<cv::Point2f>());
     _slidingWindow.newWindow(std::vector<cv::Point2f>(), std::vector<cv::Vec3d>(),std::vector<uchar>(), image); //First Two are Dummies
     _slidingWindow.addFeaturesToCurrentWindow(newFeatures, newFeaturesE); //all, because first Frame
     _slidingWindow.addTransformationToCurrentWindow(b, R);
@@ -55,9 +55,9 @@ OdomData MVO::handleImage(const cv::Mat image, const image_geometry::PinholeCame
   //ROS_INFO_STREAM("Current: " << _slidingWindow.getNumberOfCurrentTrackedFeatures() << std::endl);
   //ROS_INFO_STREAM("Number needed: " << neededFeatures << std::endl);
   std::vector<cv::Point2f> newFeatures(neededFeatures);
-  _cornerTracker.detectFeatures(newFeatures, image, neededFeatures);
+  _cornerTracker.detectFeatures(newFeatures, image, neededFeatures, trackedFeatures);
    
-   this->sortOutSameFeatures(trackedFeatures, newFeatures);
+   this->sortOutSameFeatures(trackedFeatures, newFeatures); //TODO: maybe not needed any more
    std::vector<cv::Vec3d> newFeaturesE;
    this->euclidNormFeatures(newFeatures, newFeaturesE, cameraModel);
    _slidingWindow.addFeaturesToCurrentWindow(newFeatures, newFeaturesE);
@@ -115,7 +115,21 @@ for(auto feature = thisCorespFeaturesE.begin(); feature != thisCorespFeaturesE.e
   if(_frameCounter > 1){//IterativeRefinemen -> Scale Estimation?
     cv::Vec3d st = _slidingWindow.getPosition(1) + b;
     _slidingWindow.addTransformationToCurrentWindow(st, R);
-    _iterativeRefinement.refine(1);
+    //_iterativeRefinement.refine(1);
+    switch (_frameCounter)
+    {
+    case 2:
+     _iterativeRefinement.refine(2);
+      break;
+    case 3:
+    _iterativeRefinement.refine(3);
+      break;
+    default :
+    _iterativeRefinement.refine(4);
+
+      break;
+    }
+   
     this->drawDebugImage(_slidingWindow.getPosition(0) - _slidingWindow.getPosition(1), _debugImage, cv::Scalar(0,0,255));
   }else{
     _slidingWindow.addTransformationToCurrentWindow(_slidingWindow.getPosition(1) + sign * b, R);
