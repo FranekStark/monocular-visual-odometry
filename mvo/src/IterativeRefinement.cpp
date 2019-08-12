@@ -28,27 +28,64 @@ void IterativeRefinement::CreateJacobianAndFunction(cv::Mat J, cv::Mat F, const 
       data.R0
     };
 
-    double errValue = CostFunction::func(input, params);
-    double deriveA0 = CostFunction::derive(input, params, 0);
-    double deriveB0 = CostFunction::derive(input, params, 1);
-    double deriveT0 = CostFunction::derive(input, params, 2);
-    double deriveA1 = CostFunction::derive(input, params, 3);
-    double deriveB1 = CostFunction::derive(input, params, 4);
-    double deriveT1 = CostFunction::derive(input, params, 5);
+    double errValue10 = CostFunction::func10(input, params);
+    double errValue21 = CostFunction::func21(input, params);
+    double errValue20 = CostFunction::func20(input, params);
+
+    double derive10A0 = CostFunction::derive10(input, params, 0);
+    double derive10B0 = CostFunction::derive10(input, params, 1);
+    double derive10T0 = CostFunction::derive10(input, params, 2);
+
+    double derive21A1 = CostFunction::derive21(input, params, 3);
+    double derive21B1 = CostFunction::derive21(input, params, 4);
+    double derive21T1 = CostFunction::derive21(input, params, 5);
+
+
+
+    double derive20A0 = CostFunction::derive20(input, params, 0);
+    double derive20B0 = CostFunction::derive20(input, params, 1);
+    double derive20T0 = CostFunction::derive20(input, params, 2);
+    double derive20A1 = CostFunction::derive20(input, params, 3);
+    double derive20B1 = CostFunction::derive20(input, params, 4);
+    double derive20T1 = CostFunction::derive20(input, params, 5);
     
-    F.at<double>(i,0) = errValue; //TODO: inittlegnterere Zugriff!!!
-    J.at<double>(i,0) = deriveA0;
-    J.at<double>(i,1) = deriveB0;
-    J.at<double>(i,2) = deriveT0;
-    J.at<double>(i,3) = deriveA1;
-    J.at<double>(i,4) = deriveB1;
-    J.at<double>(i,5) = deriveT1;
+    //10
+
+    F.at<double>(3*i + 0,0) = errValue10; //TODO: inittlegnterere Zugriff!!!
+    J.at<double>(3*i + 0,0) = derive10A0;
+    J.at<double>(3*i + 0,1) = derive10B0;
+    J.at<double>(3*i + 0,2) = derive10T0;
+    J.at<double>(3*i + 0,3) = 0;
+    J.at<double>(3*i + 0,4) = 0;
+    J.at<double>(3*i + 0,5) = 0;
+
+    //21
+
+
+    F.at<double>(3*i + 1,0) = errValue21; //TODO: inittlegnterere Zugriff!!!
+    J.at<double>(3*i + 1,0) = 0;
+    J.at<double>(3*i + 1,1) = 0;
+    J.at<double>(3*i + 1,2) = 0;
+    J.at<double>(3*i + 1,3) = derive21A1;
+    J.at<double>(3*i + 1,4) = derive21B1;
+    J.at<double>(3*i + 1,5) = derive21T1;
+
+
+    //20
+
+    F.at<double>(3*i + 2,0) = errValue20; //TODO: inittlegnterere Zugriff!!!
+    J.at<double>(3*i + 2,0) = derive20A0;
+    J.at<double>(3*i + 2,1) = derive20B0;
+    J.at<double>(3*i + 2,2) = derive20T0;
+    J.at<double>(3*i + 2,3) = derive20A1;
+    J.at<double>(3*i + 2,4) = derive20B1;
+    J.at<double>(3*i + 2,5) = derive20T1;
   }
 }
 
 cv::Mat IterativeRefinement::CreateFunction(const RefinementData & data, const cv::Mat & params){
   assert(data.m0.size() == data.m1.size() && data.m1.size() == data.m2.size());
-  cv::Mat f(data.m0.size(),1,CV_64F);
+  cv::Mat f(data.m0.size()*3,1,CV_64F);
   for(unsigned int i = 0; i < data.m1.size(); i++){ //TODO: Faster Access
     CostFunction::Input input {
       data.m2[i],
@@ -59,8 +96,12 @@ cv::Mat IterativeRefinement::CreateFunction(const RefinementData & data, const c
       data.R0
     };
     
-    double value = CostFunction::func(input, params);
-    f.at<double>(i,0) = value;
+    double errValue10 = CostFunction::func10(input, params);
+    double errValue21 = CostFunction::func21(input, params);
+    double errValue20 = CostFunction::func20(input, params);
+    f.at<double>(3*i+0,0) = errValue10;
+    f.at<double>(3*i+1,0) = errValue21;
+    f.at<double>(3*i+2,0) = errValue20;
   }
   return f;
 }
@@ -82,8 +123,8 @@ void IterativeRefinement::GaussNewton(const RefinementData & data, cv::Mat & par
 
   unsigned int n = data.m0.size();
 
-  cv::Mat J(n, 6, CV_64F);  // Jacobian of Func()
-  cv::Mat f(n, 1, CV_64F);  // f
+  cv::Mat J(n * 3, 6, CV_64F);  // Jacobian of Func()
+  cv::Mat f(n * 3, 1, CV_64F);  // f
   
   this->CreateJacobianAndFunction(J, f, data, params);
 
@@ -116,8 +157,7 @@ void IterativeRefinement::GaussNewton(const RefinementData & data, cv::Mat & par
 
         rho = (cv::norm(f, cv::NormTypes::NORM_L2SQR) - cv::norm(fNew, cv::NormTypes::NORM_L2SQR)) /
               (0.5 * cv::Mat(delta.t() * ((mue * delta) - gradient)).at<double>(0, 0));
-              ROS_INFO_STREAM("f " << f << std::endl);
-              ROS_INFO_STREAM("fNew " << fNew << std::endl);
+              ROS_INFO_STREAM("f - fNew" << (cv::norm(f, cv::NormTypes::NORM_L2SQR) - cv::norm(fNew, cv::NormTypes::NORM_L2SQR)) << std::endl);
               ROS_INFO_STREAM("rho " << rho << std::endl);
         if (rho > 0)
         {
@@ -245,18 +285,26 @@ void IterativeRefinement::refine(unsigned int n){
 }
 
 
-double IterativeRefinement::CostFunction::func(const Input & input, const cv::Mat & params){
+double IterativeRefinement::CostFunction::func10(const Input & input, const cv::Mat & params){
+  auto baseLine10 = baseLine(params.at<double>(0,0), params.at<double>(1,0), params.at<double>(0,1),params.at<double>(1,1), params.at<double>(2,1));
+
+  return input.m0.dot(input.R1.t() * baseLine10.cross(input.R1 * input.m1));
+}
+
+double IterativeRefinement::CostFunction::func21(const Input & input, const cv::Mat & params){
+  auto baseLine21 = baseLine(params.at<double>(3,0), params.at<double>(4,0), params.at<double>(3,1),params.at<double>(4,1), params.at<double>(5,1));
+
+  return input.m1.dot(input.R1.t() * baseLine21.cross(input.R2 * input.m2));
+}
 
 
+double IterativeRefinement::CostFunction::func20(const Input & input, const cv::Mat & params){
   auto baseLine21 = baseLine(params.at<double>(3,0), params.at<double>(4,0), params.at<double>(3,1),params.at<double>(4,1), params.at<double>(5,1));
   auto baseLine10 = baseLine(params.at<double>(0,0), params.at<double>(1,0), params.at<double>(0,1),params.at<double>(1,1), params.at<double>(2,1));
   auto scale21 = scale(params.at<double>(5,0));
   auto scale10 = scale(params.at<double>(2,0));
   auto baseLine20 = (scale21 * baseLine21 + scale10 * baseLine10) / cv::norm(scale21 * baseLine21 + scale10 * baseLine10);
-
-  return std::pow(input.m1.dot(input.R1.t() * baseLine21.cross(input.R2 * input.m2)) ,2) +
-         std::pow(input.m0.dot(input.R1.t() * baseLine10.cross(input.R1 * input.m1)) ,2) +
-         std::pow(input.m0.dot(input.R0.t() * baseLine20.cross(input.R2 * input.m2)), 2);
+  return input.m0.dot(input.R0.t() * baseLine20.cross(input.R2 * input.m2));
 }
 
 cv::Vec3d IterativeRefinement::CostFunction::baseLine(double a, double b, double x, double y, double z){
@@ -274,15 +322,45 @@ double IterativeRefinement::CostFunction::scale(double t){
   return  LOW_VALUE + ((HIGH_VALUE - LOW_VALUE) / (1 + std::exp(-1.0 * t)));
 }
 
-double IterativeRefinement::CostFunction::derive(const Input & input, const cv::Mat & params, unsigned int index){
+double IterativeRefinement::CostFunction::derive10(const Input & input, const cv::Mat & params, unsigned int index){
   auto params1 = params.clone();
   auto params2 = params.clone();
 
   params1.at<double>(index, 0) += DERIV_STEP;
   params2.at<double>(index, 0) -= DERIV_STEP;
 
-  double p1 = func(input, params1);
-  double p2 = func(input, params2);
+  double p1 = func10(input, params1);
+  double p2 = func10(input, params2);
+
+  double d = (p2 - p1) / (2 * DERIV_STEP);
+
+  return d;
+
+}
+double IterativeRefinement::CostFunction::derive21(const Input & input, const cv::Mat & params, unsigned int index){
+  auto params1 = params.clone();
+  auto params2 = params.clone();
+
+  params1.at<double>(index, 0) += DERIV_STEP;
+  params2.at<double>(index, 0) -= DERIV_STEP;
+
+  double p1 = func21(input, params1);
+  double p2 = func21(input, params2);
+
+  double d = (p2 - p1) / (2 * DERIV_STEP);
+
+  return d;
+
+}
+double IterativeRefinement::CostFunction::derive20(const Input & input, const cv::Mat & params, unsigned int index){
+  auto params1 = params.clone();
+  auto params2 = params.clone();
+
+  params1.at<double>(index, 0) += DERIV_STEP;
+  params2.at<double>(index, 0) -= DERIV_STEP;
+
+  double p1 = func20(input, params1);
+  double p2 = func20(input, params2);
 
   double d = (p2 - p1) / (2 * DERIV_STEP);
 
