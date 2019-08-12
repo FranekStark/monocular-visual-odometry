@@ -141,7 +141,7 @@ void SlidingWindow::getCorrespondingFeatures(int window1Index, int window2Index,
 
 void SlidingWindow::getCorrespondingFeatures(int window1Index, int window2Index, std::vector<cv::Vec3d>& features1,
                                 std::vector<cv::Vec3d>& features2) const{
-      if (this->getWindow(window1Index) == nullptr || this->getWindow(window2Index) == nullptr)
+  if (this->getWindow(window1Index) == nullptr || this->getWindow(window2Index) == nullptr)
   {
     return;  // TODO: catch these
   }
@@ -170,6 +170,45 @@ void SlidingWindow::getCorrespondingFeatures(int window1Index, int window2Index,
       features1.push_back(this->getWindow(window1Index)->_euclidNormedFeatures[nextIndex]);
     }
   }
+}
+
+void SlidingWindow::getCorrespondingFeatures(int window1Index, int window2Index, std::vector<std::vector<cv::Vec3d>*> features) const{
+  assert(this->getWindow(window1Index) != nullptr);
+  assert(this->getWindow(window2Index) != nullptr);
+  unsigned int depth = (window1Index - window2Index) + 1;
+  assert(features.size() == depth);
+
+  //Iterate through all Features with history:
+  for(unsigned int firstIndex = 0; firstIndex < this->getWindow(window2Index)->_features.size(); firstIndex++){
+    bool found = true;
+    std::vector<cv::Vec3d *> foundFeatures(depth);
+    unsigned int nextIndex = firstIndex;
+
+    for(int hist = window2Index; hist < window1Index; hist++){ //TODO: bessere Datenstruktur der Feature History? Referencen?
+      Window* window = this->getWindow(hist);
+      const auto nextIndexIt = window->_featuresBefore.left.find(nextIndex);
+      if (nextIndexIt != window->_featuresBefore.left.end())  // found
+      {
+        foundFeatures[hist - window2Index] = &(window->_euclidNormedFeatures[nextIndexIt->first]);
+        foundFeatures[(hist - window2Index) + 1] = &(window->_euclidNormedFeatures[nextIndexIt->second]);
+        nextIndex = nextIndexIt->second;
+      }else{
+        found = false;
+        break;
+      }
+    }
+
+
+    if(found){
+      for(unsigned int i = 0; i < depth; i++){
+        features[i]->push_back(*(foundFeatures[i]));
+      }
+    }
+
+  }
+
+  
+  
 }
 
 void SlidingWindow::addTransformationToCurrentWindow(const cv::Vec3d & position,const cv::Matx33d & rotation)

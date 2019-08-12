@@ -5,61 +5,53 @@ class IterativeRefinement
 {
 private:
   SlidingWindow & _slidingWindow;
-  double DERIV_STEP = 1e-5;
-  double THRESHOLD = 0.0001;
-  double HIGH_VALUE = 10;
-  double LOW_VALUE = 0.25;
 
-  struct Input
-  {
-    const cv::Vec3d & mt;
-    const cv::Matx33d & Rt;
-    const cv::Vec3d & mhi;
-    const cv::Matx33d & Rhi;
-    const double & sign;
-    const double xBefore;
-    const double yBefore;
-    const double zBefore;
-  };
+  double THRESHOLD = 0.0001;
 
   struct RefinementData
   {
-    std::vector<cv::Vec3d>  mt;
-    cv::Matx33d  Rt;
-    std::vector<cv::Vec3d>  mhi;
-    cv::Matx33d  Rhi;
-    double x;
-    double y;
-    double z;
-    double a;
-    double b;
-    double t;
+    std::vector<cv::Vec3d>  m2;
+    std::vector<cv::Vec3d>  m1;
+    std::vector<cv::Vec3d>  m0;
+    cv::Matx33d  R2;
+    cv::Matx33d  R1;
+    cv::Matx33d  R0;
   };
  
+  class CostFunction
+  {
+     public:
 
+    static constexpr double HIGH_VALUE = 10;
+    static constexpr double LOW_VALUE = 0.25;
+    static constexpr double DERIV_STEP = 1e-5;
 
-  double Func(const Input &input, const double & a, const double & b, const double & t);
-  double DeriveA(const Input &input, const double & a, const double & b, const double & t);
-  double DeriveB(const Input &input, const double & a, const double & b, const double & t);
-  double DeriveT(const Input &input, const double & a, const double & b, const double & t);
+    struct Input
+    {
+      const cv::Vec3d & m2;
+      const cv::Vec3d & m1;
+      const cv::Vec3d & m0;
+      const cv::Matx33d & R2;
+      const cv::Matx33d & R1;
+      const cv::Matx33d & R0;
+    };
 
+    static double func(const Input & input, const cv::Mat & params);
+    static double derive(const Input & input, const cv::Mat & params, unsigned int index);
+    static cv::Vec3d baseLine(double a, double b, double x, double y, double z);
+    static double scale(double t);
 
- void CreateJacobianAndFunction(cv::Mat J, cv::Mat F, const std::vector<cv::Vec3d> & mt, const cv::Matx33d & Rt, const std::vector<cv::Vec3d> & mhi, const cv::Matx33d & Rhi, const double &sign, const double & a, const double & b, const double & t,const double &x, const double &y, const double &z);
- cv::Mat CreateFunction(const std::vector<cv::Vec3d> & mt, const cv::Matx33d & Rt, const std::vector<cv::Vec3d> & mhi, const cv::Matx33d & Rhi, const double &sign, const double & a, const double & b, const double & t,const double &x, const double &y, const double &z);
- void CreateMultiJacobianAndFunction(cv::Mat J, cv::Mat F, const std::vector<RefinementData> & data);
- cv::Mat CreateMultiFunction(const std::vector<RefinementData> & data, cv::Mat newParams);
- double Deriv(const Input &input, const double & a, const double & b, const double & t, unsigned int n);
- void GaussNewton(std::vector<RefinementData> & data);
+  };
+ 
+ void CreateJacobianAndFunction(cv::Mat J, cv::Mat F, const RefinementData & data, const cv::Mat & params);
+ cv::Mat CreateFunction(const RefinementData & data, const cv::Mat & params);
+ void GaussNewton(const RefinementData & data, cv::Mat & params);
 
-  cv::Vec3d CalculateEstimatedBaseLine(const double & a, const double & b, const double &x, const double &y, const double &z);
-
-  cv::Mat GetAllParamsValues(std::vector<RefinementData> & data);
 
 public:
   IterativeRefinement(SlidingWindow & slidingWindow);
   ~IterativeRefinement();
 
-  void iterativeRefinement(const std::vector<cv::Vec3d> & mt, const cv::Matx33d & Rt, const std::vector<cv::Vec3d> & mhi, const cv::Matx33d & Rhi, const cv::Vec3d & shi, cv::Vec3d & st,const double & sign);
   void refine(unsigned int n);
   
 

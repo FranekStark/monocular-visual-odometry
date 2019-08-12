@@ -51,7 +51,9 @@ public:
   void getCorrespondingFeatures(int window1Index, int window2Index, std::vector<cv::Point2f>& features1,
                                 std::vector<cv::Point2f>& features2) const;
   void getCorrespondingFeatures(int window1Index, int window2Index, std::vector<cv::Vec3d>& features1,
-                                std::vector<cv::Vec3d>& features2) const;                          
+                                std::vector<cv::Vec3d>& features2) const;         
+
+  void getCorrespondingFeatures(int window1Index, int window2Index, std::vector<std::vector<cv::Vec3d>*> features) const;   
 
   void getCorrespondingPosition(int window1Index, int window2Index, cv::Vec3d & position1, cv::Vec3d & position2, cv::Matx33d &rotation1, cv::Matx33d &rotation2) const;
   

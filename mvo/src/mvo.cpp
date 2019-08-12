@@ -115,21 +115,8 @@ for(auto feature = thisCorespFeaturesE.begin(); feature != thisCorespFeaturesE.e
   if(_frameCounter > 1){//IterativeRefinemen -> Scale Estimation?
     cv::Vec3d st = _slidingWindow.getPosition(1) + b;
     _slidingWindow.addTransformationToCurrentWindow(st, R);
-    //_iterativeRefinement.refine(1);
-    switch (_frameCounter)
-    {
-    case 2:
-     _iterativeRefinement.refine(2);
-      break;
-    case 3:
     _iterativeRefinement.refine(3);
-      break;
-    default :
-    _iterativeRefinement.refine(4);
-
-      break;
-    }
-   
+  
     this->drawDebugImage(_slidingWindow.getPosition(0) - _slidingWindow.getPosition(1), _debugImage, cv::Scalar(0,0,255));
   }else{
     _slidingWindow.addTransformationToCurrentWindow(_slidingWindow.getPosition(1) + sign * b, R);

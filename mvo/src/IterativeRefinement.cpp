@@ -13,177 +13,64 @@ IterativeRefinement::~IterativeRefinement()
 {
 }
 
-cv::Vec3d IterativeRefinement::CalculateEstimatedBaseLine(const double &a, const double &b, const double &x,
-                                                          const double &y, const double &z)
-{
-  cv::Vec3d baseLine(1.0 - a * a - b * b, 2.0 * a, 2.0 * b);
-  baseLine = baseLine / (1.0 + a * a + b * b);
-  cv::Vec3d baseLineL;
-                                                                   //TODO: faste Computation!
-  baseLineL(0) = x * baseLine(0) - y * baseLine(1) - z * baseLine(2);
-  baseLineL(1) = x * baseLine(1) + y * baseLine(0);
-  baseLineL(2) = x * baseLine(2) + z * baseLine(0);
-  return baseLineL;
-}
 
-double IterativeRefinement::Func(const Input &input, const double &a, const double &b, const double &t)
-{
-  cv::Vec3d baseLine = this->CalculateEstimatedBaseLine(a, b, input.xBefore, input.yBefore, input.zBefore);
 
-  double scale = LOW_VALUE + ((HIGH_VALUE - LOW_VALUE) / (1.0 + std::exp(-1.0 * t)));
 
-  return input.mt.dot(input.Rt.t() * (input.sign * scale * baseLine).cross(input.Rhi * input.mhi));
-}
+void IterativeRefinement::CreateJacobianAndFunction(cv::Mat J, cv::Mat F, const RefinementData & data, const cv::Mat & params){
+  assert(data.m0.size() == data.m1.size() && data.m1.size() == data.m2.size());
+  for(unsigned int i = 0; i < data.m0.size(); i++){ //TODO: Faster Access
+    CostFunction::Input input {
+      data.m2[i],
+      data.m1[i],
+      data.m0[i],
+      data.R2,
+      data.R1,
+      data.R0
+    };
 
-double IterativeRefinement::DeriveA(const Input &input, const double &a, const double &b, const double &t)
-{
-  cv::Vec3d baseLine(1.0 - a * a - b * b, 2.0 * a, 2.0 * b);
-  cv::Vec3d baseLineDerive(-2.0 * a, 2.0, 0);
-
-  double baseLineNormer = 1.0 / (1.0 + a * a + b * b);
-  double baseLineDerivNormer = (-2.0 * a) / ((a * a + b * b + 1) * (a * a + b * b + 1));
-  double scale = LOW_VALUE + ((HIGH_VALUE - LOW_VALUE) / (1.0 + std::exp(-1.0 * t)));
-
-  return input.mt.dot(input.Rt.t() *
-                      (input.sign * scale * (baseLineDerive * baseLineNormer + baseLine * baseLineDerivNormer))
-                          .cross(input.Rhi * input.mhi));
-}
-
-double IterativeRefinement::DeriveB(const Input &input, const double &a, const double &b, const double &t)
-{
-  cv::Vec3d baseLine(1.0 - a * a - b * b, 2.0 * a, 2.0 * b);
-  cv::Vec3d baseLineDerive(-2.0 * b, 0, 2.0);
-
-  double baseLineNormer = 1.0 / (1.0 + a * a + b * b);
-  double baseLineDerivNormer = (-2.0 * b) / ((a * a + b * b + 1) * (a * a + b * b + 1));
-  double scale = LOW_VALUE + ((HIGH_VALUE - LOW_VALUE) / (1.0 + std::exp(-1.0 * t)));
-
-  return input.mt.dot(input.Rt.t() *
-                      (input.sign * scale * (baseLineDerive * baseLineNormer + baseLine * baseLineDerivNormer))
-                          .cross(input.Rhi * input.mhi));
-}
-
-double IterativeRefinement::DeriveT(const Input &input, const double &a, const double &b, const double &t)
-{
-  cv::Vec3d baseLine(1.0 - a * a - b * b, 2.0 * a, 2.0 * b);
-  double baseLineNormer = 1.0 / (1.0 + a * a + b * b);
-
-  double scale = std::exp(-1.0 * t) * (HIGH_VALUE - LOW_VALUE) / std::pow((1.0 + std::exp(-1.0 * t)), 2);
-
-  return input.mt.dot(input.Rt.t() * (input.sign * scale * (baseLineNormer * baseLine)).cross(input.Rhi * input.mhi));
-}
-
-double IterativeRefinement::Deriv(const Input &input, const double &a, const double &b, const double &t, unsigned int n)
-{
-  // Assumes input is a single collumn cv::matrix
-
-  double t1 = t;
-  double t2 = t;
-  double a1 = a;
-  double a2 = a;
-  double b1 = b;
-  double b2 = b;
-
-  switch (n)
-  {
-    case 0:
-      a1 -= DERIV_STEP;
-      a2 += DERIV_STEP;
-      break;
-    case 1:
-      b1 -= DERIV_STEP;
-      b2 += DERIV_STEP;
-      break;
-    case 2:
-      t1 -= DERIV_STEP;
-      t2 += DERIV_STEP;
-      break;
-    default:
-      break;
-  }
-
-  double p1 = this->Func(input, a1, b1, t1);
-  double p2 = this->Func(input, a2, b2, t2);
-
-  double d = (p2 - p1) / (2 * DERIV_STEP);
-
-  return d;
-}
-
-void IterativeRefinement::CreateJacobianAndFunction(cv::Mat J, cv::Mat F, const std::vector<cv::Vec3d> &mt,
-                                                    const cv::Matx33d &Rt, const std::vector<cv::Vec3d> &mhi,
-                                                    const cv::Matx33d &Rhi, const double &sign, const double &a,
-                                                    const double &b, const double &t, const double &x, const double &y,
-                                                    const double &z)
-{
-  assert(mt.size() == mhi.size());
-  int n = mt.size();
-  for (int i = 0; i < n; i++)
-  {
-    const Input input{ mt[i], Rt, mhi[i], Rhi, sign, x, y, z };
-
-    F.at<double>(i, 0) = (this->Func(input, a, b, t));
-    J.at<double>(i, 0) = this->Deriv(input, a, b, t, 0);
-    J.at<double>(i, 1) = this->Deriv(input, a, b, t, 1);
-    J.at<double>(i, 2) = this->Deriv(input, a, b, t, 2);
+    double errValue = CostFunction::func(input, params);
+    double deriveA0 = CostFunction::derive(input, params, 0);
+    double deriveB0 = CostFunction::derive(input, params, 1);
+    double deriveT0 = CostFunction::derive(input, params, 2);
+    double deriveA1 = CostFunction::derive(input, params, 3);
+    double deriveB1 = CostFunction::derive(input, params, 4);
+    double deriveT1 = CostFunction::derive(input, params, 5);
+    
+    F.at<double>(i,0) = errValue; //TODO: inittlegnterere Zugriff!!!
+    J.at<double>(i,0) = deriveA0;
+    J.at<double>(i,1) = deriveB0;
+    J.at<double>(i,2) = deriveT0;
+    J.at<double>(i,3) = deriveA1;
+    J.at<double>(i,4) = deriveB1;
+    J.at<double>(i,5) = deriveT1;
   }
 }
 
-cv::Mat IterativeRefinement::CreateFunction(const std::vector<cv::Vec3d> &mt, const cv::Matx33d &Rt,
-                                            const std::vector<cv::Vec3d> &mhi, const cv::Matx33d &Rhi,
-                                            const double &sign, const double &a, const double &b, const double &t,
-                                            const double &x, const double &y, const double &z)
-
-{
-  assert(mt.size() == mhi.size());
-  int n = mt.size();
-  cv::Mat f(n, 1, CV_64F);
-  for (int i = 0; i < n; i++)
-  {
-    const Input input{ mt[i], Rt, mhi[i], Rhi, sign, x, y, z };
-
-    f.at<double>(i, 0) = (this->Func(input, a, b, t));
-  }
-
-  return f;
-}
-
-void IterativeRefinement::CreateMultiJacobianAndFunction(cv::Mat J, cv::Mat F, const std::vector<RefinementData> & data){
-  unsigned int nSamplesBefore = 0;
-  for(unsigned int i = 0; i < data.size(); i++){ //TODO: Faster Access
-    assert(data[i].mhi.size() == data[i].mt.size());
-    unsigned int nSamples = data[i].mhi.size();
-    double sign = 1.0; //TODO: fake sign
-    this->CreateJacobianAndFunction(J.colRange(i*3, (i*3)+3).rowRange(nSamplesBefore, nSamplesBefore + nSamples), F.rowRange(nSamplesBefore, nSamplesBefore + nSamples), 
-    data[i].mt, data[i].Rt, data[i].mhi, data[i].Rhi, sign, data[i].a, data[i].b, data[i].t, data[i].x, data[i].y, data[i].z);
-    nSamplesBefore = nSamples;
-  }
-}
-cv::Mat IterativeRefinement::CreateMultiFunction(const std::vector<RefinementData> & data, cv::Mat newParams){
-  cv::Mat f(0,1,CV_64F);
-  for(unsigned int i = 0; i < data.size(); i++){ //TODO: Faster Access
-    double sign = 1.0; //TODO: fake sign
-    f.push_back(this->CreateFunction(data[i].mt, data[i].Rt, data[i].mhi, data[i].Rhi, sign, newParams.at<double>((3 * i) + 0),newParams.at<double>((3*i) + 1),newParams.at<double>((3 * i) + 2), data[i].x, data[i].y, data[i].z));
-
+cv::Mat IterativeRefinement::CreateFunction(const RefinementData & data, const cv::Mat & params){
+  assert(data.m0.size() == data.m1.size() && data.m1.size() == data.m2.size());
+  cv::Mat f(data.m0.size(),1,CV_64F);
+  for(unsigned int i = 0; i < data.m1.size(); i++){ //TODO: Faster Access
+    CostFunction::Input input {
+      data.m2[i],
+      data.m1[i],
+      data.m0[i],
+      data.R2,
+      data.R1,
+      data.R0
+    };
+    
+    double value = CostFunction::func(input, params);
+    f.at<double>(i,0) = value;
   }
   return f;
-}
-
-cv::Mat IterativeRefinement::GetAllParamsValues(std::vector<RefinementData> & data){
-  std::vector<double> params;
-  for(unsigned int i = 0; i < data.size(); i++){
-    params.push_back(data[i].a);
-    params.push_back(data[i].b);
-    params.push_back(data[i].t);
-  }
-
-  return cv::Mat(params);
 }
 
 /*Isn't Gauss-Newotn! -> It's now Levemberg Marquardt... */
 // TODO: From https://www.mrpt.org/Levenberg-Marquardt_algorithm
-void IterativeRefinement::GaussNewton(std::vector<RefinementData> & data)
+void IterativeRefinement::GaussNewton(const RefinementData & data, cv::Mat & params)
 {
+  assert(data.m0.size() == data.m1.size() && data.m1.size() == data.m2.size());
+
   /*params */
   double tau = 10E-3;
   double epsilon1, epsilon2, epsilon3, epsilon4;
@@ -191,17 +78,14 @@ void IterativeRefinement::GaussNewton(std::vector<RefinementData> & data)
   epsilon4 = 0;
   unsigned int kmax = 100;
 
-  cv::Mat delta;
+  cv::Mat delta(6, 1, CV_64F);
 
-  unsigned int n;
-  for(auto d : data){
-    n += d.mhi.size();
-  }
+  unsigned int n = data.m0.size();
 
-  cv::Mat J(n, 3 * data.size(), CV_64F);  // Jacobian of Func()
+  cv::Mat J(n, 6, CV_64F);  // Jacobian of Func()
   cv::Mat f(n, 1, CV_64F);  // f
   
-  this->CreateMultiJacobianAndFunction(J,f,data);
+  this->CreateJacobianAndFunction(J, f, data, params);
 
   cv::Mat gradient = J.t() * f;
   cv::Mat A = J.t() * J;
@@ -220,40 +104,54 @@ void IterativeRefinement::GaussNewton(std::vector<RefinementData> & data)
     {
       cv::solve(A + mue * cv::Mat::eye(A.rows, A.cols, CV_64F), gradient, delta, cv::DECOMP_QR);
       if (cv::norm(delta, cv::NormTypes::NORM_L2) <=
-          epsilon2 * (cv::norm(this->GetAllParamsValues(data), cv::NormTypes::NORM_L2) + epsilon2))
+          epsilon2 * (cv::norm(params.col(0), cv::NormTypes::NORM_L2) + epsilon2))
       {
         stop = true;
       }
       else
       {
-        cv::Mat params = this->GetAllParamsValues(data);
-        cv::Mat newParams = params + delta;
-        cv::Mat fNew = this->CreateMultiFunction(data, newParams);
+        cv::Mat newParams = params.clone();
+        newParams.col(0) += delta;
+        cv::Mat fNew = this->CreateFunction(data, newParams);
 
         rho = (cv::norm(f, cv::NormTypes::NORM_L2SQR) - cv::norm(fNew, cv::NormTypes::NORM_L2SQR)) /
               (0.5 * cv::Mat(delta.t() * ((mue * delta) - gradient)).at<double>(0, 0));
+              ROS_INFO_STREAM("f " << f << std::endl);
+              ROS_INFO_STREAM("fNew " << fNew << std::endl);
+              ROS_INFO_STREAM("rho " << rho << std::endl);
         if (rho > 0)
         {
           stop = ((cv::norm(f, cv::NormTypes::NORM_L2) - cv::norm(fNew, cv::NormTypes::NORM_L2)) <
                   (epsilon4 * cv::norm(f, cv::NormTypes::NORM_L2)));
 
+            //TODO: bessere Zugriffe auf Mat
+            auto newBaseLine0 = CostFunction::baseLine(newParams.at<double>(0,0),newParams.at<double>(1,0),params.at<double>(0,1),params.at<double>(1,1),params.at<double>(2,1));
+            auto newBaseLine1 = CostFunction::baseLine(newParams.at<double>(3,0),newParams.at<double>(4,0),params.at<double>(3,1),params.at<double>(4,1),params.at<double>(5,1));
+            
+            params.at<double>(0,0) = 0; //A0
+            params.at<double>(1,0) = 0; //B0
+            params.at<double>(2,0) = newParams.at<double>(2,0); //T0
 
-          //TODO: entkoppel params
-          for(unsigned int i = 0; i < data.size(); i++){
-            auto newBaseLineEstimation = this->CalculateEstimatedBaseLine(newParams.at<double>((3 * i) + 0), newParams.at<double>((3 * i) + 1), data[i].x, data[i].y, data[i].z);
-            data[i].a = 0;
-            data[i].b = 0;
-            data[i].t = newParams.at<double>((3 * i) + 2);
-            data[i].x = newBaseLineEstimation(0);
-            data[i].y = newBaseLineEstimation(1);
-            data[i].z = newBaseLineEstimation(2);
-          }
-          
-          
+            params.at<double>(0,1) = newBaseLine0(0); //X0
+            params.at<double>(1,1) = newBaseLine0(1); //Y0
+            params.at<double>(2,1) = newBaseLine0(2); //Z0
 
 
-          this->CreateMultiJacobianAndFunction(J,f,data);
-          // ROS_INFO_STREAM("J: " << J << std::endl << "f: " << f << std::endl);
+            params.at<double>(3,0) = 0; //A1
+            params.at<double>(4,0) = 0; //B1
+            params.at<double>(5,0) = newParams.at<double>(5,0); //T2
+        
+            params.at<double>(3,1) = newBaseLine1(0); //X1
+            params.at<double>(4,1) = newBaseLine1(1); //Y1
+            params.at<double>(5,1) = newBaseLine1(2); //Z1
+
+            ROS_INFO_STREAM("new Params set delta: " << std::endl << delta << std::endl <<"newParams: " << std::endl << newParams << std::endl);
+            ROS_INFO_STREAM("params: " << std::endl << params << std::endl);
+            ROS_INFO_STREAM("newBase0: " << newBaseLine0 << " norm:" << cv::norm(newBaseLine0) << std::endl);
+            ROS_INFO_STREAM("newBase1: " << newBaseLine1 << " norm:" << cv::norm(newBaseLine1) << std::endl);
+
+            this->CreateJacobianAndFunction(J,f,data,params);
+
           gradient = J.t() * f;
           A = J.t() * J;
 
@@ -272,121 +170,122 @@ void IterativeRefinement::GaussNewton(std::vector<RefinementData> & data)
   }
 }
 
-void IterativeRefinement::iterativeRefinement(const std::vector<cv::Vec3d> &mt, const cv::Matx33d &Rt,
-                                              const std::vector<cv::Vec3d> &mhi, const cv::Matx33d &Rhi,
-                                              const cv::Vec3d &shi, cv::Vec3d &st, const double &sign)
-{
-  (void)(mt); (void)(Rt); (void)(mhi); (void)(Rhi);
-  cv::Vec3d baseLine = st - shi;
-  double scale = cv::norm(baseLine, cv::NORM_L2);
-  scale = 1;
-  baseLine = baseLine / cv::norm(baseLine, cv::NORM_L2);
-  double x = baseLine(0);
-  double y = baseLine(1);
-  double z = baseLine(2);
-  double a, b, t;
-  a = b = 0;
-  (void)(a);(void)(b);(void)(t);
-  ROS_INFO_STREAM("Scale: " << scale << std::endl);
-  t = -1.0 * std::log((HIGH_VALUE - scale) / (scale - LOW_VALUE));
-  // if (x >= 0)
-  // {  // TODO, wer nimmt den null Fall?
-  //   a = y / (std::sqrt(-(y * y) - (z * z) + 1) + 1);
-  //   b = z / (std::sqrt(-(y * y) - (z * z) + 1) + 1);
-  //   ROS_ERROR_STREAM_COND(std::abs(x - std::sqrt(-(y * y) - (z * z) + 1)) > 0.01,
-  //                         "Vektor konnte nicht parametriesiert werden: " << baseLine << std::endl);
-  // }
-  // else
-  // {
-  //   a = -1.0 * y / (std::sqrt(-(y * y) - (z * z) + 1) - 1);
-  //   b = -1.0 * z / (std::sqrt(-(y * y) - (z * z) + 1) - 1);
-  //   ROS_ERROR_STREAM_COND(std::abs(x - (-1 * std::sqrt(-(y * y) - (z * z) + 1))) > 0.01,
-  //                         "Vektor konnte nicht parametriesiert werden: " << baseLine << std::endl);
-  // }
-
-  // ROS_INFO_STREAM("Before: a: " << a << ", b: " << b << ", t: " << t << std::endl);
-  ROS_INFO_STREAM("Before BaseLine(x,y,z): " << baseLine << std::endl);
-  ROS_INFO_STREAM("Before Scale(t): " << scale  << std::endl);
-  // ROS_INFO_STREAM("-> Before Base_Line(a,b): "
-  //                 << cv::Vec3d(1.0 - a * a - b * b, 2.0 * a, 2.0 * b) / (1.0 + a * a + b * b) << std::endl);
-  // ROS_INFO_STREAM("-> Before Scale(a,b): " << LOW_VALUE + ((HIGH_VALUE - LOW_VALUE) / (1 + std::exp(-t))) <<
-  // std::endl);
-
-  //this->GaussNewton(mt, Rt, mhi, Rhi, sign, a, b, t, x, y, z);
-
-  // ROS_INFO_STREAM("Refined: a: " << a << ", b: " << b << ", t: " << t << std::endl);
-  // ROS_INFO_STREAM("-> After Base_Line(a,b): "
-  //                 << cv::Vec3d(1.0 - a * a - b * b, 2.0 * a, 2.0 * b) / (1.0 + a * a + b * b) << std::endl);
-  // ROS_INFO_STREAM("-> After Scale(a,b): " << LOW_VALUE + ((HIGH_VALUE - LOW_VALUE) / (1 + std::exp(-t))) <<
-  // std::endl);
-
-  // /*Calc BaseLine */
-  // x = 1.0 - a * a - b * b;
-  // y = 2.0 * a;
-  // z = 2.0 * b;
-  baseLine(0) = x;
-  baseLine(1) = y;
-  baseLine(2) = z;
-
-  // baseLine = baseLine / (1.0 + a * a + b * b);
-
-  scale = LOW_VALUE + ((HIGH_VALUE - LOW_VALUE) / (1 + std::exp(-t)));
-  ROS_INFO_STREAM("After BaseLine(x,y,z): " << baseLine << std::endl);
-  ROS_INFO_STREAM("Afer Scale(t): " << scale  << std::endl);
-  baseLine = baseLine * scale;
-  
-  st = shi + sign * baseLine;
-}
 
 void IterativeRefinement::refine(unsigned int n){
+  ROS_INFO_STREAM( "BEFORE: " << std::endl <<
+                  "st0: " << _slidingWindow.getPosition(0) << std::endl <<
+                  "st1: " << _slidingWindow.getPosition(1) << std::endl <<
+                  "st2: " << _slidingWindow.getPosition(2) << std::endl);
 
-  /*DEBUG*/
-  ROS_INFO_STREAM("--------------------------------------------------------------" << std::endl);
-  for(int i = 0; i < n; i++){
-    ROS_INFO_STREAM("Before Window k- " << i << "-> position: " << _slidingWindow.getPosition(i) << std::endl);
-  }
+  assert(n == 3); //TODO: currently only WindowSize 3 available
+  RefinementData data;
 
-  /******** */
+  cv::Vec3d & st0 = _slidingWindow.getPosition(0);
+  cv::Vec3d & st1 = _slidingWindow.getPosition(1);
+  cv::Vec3d & st2 = _slidingWindow.getPosition(2);
 
+  double n0 = cv::norm(st0 - st1);
+  double n1 = cv::norm(st1 - st2);
+  cv::Vec3d u0 = (st0 - st1) / n0;
+  cv::Vec3d u1 = (st1 - st2) / n1;
 
-  std::vector<RefinementData> data(n);
+  ROS_INFO_STREAM("Before: " << std::endl);
+  ROS_INFO_STREAM("n0 * u0: " << n0 << " * " << u0 << std::endl);
+  ROS_INFO_STREAM("n1 * u1: " << n1 << " * " << u1 << std::endl);
 
-  for(unsigned int i = 0; i < n; i++){
-    cv::Vec3d & stNow = _slidingWindow.getPosition(i);
-    cv::Vec3d & stBefore = _slidingWindow.getPosition(i+1);
-    double norm = cv::norm(stNow - stBefore, cv::NormTypes::NORM_L2);
-    cv::Vec3d baseLine = (stNow - stBefore) / norm; 
-    data[i].a = 0;
-    data[i].b = 0;
-    data[i].t = -1.0 * std::log((HIGH_VALUE - norm) / (norm - LOW_VALUE));
-    data[i].x = baseLine(0);
-    data[i].y = baseLine(1);
-    data[i].z = baseLine(2);
-    data[i].Rhi = _slidingWindow.getRotation(i+1);
-    data[i].Rt = _slidingWindow.getRotation(i);
-    _slidingWindow.getCorrespondingFeatures(i+1,i, data[i].mhi, data[i].mt);
-    ROS_INFO_STREAM("Before: " << norm << " * " << baseLine << std::endl);
-  }
+  cv::Mat params(6,2,CV_64F);
 
-  this->GaussNewton(data);
+  params.at<double>(0,0) = 0.0; //A0
+  params.at<double>(1,0) = 0.0; //B0
+  params.at<double>(2,0) = -1.0 * std::log((CostFunction::HIGH_VALUE - n0) / (n0 - CostFunction::LOW_VALUE)); //T0   
+  params.at<double>(0,1) = u0(0); //X0
+  params.at<double>(1,1) = u0(1); //Y0
+  params.at<double>(2,1) = u0(2); //Z0
+
+  params.at<double>(3,0) = 0.0; //A1
+  params.at<double>(4,0) = 0.0; //B1
+  params.at<double>(5,0) = -1.0 * std::log((CostFunction::HIGH_VALUE - n1) / (n1 - CostFunction::LOW_VALUE)); //T0   
+  params.at<double>(3,1) = u1(0); //X1
+  params.at<double>(4,1) = u1(1); //Y1
+  params.at<double>(5,1) = u1(2); //Z1
   
-   for(int i = (n-1) ; i >= 0; i--){
-     auto st = cv::Vec3d(data[i].x, data[i].y, data[i].z);
-     double scale = LOW_VALUE + ((HIGH_VALUE - LOW_VALUE) / (1 + std::exp(-1.0 * data[i].t)));
-     auto stBefore = _slidingWindow.getPosition(i+1);
-     _slidingWindow.setPosition(stBefore + scale * st, i);
-     ROS_INFO_STREAM("After: " << scale << " * " << st << std::endl);
-   }
+
+  data.R0 = _slidingWindow.getRotation(0);
+  data.R1 = _slidingWindow.getRotation(1);
+  data.R2 = _slidingWindow.getRotation(2);
+
+  std::vector<std::vector<cv::Vec3d>*> vectors{
+    &(data.m0),
+    &(data.m1),
+    &(data.m2)
+  };
+
+  _slidingWindow.getCorrespondingFeatures(n - 1, 0, vectors);
+
+  this->GaussNewton(data, params);
+
+  n0 = CostFunction::scale(params.at<double>(2,0)); //T0
+  n1 = CostFunction::scale(params.at<double>(5,0)); //T1
+  u0 = cv::Vec3d(params.at<double>(0,1),params.at<double>(1,1),params.at<double>(2,1));
+  u1 = cv::Vec3d(params.at<double>(3,1),params.at<double>(4,1),params.at<double>(5,1));
+
+  ROS_INFO_STREAM("After: " << std::endl);
+  ROS_INFO_STREAM("n0 * u0: " << n0 << " * " << u0 << std::endl);
+  ROS_INFO_STREAM("n1 * u1: " << n1 << " * " << u1 << std::endl);
 
 
-   /*DEBUG*/
-  
-  for(int i = 0; i < n; i++){
-    ROS_INFO_STREAM("After Window k- " << i << "-> position: " << _slidingWindow.getPosition(i) << std::endl);
-  }
-  ROS_INFO_STREAM("--------------------------------------------------------------" << std::endl);
+  st1 = (n1 * u1) + st2;
+  st0 = (n0 * u0) + st1;  
 
-  /******** */
 
-  
+  ROS_INFO_STREAM( "After: " << std::endl <<
+                  "st0: " << _slidingWindow.getPosition(0) << std::endl <<
+                  "st1: " << _slidingWindow.getPosition(1) << std::endl <<
+                  "st2: " << _slidingWindow.getPosition(2) << std::endl);
+}
+
+
+double IterativeRefinement::CostFunction::func(const Input & input, const cv::Mat & params){
+
+
+  auto baseLine21 = baseLine(params.at<double>(3,0), params.at<double>(4,0), params.at<double>(3,1),params.at<double>(4,1), params.at<double>(5,1));
+  auto baseLine10 = baseLine(params.at<double>(0,0), params.at<double>(1,0), params.at<double>(0,1),params.at<double>(1,1), params.at<double>(2,1));
+  auto scale21 = scale(params.at<double>(5,0));
+  auto scale10 = scale(params.at<double>(2,0));
+  auto baseLine20 = (scale21 * baseLine21 + scale10 * baseLine10) / cv::norm(scale21 * baseLine21 + scale10 * baseLine10);
+
+  return std::pow(input.m1.dot(input.R1.t() * baseLine21.cross(input.R2 * input.m2)) ,2) +
+         std::pow(input.m0.dot(input.R1.t() * baseLine10.cross(input.R1 * input.m1)) ,2) +
+         std::pow(input.m0.dot(input.R0.t() * baseLine20.cross(input.R2 * input.m2)), 2);
+}
+
+cv::Vec3d IterativeRefinement::CostFunction::baseLine(double a, double b, double x, double y, double z){
+  cv::Vec3d baseLine(1.0 - a * a - b * b, 2.0 * a, 2.0 * b);
+  baseLine = baseLine / (1.0 + a * a + b * b);
+  cv::Vec3d baseLineL;
+                                                                   //TODO: faste Computation!
+  baseLineL(0) = x * baseLine(0) - y * baseLine(1) - z * baseLine(2);
+  baseLineL(1) = x * baseLine(1) + y * baseLine(0);
+  baseLineL(2) = x * baseLine(2) + z * baseLine(0);
+  return baseLineL;
+}
+
+double IterativeRefinement::CostFunction::scale(double t){
+  return  LOW_VALUE + ((HIGH_VALUE - LOW_VALUE) / (1 + std::exp(-1.0 * t)));
+}
+
+double IterativeRefinement::CostFunction::derive(const Input & input, const cv::Mat & params, unsigned int index){
+  auto params1 = params.clone();
+  auto params2 = params.clone();
+
+  params1.at<double>(index, 0) += DERIV_STEP;
+  params2.at<double>(index, 0) -= DERIV_STEP;
+
+  double p1 = func(input, params1);
+  double p2 = func(input, params2);
+
+  double d = (p2 - p1) / (2 * DERIV_STEP);
+
+  return d;
+
 }
