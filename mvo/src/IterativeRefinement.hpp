@@ -36,8 +36,12 @@ private:
       const cv::Matx33d & R0;
     };
 
-    static double func(const Input & input, const cv::Mat & params);
-    static double derive(const Input & input, const cv::Mat & params, unsigned int index);
+    static double func10(const Input & input, const cv::Mat & params);
+    static double func21(const Input & input, const cv::Mat & params);
+    static double func20(const Input & input, const cv::Mat & params);
+    static double derive10(const Input & input, const cv::Mat & params, unsigned int index);
+    static double derive21(const Input & input, const cv::Mat & params, unsigned int index);
+    static double derive20(const Input & input, const cv::Mat & params, unsigned int index);
     static cv::Vec3d baseLine(double a, double b, double x, double y, double z);
     static double scale(double t);
 
