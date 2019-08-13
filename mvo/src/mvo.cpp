@@ -5,11 +5,16 @@
 #include <random>
 MVO::MVO() : _slidingWindow(5), _frameCounter(0), _iterativeRefinement(_slidingWindow)
 {
-  
+  cv::namedWindow("t2",cv::WINDOW_NORMAL);
+  cv::namedWindow("t1",cv::WINDOW_NORMAL);
+  cv::namedWindow("t0",cv::WINDOW_NORMAL);
+  cv::namedWindow("morph",cv::WINDOW_NORMAL);
+
 }
 
 MVO::~MVO()
 {
+  cv::destroyAllWindows();
 }
 
 OdomData MVO::handleImage(const cv::Mat image, const image_geometry::PinholeCameraModel &cameraModel, const cv::Matx33d &R){
@@ -21,16 +26,18 @@ OdomData MVO::handleImage(const cv::Mat image, const image_geometry::PinholeCame
      //
      std::vector<cv::Point2f> newFeatures(_NUMBEROFFEATURES);
      std::vector<cv::Vec3d> newFeaturesE;
-     this->euclidNormFeatures(newFeatures, newFeaturesE, cameraModel);
     _cornerTracker.detectFeatures(newFeatures, image, _NUMBEROFFEATURES, std::vector<cv::Point2f>());
-    _slidingWindow.newWindow(std::vector<cv::Point2f>(), std::vector<cv::Vec3d>(),std::vector<uchar>(), image); //First Two are Dummies
-    _slidingWindow.addFeaturesToCurrentWindow(newFeatures, newFeaturesE); //all, because first Frame
-    _slidingWindow.addTransformationToCurrentWindow(b, R);
+     this->euclidNormFeatures(newFeatures, newFeaturesE, cameraModel);
+    _slidingWindow.newFrame(std::vector<cv::Point2f>(), std::vector<cv::Vec3d>(),std::vector<uchar>(), image); //First Two are Dummies
+    _slidingWindow.addNewFeaturesToCurrentFrame(newFeatures, newFeaturesE); //all, because first Frame
+    _slidingWindow.setPosition(b,0);
+    _slidingWindow.setRotation(R,0);
 
     this->drawDebugPoints(newFeatures, cv::Scalar(0,0,255), _debugImage);
     //
   }else{
-   const std::vector<cv::Point2f> & prevFeatures = _slidingWindow.getFeatures(0);
+   std::vector<cv::Point2f> prevFeatures;
+   _slidingWindow.getFeatures(0,prevFeatures); //Currently Frame 0 is the "previous"
    cv::Mat prevImage = _slidingWindow.getImage(0);
    std::vector<cv::Point2f> trackedFeatures;
    std::vector<cv::Vec3d> trackedFeaturesE;
@@ -49,7 +56,7 @@ OdomData MVO::handleImage(const cv::Mat image, const image_geometry::PinholeCame
      return od;
     }
     
-   _slidingWindow.newWindow(trackedFeatures, trackedFeaturesE, found, image);
+   _slidingWindow.newFrame(trackedFeatures, trackedFeaturesE, found, image);
 
   int neededFeatures = _NUMBEROFFEATURES - _slidingWindow.getNumberOfCurrentTrackedFeatures();
   //ROS_INFO_STREAM("Current: " << _slidingWindow.getNumberOfCurrentTrackedFeatures() << std::endl);
@@ -60,7 +67,7 @@ OdomData MVO::handleImage(const cv::Mat image, const image_geometry::PinholeCame
    this->sortOutSameFeatures(trackedFeatures, newFeatures); //TODO: maybe not needed any more
    std::vector<cv::Vec3d> newFeaturesE;
    this->euclidNormFeatures(newFeatures, newFeaturesE, cameraModel);
-   _slidingWindow.addFeaturesToCurrentWindow(newFeatures, newFeaturesE);
+   _slidingWindow.addNewFeaturesToCurrentFrame(newFeatures, newFeaturesE);
 
    this->drawDebugPoints(newFeatures, cv::Scalar(0,0,255), _debugImage);
 
@@ -113,13 +120,52 @@ for(auto feature = thisCorespFeaturesE.begin(); feature != thisCorespFeaturesE.e
 
   
   if(_frameCounter > 1){//IterativeRefinemen -> Scale Estimation?
+
+    /*------> * Debug Features -> History **/
+    std::vector<cv::Point2f> ft0, ft1, ft2;
+    std::vector<std::vector<cv::Point2f>*> vectors{
+      &ft0,
+      &ft1,
+      &ft2
+    };
+
+    _slidingWindow.getCorrespondingFeatures(2,0,vectors);
+    cv::Mat t2 = _slidingWindow.getImage(2).clone();
+    cv::Mat t1 = _slidingWindow.getImage(1).clone();
+    cv::Mat t0 = _slidingWindow.getImage(0).clone();
+    cv::Mat morph(t0.size(), CV_8UC3,cv::Scalar(0));
+    assert(ft0.size() == ft1.size() && ft1.size() == ft2.size());
+
+    for(unsigned int i = 0; i < ft0.size(); i++){
+      cv::circle(morph, ft2[i], 5, cv::Scalar(0,0,255),-1);
+      cv::line(morph, ft2[i], ft1[i], cv::Scalar(255,255,255), 4);
+      cv::circle(morph, ft1[i], 5, cv::Scalar(0,255,0),-1);
+      cv::line(morph, ft1[i], ft0[i], cv::Scalar(255,255,255), 4);
+      cv::circle(morph, ft0[i], 5, cv::Scalar(255,0,0),-1);
+    }
+
+    this->drawDebugPoints(ft2, cv::Scalar(0,0,255), t2),
+    this->drawDebugPoints(ft1, cv::Scalar(0,0,255), t1),
+    this->drawDebugPoints(ft0, cv::Scalar(0,0,255), t0),
+
+    cv::imshow("t2", t2);
+    cv::imshow("t1", t1);
+    cv::imshow("t0", t0);
+
+    cv::imshow("morph", morph);
+
+    cv::waitKey(1);
+    /*<----- END Debug */
+
     cv::Vec3d st = _slidingWindow.getPosition(1) + b;
-    _slidingWindow.addTransformationToCurrentWindow(st, R);
+    _slidingWindow.setPosition(st,0); 
+    _slidingWindow.setRotation(R,0);
     _iterativeRefinement.refine(3);
   
     this->drawDebugImage(_slidingWindow.getPosition(0) - _slidingWindow.getPosition(1), _debugImage, cv::Scalar(0,0,255));
   }else{
-    _slidingWindow.addTransformationToCurrentWindow(_slidingWindow.getPosition(1) + sign * b, R);
+    _slidingWindow.setPosition(_slidingWindow.getPosition(1) + sign * b,0); 
+    _slidingWindow.setRotation(R,0);
   }
   this->drawDebugImage(sign * b, _debugImage, cv::Scalar(0,255,0));
 }

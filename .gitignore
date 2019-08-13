@@ -1,0 +1,10 @@
+
+mvo/\.vscode/
+
+mvo/Ideas\.md
+
+*.code-workspace
+
+*.bag
+
+testData/
