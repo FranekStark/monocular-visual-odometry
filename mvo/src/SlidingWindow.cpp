@@ -2,265 +2,273 @@
 
 #include <ros/ros.h>
 
-SlidingWindow::SlidingWindow(int len) : _length(len), _firstWindow(nullptr), _lastWindow(nullptr)
+SlidingWindow::SlidingWindow(int len) : _length(len), _frameCounter(0), _frameNow(nullptr)
 {
 }
 
 SlidingWindow::~SlidingWindow()
 {
+  /*Remove Frames*/
+  auto* frame = _frameNow;
+  while (frame != nullptr)
+  {
+    auto nextFrame = frame->_preFrame;
+    delete frame;
+    frame = nextFrame;
+  }
 }
 
-Window* SlidingWindow::getWindow(int past) const
+Frame & SlidingWindow::getFrame(unsigned int past) const
 {
-  Window* window = _lastWindow;
-  int cnt = 0;
-  while (window != _firstWindow && cnt != past)
+  Frame* frame = _frameNow;
+  unsigned int cnt = 0;
+  while (cnt < past)
   {
-    window = window->_windowBefore;
+    assert(frame != nullptr);
+    frame = frame->_preFrame;
     cnt++;
   }
-  return window;
+  return *frame;
 }
 
-void SlidingWindow::newWindow(const std::vector<cv::Point2f>& trackedFeaturesNow,
-                              const std::vector<cv::Vec3d>& trackedFeaturesNowE,
-                              const std::vector<unsigned char>& found,
-                              cv::Mat image)
+/**
+ *The Tracked FeaturesVectors (including Found) must have the same Size as the FeatureVector of the PreFrame. Also Each
+ *tracked Feature has to be the followwing of the Feature with the same Index in the PreFrame.
+ **/
+void SlidingWindow::newFrame(const std::vector<cv::Point2f>& trackedFeaturesNow,
+                             const std::vector<cv::Vec3d>& trackedFeaturesNowE, const std::vector<unsigned char>& found,
+                             cv::Mat image)
 {
-  /*Create New Window */
-  Window* window = new Window();
-  window->_image = image;
-
-  /*Einhaengen */
-  window->_windowBefore = _lastWindow;
-  _lastWindow = window;
-
-  /*Remove Oldest */
-  Window* tmpWindow = _lastWindow;
-  for (int i = 0; i <= _length; i++)
+  assert(trackedFeaturesNow.size() == trackedFeaturesNowE.size() && trackedFeaturesNowE.size() == found.size());
+  /*Create New Frame*/
+  Frame* newFrame = new Frame();
+  /*Clip In*/
+  newFrame->_preFrame = _frameNow;
+  _frameNow = newFrame;
+  _frameCounter++;
+  if (_frameCounter > _length)
   {
-    tmpWindow = tmpWindow->_windowBefore;
-    if (tmpWindow == nullptr)
+    /*Remove Oldest*/
+    Frame & afterOldestFrame = this->getFrame(_length);
+    delete afterOldestFrame._preFrame;
+    afterOldestFrame._preFrame = nullptr;
+    _frameCounter--;
+  }
+
+  /*Add Image*/
+  newFrame->_image = image;
+  if(_frameCounter > 1){
+  /*Find Pairs and Add them*/
+  auto & preFeatures = newFrame->_preFrame->_features;
+  assert(trackedFeaturesNow.size() == preFeatures.size());  // The others have the same Size as the first one, this is
+                                                            // already tested above.
+  auto preFeatureIt = preFeatures.begin();
+  auto trackedFeatureNowIt = trackedFeaturesNow.begin();
+  auto trackedFeatureNowEIt = trackedFeaturesNowE.begin();
+  auto foundIt = found.begin();
+  while (foundIt != found.end())
+  {
+    if (*foundIt == 1)
     {
-      break;
+      newFrame->_features.push_back(Feature(
+        *trackedFeatureNowIt,
+        *trackedFeatureNowEIt,
+        &(*preFeatureIt),
+        preFeatureIt->_preFeatureCounter + 1
+      ));
     }
+    preFeatureIt++;
+    trackedFeatureNowIt++;
+    trackedFeatureNowEIt++;
+    foundIt++;
   }
-  if (tmpWindow != nullptr)
+  }
+}
+
+void SlidingWindow::addNewFeaturesToCurrentFrame(const std::vector<cv::Point2f>& features,
+                                                 const std::vector<cv::Vec3d>& featuresE)
+{
+  assert(features.size() == featuresE.size());
+  auto featureIT = features.begin();
+  auto featureEIT = featuresE.begin();
+  while (featureIT != features.end())
   {
-    delete tmpWindow;
-  }
+    _frameNow->_features.push_back(Feature(
+      *featureIT,
+      *featureEIT,
+      nullptr,
+      0
+    ));
 
-  /*Finding Pairs */
-  for (long unsigned int i = 0; i < found.size(); i++)
-  {
-    if (found[i] == 1)
-    {
-      window->_featuresBefore.insert({ window->_features.size(), i });  // The size is the last (new) Index
-      window->_features.push_back(trackedFeaturesNow[i]);
-      window->_euclidNormedFeatures.push_back(trackedFeaturesNowE[i]);
-    }  // Else do nothing and Skip these Point
+    featureEIT++;
+    featureIT++;
   }
 }
 
-void SlidingWindow::addFeaturesToCurrentWindow(std::vector<cv::Point2f> & features, const std::vector<cv::Vec3d> & featuresE)
-{
-  // Put them to the End
-  _lastWindow->_features.insert(_lastWindow->_features.end(), features.begin(), features.end());
-  _lastWindow->_euclidNormedFeatures.insert(_lastWindow->_euclidNormedFeatures.end(), featuresE.begin(), featuresE.end());
-  // No Values to the Bimap, because these Features are NEW
+void SlidingWindow::getFeatures(unsigned int past, std::vector<cv::Point2f> & features) const
+{ 
+  Frame & frame = this->getFrame(past);
+  features.resize(frame._features.size());
+  auto featureFrom = frame._features.begin();
+  auto featureTo = features.begin();
+  while(featureFrom != frame._features.end()){
+    *featureTo = featureFrom->_positionImage;
+    featureFrom++;
+    featureTo++;
+  }
 }
 
-const std::vector<cv::Point2f>& SlidingWindow::getFeatures(int past) const
-{
-  Window* window = getWindow(past);
-  assert(window != nullptr);
-  return (window->_features);
+void SlidingWindow::getFeatures(unsigned int past, std::vector<cv::Vec3d> & features) const
+{ 
+  Frame & frame = this->getFrame(past);
+  features.resize(frame._features.size());
+  auto featureFrom = frame._features.begin();
+  auto featureTo = features.begin();
+  while(featureFrom != frame._features.end()){
+    *featureTo = featureFrom->_positionEuclidian;
+    featureFrom++;
+    featureTo++;
+  }
 }
 
-const std::vector<cv::Vec3d>& SlidingWindow::getFeaturesE(int past) const
+const cv::Mat SlidingWindow::getImage(unsigned int past) const
 {
-  Window* window = getWindow(past);
-  assert(window != nullptr);
-  return (window->_euclidNormedFeatures);
+  return this->getFrame(past)._image;
 }
 
-const cv::Mat SlidingWindow::getImage(int past) const
+cv::Vec3d& SlidingWindow::getPosition(unsigned int past) const
 {
-  Window* window = this->getWindow(past);
-   assert(window != nullptr);
-  return (window->_image);
+  return this->getFrame(past)._position;
 }
 
-cv::Vec3d & SlidingWindow::getPosition(int past) const
+cv::Matx33d& SlidingWindow::getRotation(unsigned int past) const
 {
-  Window* window = this->getWindow(past);
-  assert(window != nullptr);
-  return (window->_position);
+  return this->getFrame(past)._rotation;
 }
 
-cv::Matx33d & SlidingWindow::getRotation(int past) const
-{
-  Window* window = this->getWindow(past);
-  assert(window != nullptr);
-  return (window->_rotation);
+
+void SlidingWindow::setPosition(const cv::Vec3d & position, unsigned int past){
+  this->getFrame(past)._position = position;
 }
 
-void SlidingWindow::getCorrespondingFeatures(int window1Index, int window2Index, std::vector<cv::Point2f>& features1,
+void SlidingWindow::setRotation(const cv::Matx33d & rotation, unsigned int past){
+  this->getFrame(past)._rotation = rotation;
+}
+
+
+
+void SlidingWindow::getCorrespondingFeatures(unsigned int window1Index, unsigned int window2Index, std::vector<cv::Point2f>& features1,
                                              std::vector<cv::Point2f>& features2) const
 {
-  if (this->getWindow(window1Index) == nullptr || this->getWindow(window2Index) == nullptr)
-  {
-    return;  // TODO: catch these
-  }
+  assert(window1Index < _frameCounter && window2Index < _frameCounter);
+  unsigned int depth = window1Index - window2Index;
+  auto & features2SW = this->getFrame(window2Index)._features;
 
-  for (unsigned int firstIndex = 0; firstIndex < this->getWindow(window2Index)->_features.size(); firstIndex++)
-  {
-    int nextIndex = firstIndex;
-    bool found = true;
-    for (int hist = window2Index; hist < window1Index; hist++)
-    {
-      Window* thisWindow = this->getWindow(hist);
-      const auto nextIndexIt = thisWindow->_featuresBefore.left.find(nextIndex);
-      if (nextIndexIt != thisWindow->_featuresBefore.left.end())  // found
-      {
-        nextIndex = nextIndexIt->second;
-      }
-      else  // Not Found
-      {
-        found = false;
-        break;  // Next Feature, because History of that Feature not long enough
-      }
-    }
-    if (found)
-    {
-      features2.push_back(this->getWindow(window2Index)->_features[firstIndex]);
-      features1.push_back(this->getWindow(window1Index)->_features[nextIndex]);
-    }
-  }
-}
-
-void SlidingWindow::getCorrespondingFeatures(int window1Index, int window2Index, std::vector<cv::Vec3d>& features1,
-                                std::vector<cv::Vec3d>& features2) const{
-  if (this->getWindow(window1Index) == nullptr || this->getWindow(window2Index) == nullptr)
-  {
-    return;  // TODO: catch these
-  }
-
-  for (unsigned int firstIndex = 0; firstIndex < this->getWindow(window2Index)->_features.size(); firstIndex++)
-  {
-    int nextIndex = firstIndex;
-    bool found = true;
-    for (int hist = window2Index; hist < window1Index; hist++)
-    {
-      Window* thisWindow = this->getWindow(hist);
-      const auto nextIndexIt = thisWindow->_featuresBefore.left.find(nextIndex);
-      if (nextIndexIt != thisWindow->_featuresBefore.left.end())  // found
-      {
-        nextIndex = nextIndexIt->second;
-      }
-      else  // Not Found
-      {
-        found = false;
-        break;  // Next Feature, because History of that Feature not long enough
-      }
-    }
-    if (found)
-    {
-      features2.push_back(this->getWindow(window2Index)->_euclidNormedFeatures[firstIndex]);
-      features1.push_back(this->getWindow(window1Index)->_euclidNormedFeatures[nextIndex]);
-    }
-  }
-}
-
-void SlidingWindow::getCorrespondingFeatures(int window1Index, int window2Index, std::vector<std::vector<cv::Vec3d>*> features) const{
-  assert(this->getWindow(window1Index) != nullptr);
-  assert(this->getWindow(window2Index) != nullptr);
-  unsigned int depth = (window1Index - window2Index) + 1;
-  assert(features.size() == depth);
-
-  //Iterate through all Features with history:
-  for(unsigned int firstIndex = 0; firstIndex < this->getWindow(window2Index)->_features.size(); firstIndex++){
-    bool found = true;
-    std::vector<cv::Vec3d *> foundFeatures(depth);
-    unsigned int nextIndex = firstIndex;
-
-    for(int hist = window2Index; hist < window1Index; hist++){ //TODO: bessere Datenstruktur der Feature History? Referencen?
-      Window* window = this->getWindow(hist);
-      const auto nextIndexIt = window->_featuresBefore.left.find(nextIndex);
-      if (nextIndexIt != window->_featuresBefore.left.end())  // found
-      {
-        foundFeatures[hist - window2Index] = &(window->_euclidNormedFeatures[nextIndexIt->first]);
-        foundFeatures[(hist - window2Index) + 1] = &(window->_euclidNormedFeatures[nextIndexIt->second]);
-        nextIndex = nextIndexIt->second;
-      }else{
-        found = false;
-        break;
-      }
-    }
-
-
-    if(found){
+  for(auto feature2 = features2SW.begin(); feature2 != features2SW.end(); feature2++){
+    if(feature2->_preFeatureCounter >= depth){
+      features2.push_back(feature2->_positionImage);
+      Feature * feature = &(*feature2);
       for(unsigned int i = 0; i < depth; i++){
-        features[i]->push_back(*(foundFeatures[i]));
+        feature = feature->_preFeature;
+      }
+      features1.push_back(feature->_positionImage);
+    }
+  }
+
+}
+
+void SlidingWindow::getCorrespondingFeatures(unsigned int window1Index, unsigned int window2Index, std::vector<cv::Vec3d>& features1,
+                                             std::vector<cv::Vec3d>& features2) const
+{
+  assert(window1Index < _frameCounter && window2Index < _frameCounter);
+  unsigned int depth = window1Index - window2Index;
+  auto & features2SW = this->getFrame(window2Index)._features;
+
+  for(auto feature2 = features2SW.begin(); feature2 != features2SW.end(); feature2++){
+    if(feature2->_preFeatureCounter >= depth){
+      features2.push_back(feature2->_positionEuclidian);
+      Feature * feature = &(*feature2);
+      for(unsigned int i = 0; i < depth; i++){
+        feature = feature->_preFeature;
+      }
+      features1.push_back(feature->_positionEuclidian);
+    }
+  }
+
+}
+
+
+void SlidingWindow::getCorrespondingFeatures(unsigned int window1Index, unsigned int window2Index,
+                                             std::vector<std::vector<cv::Vec3d>*> features) const
+{
+  assert(window1Index < _frameCounter && window2Index < _frameCounter);
+  unsigned int depth = window1Index - window2Index;
+  assert(features.size() == (depth + 1));
+
+  auto & features2SW = this->getFrame(window2Index)._features;
+
+  for(auto feature2 = features2SW.begin(); feature2 != features2SW.end(); feature2++){
+    if(feature2->_preFeatureCounter >= depth){
+      Feature * feature = &(*feature2);
+      for(unsigned int i = 0; i <= depth; i++){
+        features[i]->push_back(feature->_positionEuclidian);
+        feature = feature->_preFeature;;
       }
     }
-
   }
-
-  
   
 }
 
-void SlidingWindow::addTransformationToCurrentWindow(const cv::Vec3d & position,const cv::Matx33d & rotation)
+void SlidingWindow::getCorrespondingFeatures(unsigned int window1Index, unsigned int window2Index,
+                                             std::vector<std::vector<cv::Point2f>*> features) const
 {
-  _lastWindow->_rotation = rotation;
-  _lastWindow->_position = position;
-}
+  assert(window1Index < _frameCounter && window2Index < _frameCounter);
+  unsigned int depth = window1Index - window2Index;
+  assert(features.size() == (depth + 1));
 
-void SlidingWindow::getCorrespondingPosition(int window1Index, int window2Index, cv::Vec3d& position1, cv::Vec3d& position2,
-                                             cv::Matx33d& rotation1, cv::Matx33d& rotation2) const
-{
-  Window* window1 = this->getWindow(window1Index);
-  Window* window2 = this->getWindow(window2Index);
-  assert(window1 != nullptr && window2 != nullptr);
+  auto & features2SW = this->getFrame(window2Index)._features;
 
-  position1 = window1->_position;
-  rotation1 = window1->_rotation;
-  position2 = window2->_position;
-  rotation2 = window2->_rotation;
-}
-
-unsigned int SlidingWindow::getNumberOfCurrentTrackedFeatures() const{
-  if(_lastWindow == nullptr){
-    return 0;
-  }else{
-    return _lastWindow->_features.size();
-  }
-}
-
- void SlidingWindow::removeFeatureFromCurrentWindow(const cv::Point2f & feature){
-   for(auto windowFeature = _lastWindow->_features.begin(); windowFeature != _lastWindow->_features.end(); windowFeature++){
-    if(feature == *windowFeature){
-      unsigned int index = std::distance(_lastWindow->_features.begin(), windowFeature);
-      _lastWindow->_featuresBefore.left.erase(index);
+  for(auto feature2 = features2SW.begin(); feature2 != features2SW.end(); feature2++){
+    if(feature2->_preFeatureCounter >= depth){
+      Feature * feature = &(*feature2);
+      for(unsigned int i = 0; i <= depth; i++){
+        features[i]->push_back(feature->_positionImage);
+        feature = feature->_preFeature;;
+      }
     }
-   }
- }
+  }
+  
+}
+
+
+unsigned int SlidingWindow::getNumberOfCurrentTrackedFeatures() const
+{
+  if (_frameNow == nullptr)
+  {
+    return 0;
+  }
+  else
+  {
+    return _frameNow->_features.size();
+  }
+}
 
 /*
-* This also deletes the not Euclided Variant
+ * This also deletes tze hole "FeatureWrapper"
  */
- void SlidingWindow::removeFeatureFromCurrentWindow(const cv::Vec3d & feature){
-   for(auto windowFeature = _lastWindow->_euclidNormedFeatures.begin(); windowFeature != _lastWindow->_euclidNormedFeatures.end(); windowFeature++){
-    if(feature == *windowFeature){
-      unsigned int index = std::distance(_lastWindow->_euclidNormedFeatures.begin(), windowFeature);
-      _lastWindow->_featuresBefore.left.erase(index);
+void SlidingWindow::removeFeatureFromCurrentWindow(const cv::Vec3d& feature)
+{
+  ROS_INFO_STREAM("To Remove" << std::endl);
+  auto featureIT = _frameNow->_features.begin();
+  bool found = false;
+  for(; featureIT != _frameNow->_features.end(); featureIT++){
+    if(featureIT->_positionEuclidian == feature){
+      found = true;
     }
-   }
- }
+  }
+  if(found){
+    _frameNow->_features.erase(featureIT);
+    ROS_INFO_STREAM("removed" << std::endl);
+  }
+}
 
- void SlidingWindow::setPosition(const cv::Vec3d & position, int past){
-   Window * window = this->getWindow(past);
-   assert(window != nullptr);
-   window->_position = position;
- }
