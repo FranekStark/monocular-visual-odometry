@@ -36,10 +36,13 @@ private:
       const cv::Matx33d & R0;
     };
 
-    static double func(const Input & input, const cv::Mat & params);
+    static double func(const cv::Vec3d & mk1, const cv::Matx33d & Rk1, const cv::Vec3d & uk, const cv::Matx33d & Rk, const cv::Vec3d & mk);
     static double derive(const Input & input, const cv::Mat & params, unsigned int index);
     static cv::Vec3d baseLine(double a, double b, double x, double y, double z);
+    static cv::Vec3d baseLineDeriveA(double a, double b, double x, double y, double z);
+    static cv::Vec3d baseLineDeriveB(double a, double b, double x, double y, double z);
     static double scale(double t);
+    static double scaleDeriveT(double t);
 
   };
  
