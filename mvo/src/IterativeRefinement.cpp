@@ -129,50 +129,98 @@ cv::Mat IterativeRefinement::CreateFunction(const RefinementData& data, const cv
 // TODO: From https://www.mrpt.org/Levenberg-Marquardt_algorithm
 void IterativeRefinement::GaussNewton(const RefinementData& data, cv::Mat& params)
 {
+  // assert(data.m0.size() == data.m1.size() && data.m1.size() == data.m2.size());
+  // unsigned int n = data.m0.size();
+  // unsigned int maxIterations = 100;
+  // double lambda = 0.01;
+
+  // cv::Mat J(n*3, 6, CV_64F);  // Jacobian of Func()
+  // cv::Mat f(n*3, 1, CV_64F);  // f
+  // this->CreateJacobianAndFunction(J, f, data, params);
+  // for(unsigned int i = 0; i < maxIterations; i++){
+   
+  //   cv::Mat H = J.t() * J;
+  //   double e = f.dot(f);
+  //   cv::Mat Hlm = H + (lambda * cv::Mat::eye(H.rows, H.cols, CV_64F));
+
+  //   cv::Mat delta = -(Hlm.inv()) * (J.t() * f);
+  //   ROS_INFO_STREAM("delta: " << delta);
+
+  //   cv::Mat newParams = params.clone();
+  //   newParams.col(0) += delta;
+  //   cv::Mat fNew = this->CreateFunction(data, newParams);
+  //   double elm = fNew.dot(fNew);
+  //   ROS_INFO_STREAM("elm: " << elm << std::endl);
+  //   ROS_INFO_STREAM("e: " << e << std::endl);
+  //   if(elm < e){
+  //     lambda = lambda/10;
+
+  //     auto newBaseLine0 = CostFunction::baseLine(newParams.at<double>(0,0),newParams.at<double>(1,0),params.at<double>(0,1),params.at<double>(1,1),params.at<double>(2,1));
+  //     auto newBaseLine1 = CostFunction::baseLine(newParams.at<double>(3,0),newParams.at<double>(4,0),params.at<double>(3,1),params.at<double>(4,1),params.at<double>(5,1));
+      
+  //     params.at<double>(0,0) = 0; //A0
+  //     params.at<double>(1,0) = 0; //B0
+  //     params.at<double>(2,0) = newParams.at<double>(2,0); //T0
+
+  //     params.at<double>(0,1) = newBaseLine0(0); //X0
+  //     params.at<double>(1,1) = newBaseLine0(1); //Y0
+  //     params.at<double>(2,1) = newBaseLine0(2); //Z0
+
+
+  //     params.at<double>(3,0) = 0; //A1
+  //     params.at<double>(4,0) = 0; //B1
+  //     params.at<double>(5,0) = newParams.at<double>(5,0); //T2
+
+  //     params.at<double>(3,1) = newBaseLine1(0); //X1
+  //     params.at<double>(4,1) = newBaseLine1(1); //Y1
+  //     params.at<double>(5,1) = newBaseLine1(2); //Z1
+
+  //     this->CreateJacobianAndFunction(J, f, data, params);
+  //   }else{
+  //     lambda = lambda*10;
+  //   }
+
+
+
+  // }
+
+
   assert(data.m0.size() == data.m1.size() && data.m1.size() == data.m2.size());
-
-  /*params */
-  double tau = 10E-3;
-  double epsilon1, epsilon2, epsilon3, epsilon4;
-  epsilon1 = epsilon2 = epsilon3 = 10E-12;
-  epsilon4 = 0;
-  unsigned int kmax = 100;
-
-  cv::Mat delta(6, 1, CV_64F);
-
+  int k = 6; //six Params
   unsigned int n = data.m0.size();
+  cv::Mat delta;
 
   cv::Mat J(n*3, 6, CV_64F);  // Jacobian of Func()
   cv::Mat f(n*3, 1, CV_64F);  // f
 
   this->CreateJacobianAndFunction(J, f, data, params);
 
-  cv::Mat gradient = J.t() * f;
-  cv::Mat A = J.t() * J;
-  double mue;
-  cv::minMaxLoc(A.diag(), NULL, &mue);
-  mue = mue * tau;
+  // cv::Mat gradient = J.t() * f;
+  // cv::Mat A = J.t() * J;
+  // double mue;
+  // cv::minMaxLoc(A.diag(), NULL, &mue);
+  // mue = mue * tau;
 
-  bool stop = (cv::norm(gradient, cv::NormTypes::NORM_INF) <= epsilon1);
-  unsigned int k = 0;
-  int v = 2;
-  while (!stop && (k < kmax))
-  {
-    k++;
-    double rho = 0;
-    do
-    {
-      cv::solve(A + mue * cv::Mat::eye(A.rows, A.cols, CV_64F), gradient, delta, cv::DECOMP_QR);
-      if (cv::norm(delta, cv::NormTypes::NORM_L2) <=
-          epsilon2 * (cv::norm(params.col(0), cv::NormTypes::NORM_L2) + epsilon2))
-      {
-        stop = true;
-      }
-      else
-      {
-        cv::Mat newParams = params.clone();
-        newParams.col(0) += delta;
-        cv::Mat fNew = this->CreateFunction(data, newParams);
+  // bool stop = (cv::norm(gradient, cv::NormTypes::NORM_INF) <= epsilon1);
+  // unsigned int k = 0;
+  // int v = 2;
+  // while (!stop && (k < kmax))
+  // {
+  //   k++;
+  //   double rho = 0;
+  //   do
+  //   {
+  //     cv::solve(A + mue * cv::Mat::eye(A.rows, A.cols, CV_64F), gradient, delta, cv::DECOMP_QR);
+  //     if (cv::norm(delta, cv::NormTypes::NORM_L2) <=
+  //         epsilon2 * (cv::norm(params.col(0), cv::NormTypes::NORM_L2) + epsilon2))
+  //     {
+  //       stop = true;
+  //     }
+  //     else
+  //     {
+  //       cv::Mat newParams = params.clone();
+  //       newParams.col(0) += delta;
+  //       cv::Mat fNew = this->CreateFunction(data, newParams);
 
         rho = (cv::norm(f, cv::NormTypes::NORM_L2SQR) - cv::norm(fNew, cv::NormTypes::NORM_L2SQR)) /
               (0.5 * cv::Mat(delta.t() * ((mue * delta) - gradient)).at<double>(0, 0));
@@ -210,22 +258,22 @@ void IterativeRefinement::GaussNewton(const RefinementData& data, cv::Mat& param
 
           this->CreateJacobianAndFunction(f, data, params);
 
-          gradient = J.t() * f;
-          A = J.t() * J;
+  //         gradient = J.t() * f;
+  //         A = J.t() * J;
 
-          stop = stop || (cv::norm(gradient, cv::NormTypes::NORM_INF) <= epsilon1);
-          mue = mue * std::max(1.0 / 3.0, 1.0 - std::pow(2.0 * rho - 1, 3));
-          v = 2;
-        }
-        else
-        {
-          mue = mue * v;
-          v = 2 * v;
-        }
-      }
-    } while (rho <= 0 && !stop);
-    stop = (cv::norm(f, cv::NormTypes::NORM_L2) <= epsilon3);
-  }
+  //         stop = stop || (cv::norm(gradient, cv::NormTypes::NORM_INF) <= epsilon1);
+  //         mue = mue * std::max(1.0 / 3.0, 1.0 - std::pow(2.0 * rho - 1, 3));
+  //         v = 2;
+  //       }
+  //       else
+  //       {
+  //         mue = mue * v;
+  //         v = 2 * v;
+  //       }
+  //     }
+  //   } while (rho <= 0 && !stop);
+  //   stop = (cv::norm(f, cv::NormTypes::NORM_L2) <= epsilon3);
+  // }
 }
 
 void IterativeRefinement::refine(unsigned int n)
@@ -340,3 +388,30 @@ double IterativeRefinement::CostFunction::func(const cv::Vec3d & mk1, const cv::
 }
 
 
+
+  params1.at<double>(index, 0) += DERIV_STEP;
+  params2.at<double>(index, 0) -= DERIV_STEP;
+
+  double p1 = func21(input, params1);
+  double p2 = func21(input, params2);
+
+  double d = (p2 - p1) / (2 * DERIV_STEP);
+
+  return d;
+
+}
+double IterativeRefinement::CostFunction::derive20(const Input & input, const cv::Mat & params, unsigned int index){
+  auto params1 = params.clone();
+  auto params2 = params.clone();
+
+  params1.at<double>(index, 0) += DERIV_STEP;
+  params2.at<double>(index, 0) -= DERIV_STEP;
+
+  double p1 = func20(input, params1);
+  double p2 = func20(input, params2);
+
+  double d = (p2 - p1) / (2 * DERIV_STEP);
+
+  return d;
+
+}
