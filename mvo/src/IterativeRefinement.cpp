@@ -314,32 +314,44 @@ void IterativeRefinement::refine(unsigned int n)
 
 cv::Vec3d IterativeRefinement::CostFunction::baseLine(double a, double b, double x, double y, double z)
 {
-  cv::Vec3d baseLine(1.0 - a * a - b * b, 2.0 * a, 2.0 * b);
-  baseLine = baseLine / (1.0 + a * a + b * b);
-  cv::Vec3d baseLineL;
-  // TODO: faste Computation!
-  baseLineL(0) = x * baseLine(0) - y * baseLine(1) - z * baseLine(2);
-  baseLineL(1) = x * baseLine(1) + y * baseLine(0);
-  baseLineL(2) = x * baseLine(2) + z * baseLine(0);
-  return baseLineL;
+
+  cv::Vec3d v(x,y,z);
+
+  cv::Matx33d A(
+    1.0 - a*a , -2.0 * a,   0,
+    2*a       , 1.0 - a*a,  0,
+    0         , 0        ,  1 
+  );
+
+  cv::Matx33d B(
+    1 - b*b   , 0        ,   2*b,
+    0         , 1        ,    0,
+    -2.0*b    , 0        ,  1.0 - b*b 
+  );
+
+  return A * B * v / ((1.0 + a*a) * (1.0 + b*b));
 }
+
+
 
 cv::Vec3d IterativeRefinement::CostFunction::baseLineDeriveA(double a, double b, double x, double y, double z)
 {
-  cv::Vec3d baseLine;
-  baseLine(0) = (2 * a * a * y - 4 * a * (x - b * z) - 2 * (b * b + 1) * y) / std::pow((a * a + b * b + 1), 2);
-  baseLine(1) = (2 * x * (-(a * a) + b * b + 1) - 4 * a * y) / std::pow(a * a + b * b + 1, 2);
-  baseLine(2) = (-4 * a * (b * x + z)) / std::pow(a * a + b * b + 1, 2);
-  return baseLine;
+  cv::Vec3d baseLine(
+    2.0 * y * a + 4.0 * (b*b-1.0)*x*a-8.0*b*z*a-2*y,
+    2.0*(a*a-1)*(b*b-1)*x-4.0*(b*z*a*a+y*a-b*z),
+    2*a*(z*b*b+2*x*b-z)
+  );
+  return baseLine / std::pow((a*a + 1.0),2)*(b*b+1);
 }
 
 cv::Vec3d IterativeRefinement::CostFunction::baseLineDeriveB(double a, double b, double x, double y, double z)
 {
-  cv::Vec3d baseLine;
-  baseLine(0) = -(2*(a*a-z-2*a*b*y-b*b*z+2*b*x+z)) / std::pow((a*a+b*b+1),2);
-  baseLine(1) = (4 * b * (a * x + y)) / std::pow(a * a + b * b + 1, 2);
-  baseLine(2) = (2 * (x * (a * a - b * b) + 1) - 2 * b * z) / std::pow((a * a + b * b + 1), 2);
-  return baseLine;
+  cv::Vec3d baseLine(
+    2.0*(-z*a*a+2*b*((a*a-1.0)*x*a*y)+(a*a-1.0)*b*b*z+z),
+    2.0*(b*y*a*a-2.0*(z*b*b+2*x*b-z)*a-b*y),
+    2*(b*b-1)*x-4*b*z
+  );
+  return baseLine / (a*a+1.0)*std::pow((b*b+1.0),2);
 }
 
 double IterativeRefinement::CostFunction::scaleDeriveT(double t)
