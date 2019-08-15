@@ -1,9 +1,20 @@
 <?xml version="1.0"?>
 <launch>
+    
+     <arg name="manager" value="standalone_nodelet"/> <!-- Must be globally qualified -->
+    <!-- TODO Arguments for debayer, interpolation methods? -->
+
+     <node pkg="nodelet" type="nodelet" name="standalone_nodelet"  args="manager"/>
+
+
     <arg name="respawn" default="false" />
     <arg name="debug" default="false" />
     <arg name="node_name" default="pylon_camera_node" />
     <arg name="config_file" default="$(find titanic_launch)/config/titanic_big.yaml" />
+
+    <arg     if="$(arg respawn)" name="bond" value="" />
+    <arg unless="$(arg respawn)" name="bond" value="--no-bond" />
+  
 
     <arg unless="$(arg debug)" name="launch_prefix" value="" />
     <arg     if="$(arg debug)" name="launch_prefix" value="gdb -ex run --args" />
@@ -12,5 +23,7 @@
           respawn="$(arg respawn)" launch-prefix="$(arg launch_prefix)">
         <rosparam command="load" file="$(arg config_file)" />
     </node>
+
+
 
 </launch>

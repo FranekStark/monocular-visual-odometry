@@ -24,7 +24,7 @@ OdomData MVO::handleImage(const cv::Mat image, const image_geometry::PinholeCame
 
   if(_frameCounter == 0){
      //
-     std::vector<cv::Point2f> newFeatures(_NUMBEROFFEATURES);
+     std::vector<cv::Point2f> newFeatures;
      std::vector<cv::Vec3d> newFeaturesE;
     _cornerTracker.detectFeatures(newFeatures, image, _NUMBEROFFEATURES, std::vector<cv::Point2f>());
      this->euclidNormFeatures(newFeatures, newFeaturesE, cameraModel);
