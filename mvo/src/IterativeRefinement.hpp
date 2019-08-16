@@ -24,7 +24,7 @@ private:
 
     static constexpr double HIGH_VALUE = 10;
     static constexpr double LOW_VALUE = 0.25;
-    static constexpr double DERIV_STEP = 1e-5;
+    static constexpr double DERIV_STEP = std::sqrt(DBL_EPSILON);
 
     struct Input
     {
@@ -35,6 +35,10 @@ private:
       const cv::Matx33d & R1;
       const cv::Matx33d & R0;
     };
+
+    static double func10(const Input & input, double a, double b, double x, double y, double z);
+    static double func21(const Input & input, double a1, double b1, double x1, double y1, double z1);
+    static double func20(const Input & input, double a, double b, double x, double y, double z, double t, double a1, double b1, double x1, double y1, double z1, double t1);
 
     static double func(const cv::Vec3d & mk1, const cv::Matx33d & Rk1, const cv::Vec3d & uk, const cv::Matx33d & Rk, const cv::Vec3d & mk);
     static double derive(const Input & input, const cv::Mat & params, unsigned int index);
@@ -49,6 +53,8 @@ private:
  void CreateJacobianAndFunction(cv::Mat J, cv::Mat F, const RefinementData & data, const cv::Mat & params);
  cv::Mat CreateFunction(const RefinementData & data, const cv::Mat & params);
  void GaussNewton(const RefinementData & data, cv::Mat & params);
+
+ static double derivationParam(double x);
 
 
 public:

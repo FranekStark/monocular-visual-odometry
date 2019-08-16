@@ -264,6 +264,7 @@ void SlidingWindow::removeFeatureFromCurrentWindow(const cv::Vec3d& feature)
   for(; featureIT != _frameNow->_features.end(); featureIT++){
     if(featureIT->_positionEuclidian == feature){
       found = true;
+      break;
     }
   }
   if(found){

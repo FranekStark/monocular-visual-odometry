@@ -13,6 +13,27 @@ IterativeRefinement::~IterativeRefinement()
 {
 }
 
+double IterativeRefinement::CostFunction::func10(const Input & input, double a, double b, double x, double y, double z){
+  return func(input.m1, input.R1,baseLine(a,b,x,y,z), input.R0, input.m0);
+}
+double IterativeRefinement::CostFunction::func21(const Input & input, double a1, double b1, double x1, double y1, double z1){
+  return func(input.m2, input.R2, baseLine(a1,b1,x1,y1,z1), input.R1, input.m1);
+}
+double IterativeRefinement::CostFunction::func20(const Input & input, double a, double b, double x, double y, double z, double t, double a1, double b1, double x1, double y1, double z1, double t1){
+  auto u = CostFunction::scale(t)*CostFunction::baseLine(a,b,x,y,z)+CostFunction::scale(t1)*CostFunction::baseLine(a1,b1,x1,y1,z1);
+  return CostFunction::func(input.m2,input.R2,
+    u/cv::norm(u)
+    ,input.R0, input.m0);
+}
+
+double IterativeRefinement::derivationParam(double x){
+  if(x == 0){
+    return CostFunction::DERIV_STEP;
+  }
+  return x * std::sqrt(DBL_EPSILON);
+}
+
+
 void IterativeRefinement::CreateJacobianAndFunction(cv::Mat J, cv::Mat F, const RefinementData& data,
                                                     const cv::Mat& params)
 {
@@ -39,65 +60,90 @@ void IterativeRefinement::CreateJacobianAndFunction(cv::Mat J, cv::Mat F, const 
     const cv::Matx33d & R1 = data.R1;
     const cv::Matx33d & R2 = data.R2;
 
+    CostFunction::Input input{
+      m2,
+      m1,
+      m0,
+      R2,
+      R1,
+      R0
+    };
+
+
     //baseLine10
-    double cost10 = CostFunction::func(m1,R1,CostFunction::baseLine(a,b,x,y,z),R0, m0);
-    double deriv10A = CostFunction::func(m1,R1,CostFunction::baseLineDeriveA(a,b,x,y,z),R0,m0);
-    double deriv10B = CostFunction::func(m1,R1,CostFunction::baseLineDeriveB(a,b,x,y,z),R0,m0);
+    double cost10 = CostFunction::func10(input, a,b,x,y,z);
+    double deriv10A = 
+    (
+       CostFunction::func10(input, a + derivationParam(a),b,x,y,z) 
+    -  CostFunction::func10(input, a - derivationParam(a),b,x,y,z)
+    ) 
+    / (2.0 * derivationParam(a));
+    double deriv10B = 
+    (
+       CostFunction::func10(input,a, b + derivationParam(b),x,y,z) 
+    -  CostFunction::func10(input,a, b - derivationParam(b),x,y,z)
+    ) 
+    / (2.0 * derivationParam(b));
     //baseLine21
-    double cost21 = CostFunction::func(m2,R2,CostFunction::baseLine(a1,b1,x1,y1,z1),R1, m1);
-    double deriv21A1 = CostFunction::func(m2,R2,CostFunction::baseLineDeriveA(a1,b1,x1,y1,z1),R1,m1);
-    double deriv21B1 = CostFunction::func(m2,R2,CostFunction::baseLineDeriveB(a1,b1,x1,y1,z1),R1,m1);
+    double cost21 = CostFunction::func21(input, a1,b1,x1,y1,z1);
+    double deriv21A1 = 
+    (
+       CostFunction::func21(input, a1 + derivationParam(a1),b1,x1,y1,z1) 
+    -  CostFunction::func21(input, a1 - derivationParam(a1),b1,x1,y1,z1)
+    ) 
+    / (2.0 * derivationParam(a1));
+    double deriv21B1 = 
+    (
+       CostFunction::func21(input,a1, b1 + derivationParam(b1),x1,y1,z1) 
+    -  CostFunction::func21(input,a1, b1 - derivationParam(b1),x1,y1,z1)
+    ) 
+    / (2.0 * derivationParam(b1));
     //baseLine20
-    auto cost20u =  CostFunction::scale(t)*CostFunction::baseLine(a,b,x,y,z)+CostFunction::scale(t1)*CostFunction::baseLine(a1,b1,x1,y1,z1);
-    double cost20 = CostFunction::func(m2,R2,
-    cost20u/cv::norm(cost20u)
-    ,R0, m0);
+    double cost20 = CostFunction::func20(input, a,b,x,y,z,t,a1,b1,x1,y1,z1,t1);
+    double deriv20A = 
+    (
+       CostFunction::func20(input,  a+ derivationParam(a),b,x,y,z,t,a1,b1,x1,y1,z1,t1) 
+    -  CostFunction::func20(input,  a- derivationParam(a),b,x,y,z,t,a1,b1,x1,y1,z1,t1)
+    ) 
+    / (2.0 * derivationParam(a));
+    double deriv20B = 
+    (
+       CostFunction::func20(input, a,b + derivationParam(b),x,y,z,t,a1, b1 ,x1,y1,z1,t1) 
+    -  CostFunction::func20(input, a,b - derivationParam(b),x,y,z,t,a1, b1 ,x1,y1,z1,t1)
+    ) 
+    / (2.0 * derivationParam(b));
+    double deriv20A1 = 
+    (
+       CostFunction::func20(input,  a,b,x,y,z,t,a1 + derivationParam(a1),b1,x1,y1,z1,t1) 
+    -  CostFunction::func20(input,  a,b,x,y,z,t,a1 - derivationParam(a1),b1,x1,y1,z1,t1)
+    ) 
+    / (2.0 * derivationParam(a1));
+    double deriv20B1 = 
+    (
+       CostFunction::func20(input, a,b,x,y,z,t,a1, b1 + derivationParam(b1),x1,y1,z1,t1) 
+    -  CostFunction::func20(input, a,b,x,y,z,t,a1, b1 - derivationParam(b1),x1,y1,z1,t1)
+    ) 
+    / (2.0 * derivationParam(b1));
+    double deriv20T = 
+    (
+       CostFunction::func20(input,  a,b,x,y,z,t+ derivationParam(t),a1 ,b1,x1,y1,z1,t1) 
+    -  CostFunction::func20(input,  a,b,x,y,z,t- derivationParam(t),a1 ,b1,x1,y1,z1,t1)
+    ) 
+    / (2.0 * derivationParam(t));
+    double deriv20T1 = 
+    (
+       CostFunction::func20(input, a,b,x,y,z,t,a1, b1,x1,y1,z1,t1+ derivationParam(t1)) 
+    -  CostFunction::func20(input, a,b,x,y,z,t,a1, b1,x1,y1,z1,t1- derivationParam(t1))
+    )
+    / (2.0 * derivationParam(t1));
 
-    auto derive20u =  CostFunction::scale(t)*CostFunction::baseLine(a,b,x,y,z) + CostFunction::scale(t1)*CostFunction::baseLine(a1,b1,x1,y1,z1); 
-    auto derive20v = std::sqrt(derive20u.dot(derive20u));
+    F.at<double>(3*i+0,0) = cost10;
+    F.at<double>(3*i+1,0) = cost21;
+    F.at<double>(3*i+2,0) = cost20;
 
-    auto derive20uA = CostFunction::scale(t)*CostFunction::baseLineDeriveA(a,b,x,y,z);
-    auto derive20uB = CostFunction::scale(t)*CostFunction::baseLineDeriveB(a,b,x,y,z);  
-    auto derive20uT = CostFunction::scaleDeriveT(t)*CostFunction::baseLine(a,b,x,y,z);  
-
-    auto derive20uA1 = CostFunction::scale(t1)*CostFunction::baseLineDeriveA(a1,b1,x1,y1,z1);
-    auto derive20uB1 = CostFunction::scale(t1)*CostFunction::baseLineDeriveB(a1,b1,x1,y1,z1);  
-    auto derive20uT1 = CostFunction::scaleDeriveT(t1)*CostFunction::baseLine(a1,b1,x1,y1,z1);  
-
-    auto derive20vA = (derive20u.dot(derive20uA) + derive20uA.dot(derive20u))/(2.0*derive20v);
-    auto derive20vB = (derive20u.dot(derive20uB) + derive20uB.dot(derive20u))/(2.0*derive20v);
-    auto derive20vT = (derive20u.dot(derive20uT) + derive20uT.dot(derive20u))/(2.0*derive20v);
-
-    auto derive20vA1 = (derive20u.dot(derive20uA1) + derive20uA1.dot(derive20u))/(2.0*derive20v);
-    auto derive20vB1 = (derive20u.dot(derive20uB1) + derive20uB1.dot(derive20u))/(2.0*derive20v);
-    auto derive20vT1 = (derive20u.dot(derive20uT1) + derive20uT1.dot(derive20u))/(2.0*derive20v);
-
-    double deriv20A = CostFunction::func(m2,R2,
-    (derive20uA*derive20v-derive20vA*derive20u)/std::pow(derive20v,2)
-    ,R0,m0);
-    double deriv20B = CostFunction::func(m2,R2,
-    (derive20uB*derive20v-derive20vB*derive20u)/std::pow(derive20v,2)
-    ,R0,m0);
-    double deriv20A1 = CostFunction::func(m2,R2,
-    (derive20uA1*derive20v-derive20vA1*derive20u)/std::pow(derive20v,2)
-    ,R0,m0);
-    double deriv20B1 = CostFunction::func(m2,R2,
-    (derive20uB1*derive20v-derive20vB1*derive20u)/std::pow(derive20v,2)
-    ,R0,m0);
-    double deriv20T = CostFunction::func(m2,R2,
-    (derive20uT*derive20v-derive20vT*derive20u)/std::pow(derive20v,2)
-    ,R0,m0);
-    double deriv20T1 = CostFunction::func(m2,R2,
-    (derive20uT1*derive20v-derive20vT1*derive20u)/std::pow(derive20v,2)
-    ,R0,m0);
-
-    F.at<double>(i+0,0) = cost10;
-    F.at<double>(i+1,0) = cost21;
-    F.at<double>(i+2,0) = cost20;
-
-    J.at<double>(i+0,0) = deriv10A; J.at<double>(i+0,1) = deriv10B; J.at<double>(i+0,2) = 0;        /*||||*/ J.at<double>(i+0,3) = 0;         J.at<double>(i+0,4) = 0;         J.at<double>(i+0,5) = 0;
-    J.at<double>(i+1,0) = 0;        J.at<double>(i+1,1) = 0;        J.at<double>(i+1,2) = 0;        /*||||*/ J.at<double>(i+1,3) = deriv21A1; J.at<double>(i+1,4) = deriv21B1; J.at<double>(i+1,5) = 0;
-    J.at<double>(i+2,0) = deriv20A; J.at<double>(i+2,1) = deriv20B; J.at<double>(i+2,2) = deriv20T; /*||||*/ J.at<double>(i+2,3) = deriv20A1; J.at<double>(i+2,4) = deriv20B1; J.at<double>(i+2,5) = deriv20T1;
+    J.at<double>(3*i+0,0) = deriv10A; J.at<double>(3*i+0,1) = deriv10B; J.at<double>(3*i+0,2) = 0;        /*||||*/ J.at<double>(3*i+0,3) = 0;         J.at<double>(3*i+0,4) = 0;         J.at<double>(3*i+0,5) = 0;
+    J.at<double>(3*i+1,0) = 0;        J.at<double>(3*i+1,1) = 0;        J.at<double>(3*i+1,2) = 0;        /*||||*/ J.at<double>(3*i+1,3) = deriv21A1; J.at<double>(3*i+1,4) = deriv21B1; J.at<double>(3*i+1,5) = 0;
+    J.at<double>(3*i+2,0) = deriv20A; J.at<double>(3*i+2,1) = deriv20B; J.at<double>(3*i+2,2) = deriv20T; /*||||*/ J.at<double>(3*i+2,3) = deriv20A1; J.at<double>(3*i+2,4) = deriv20B1; J.at<double>(3*i+2,5) = deriv20T1;
   }
 }
 
@@ -137,9 +183,9 @@ cv::Mat IterativeRefinement::CreateFunction(const RefinementData& data, const cv
     cost20u/cv::norm(cost20u)
     ,R0, m0);
 
-    f.at<double>(i+0,0) = cost10;
-    f.at<double>(i+1,0) = cost21;
-    f.at<double>(i+2,0) = cost20;
+    f.at<double>(3 * i+0,0) = cost10;
+    f.at<double>(3 * i+1,0) = cost21;
+    f.at<double>(3 * i+2,0) = cost20;
   }
   return f;
 }
@@ -193,6 +239,8 @@ void IterativeRefinement::GaussNewton(const RefinementData& data, cv::Mat& param
         newParams.col(0) += delta;
         cv::Mat fNew = this->CreateFunction(data, newParams);
 
+        
+
         rho = (cv::norm(f, cv::NormTypes::NORM_L2SQR) - cv::norm(fNew, cv::NormTypes::NORM_L2SQR)) /
               (0.5 * cv::Mat(delta.t() * ((mue * delta) - gradient)).at<double>(0, 0));
         if (rho > 0)
@@ -224,7 +272,6 @@ void IterativeRefinement::GaussNewton(const RefinementData& data, cv::Mat& param
           params.at<double>(4, 1) = newBaseLine1(1);  // Y1
           params.at<double>(5, 1) = newBaseLine1(2);  // Z1
 
-          ROS_INFO_STREAM("Refined!" << std::endl);
           this->CreateJacobianAndFunction(J,f, data, params);
 
           gradient = J.t() * f;

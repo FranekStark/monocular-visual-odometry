@@ -81,6 +81,7 @@ OdomData MVO::handleImage(const cv::Mat image, const image_geometry::PinholeCame
 
  //
  std::vector<unsigned int> inlier;
+ std::vector<cv::Point2f> outLierDraws;
   b = _epipolarGeometry.estimateBaseLine(beforeCorespFeaturesE, thisCorespFeaturesEUnrotate, inlier);
 //Remove Outlier //TODO: very expensive!
 for(auto feature = thisCorespFeaturesE.begin(); feature != thisCorespFeaturesE.end(); feature++){
@@ -94,6 +95,7 @@ for(auto feature = thisCorespFeaturesE.begin(); feature != thisCorespFeaturesE.e
   }
   if(!found){
   _slidingWindow.removeFeatureFromCurrentWindow(*feature);
+    outLierDraws.push_back(cv::Point2f(cameraModel.project3dToPixel(*feature)));
   }
 }
 //
@@ -135,6 +137,10 @@ for(auto feature = thisCorespFeaturesE.begin(); feature != thisCorespFeaturesE.e
     cv::Mat t0 = _slidingWindow.getImage(0).clone();
     cv::Mat morph(t0.size(), CV_8UC3,cv::Scalar(0));
     assert(ft0.size() == ft1.size() && ft1.size() == ft2.size());
+
+    for(auto out : outLierDraws){
+      cv::circle(morph, out, 10, cv::Scalar(0,255,255),-1);
+    }
 
     for(unsigned int i = 0; i < ft0.size(); i++){
       cv::circle(morph, ft2[i], 5, cv::Scalar(0,0,255),-1);
