@@ -9,20 +9,21 @@ CornerTracker::~CornerTracker()
 {
 }
 
-void CornerTracker::detectFeatures(std::vector<cv::Point2f> &corner, const cv::Mat &image, int numberToDetect, const std::vector<cv::Point2f> & existingFeatures)
+void CornerTracker::detectFeatures(std::vector<cv::Point2f> &corner, const cv::Mat &image, int numberToDetect, const std::vector<cv::Point2f> & existingFeatures, cv::Rect2d &mask)
 {
   if (numberToDetect <= 0)
   {
     return;
   }
   //Create Mask
-  cv::Mat mask(image.size(), CV_8U);
-  mask = cv::Scalar(255); //First use all Pixels
+  cv::Mat maskImage(image.size(), CV_8U);
+  maskImage = cv::Scalar(255); //First use all Pixels
   for(auto existingFeature : existingFeatures){
-    cv::circle(mask, existingFeature, 40, cv::Scalar(0), -1); //Here no Feature Detection! //TODO: param
+    cv::circle(maskImage, existingFeature, 40, cv::Scalar(0), -1); //Here no Feature Detection! //TODO: param
   }
+  cv::rectangle(maskImage, mask, cv::Scalar(0), cv::FILLED);
 
-  cv::goodFeaturesToTrack(image, corner, numberToDetect, double(0.10), double(50.0), mask, _blockSize,
+  cv::goodFeaturesToTrack(image, corner, numberToDetect, double(0.04), double(30.0), maskImage, _blockSize,
                           bool(true),
                           _k);  // Corners berechnen TODO: More params -> especially the detection Quality
 
@@ -39,7 +40,7 @@ void CornerTracker::detectFeatures(std::vector<cv::Point2f> &corner, const cv::M
 
 void CornerTracker::trackFeatures(const cv::Mat &prevImage, const cv::Mat &currentImage,
                                   const std::vector<cv::Point2f> &prevFeatures,
-                                  std::vector<cv::Point2f> &trackedFeatures, std::vector<unsigned char> &found)
+                                  std::vector<cv::Point2f> &trackedFeatures, std::vector<unsigned char> &found, cv::Rect2d &mask)
 {
   std::vector<cv::Mat> nowPyramide;
   std::vector<cv::Mat> prevPyramide;
@@ -61,6 +62,13 @@ void CornerTracker::trackFeatures(const cv::Mat &prevImage, const cv::Mat &curre
     if(*f1Found == 0){
       continue;
     }
+
+    //Features in Mask:
+    if(mask.contains(*f1)){
+      *f1Found = 0;
+      continue;
+    }
+
     for(f2 = trackedFeatures.begin(), f2Found = found.begin(); f2 != trackedFeatures.end(); f2++, f2Found++){
       if(*f2Found == 0){
         continue;

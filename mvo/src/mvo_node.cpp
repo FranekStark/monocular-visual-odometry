@@ -9,9 +9,9 @@ int main(int argc, char *argv[])
 }
 
 MVO_node::MVO_node(ros::NodeHandle nh, ros::NodeHandle pnh)
-  : _nodeHandle(nh), _privateNodeHandle(pnh), _imageTransport(nh), _transFormListener(_tfBuffer), _worldToCameraProjectionMatrix(0,0,1,-1,0,0,0,-1,0)
+  : _nodeHandle(nh), _privateNodeHandle(pnh), _imageTransport(nh), _transFormListener(_tfBuffer), _transformWorldToCamera(0,0,1,-1,0,0,0,-1,0)
 {
-  //ROS_INFO_STREAM("M = " << _worldToCameraProjectionMatrix << std::endl);
+  //ROS_INFO_STREAM("M = " << _transformWorldToCamera << std::endl);
   this->init();
 }
 
@@ -32,22 +32,24 @@ void MVO_node::init()
 void MVO_node::imageCallback(const sensor_msgs::ImageConstPtr &image, const sensor_msgs::CameraInfoConstPtr &camInfo)
 {
   (void)(camInfo);  // TODO: unused
-     cv_bridge::CvImageConstPtr bridgeImage = cv_bridge::toCvShare(image, "mono8");
+  cv_bridge::CvImageConstPtr bridgeImage = cv_bridge::toCvShare(image, "mono8");
   image_geometry::PinholeCameraModel model;
   model.fromCameraInfo(camInfo);
 
   /*Get Rotation*/
   auto tfTransformMsg = _tfBuffer.lookupTransform("base_link", "base_footprint",ros::Time(0));
   auto quaternion = tf2::Quaternion(tfTransformMsg.transform.rotation.x, tfTransformMsg.transform.rotation.y, tfTransformMsg.transform.rotation.z, tfTransformMsg.transform.rotation.w);
-  tf2::Matrix3x3 rotationMatrice(quaternion);
+  tf2::Quaternion transformedQuaternion(-1.0 * quaternion.y(), -1.0 * quaternion.z(), quaternion.x(), quaternion.w());
+  tf2::Matrix3x3 rotationMatrice(transformedQuaternion);
   cv::Matx33d rotationMatriceCV(rotationMatrice[0][0], rotationMatrice[0][1], rotationMatrice[0][2], //
                                 rotationMatrice[1][0], rotationMatrice[1][1], rotationMatrice[1][2], //
                                 rotationMatrice[2][0], rotationMatrice[2][1], rotationMatrice[2][2]);
 
-  auto od = _mvo.handleImage(bridgeImage->image, model, _worldToCameraProjectionMatrix * rotationMatriceCV);  
+
+  auto od = _mvo.handleImage(bridgeImage->image, model, rotationMatriceCV);  
   //ROS_INFO_STREAM("before: " << od.s << std::endl);
-  od.b = _worldToCameraProjectionMatrix * od.b;
-  od.s = _worldToCameraProjectionMatrix * od.s; 
+  od.b = _transformWorldToCamera * od.b;
+  od.s = _transformWorldToCamera * od.s; 
   //ROS_INFO_STREAM("after: " << od.s << std::endl);
   /*Publish */
   nav_msgs::Odometry odomMsg;
