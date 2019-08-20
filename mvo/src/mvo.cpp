@@ -87,6 +87,8 @@ OdomData MVO::handleImage(const cv::Mat image, const image_geometry::PinholeCame
 
     cv::Matx33d rBefore = _slidingWindow.getRotation(1);
     cv::Matx33d rDiff = rBefore.t() * R;  // Difference Rotation
+    ROS_INFO_STREAM("rotation: " << R << std::endl);
+
     //
     std::vector<cv::Vec3d> thisCorespFeaturesE, beforeCorespFeaturesE;
     _slidingWindow.getCorrespondingFeatures(1, 0, beforeCorespFeaturesE, thisCorespFeaturesE);
@@ -203,7 +205,7 @@ OdomData MVO::handleImage(const cv::Mat image, const image_geometry::PinholeCame
       cv::Vec3d st = _slidingWindow.getPosition(1) + b;
       _slidingWindow.setPosition(st, 0);
       _slidingWindow.setRotation(R, 0);
-      _iterativeRefinement.refine(3);
+      //_iterativeRefinement.refine(3);
 
       this->drawDebugImage(_slidingWindow.getPosition(0) - _slidingWindow.getPosition(1), _debugImage,
                            cv::Scalar(0, 0, 255));
@@ -305,7 +307,6 @@ bool MVO::checkEnoughDisparity(const std::vector<cv::Point2f> &first, const std:
 void MVO::unrotateFeatures(const std::vector<cv::Vec3d> &features, std::vector<cv::Vec3d> &unrotatedFeatures,
                            const cv::Matx33d &R)
 {
-  ROS_INFO_STREAM("Rotation: " << R << std::endl);
   for (auto feature = features.begin(); feature != features.end(); feature++)
   {
     auto unrotatedFeature = R * (*feature);
