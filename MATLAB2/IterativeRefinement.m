@@ -1,15 +1,30 @@
 
-x = -1:0.0001:1;
-
-f = @(a0) costsum(m2,R2,x1,y1,z1,R1,m1,x0,y0,z0,R0,m0,a1,b1,t1,a0,b0,t0);
-
-y = arrayfun(f,x);
 
 
 
-plot(x,y);
+
+x = -10:0.0001:10;
+
+
+fa1 = @(a1) costsum(m2,R2,x1,y1,z1,R1,m1,x0,y0,z0,R0,m0,a1,b1,t1,a0,b0,t0);
+fb1 = @(b1) costsum(m2,R2,x1,y1,z1,R1,m1,x0,y0,z0,R0,m0,a1,b1,t1,a0,b0,t0);
+fa0 = @(a0) costsum(m2,R2,x1,y1,z1,R1,m1,x0,y0,z0,R0,m0,a1,b1,t1,a0,b0,t0);
+fb0 = @(b0) costsum(m2,R2,x1,y1,z1,R1,m1,x0,y0,z0,R0,m0,a1,b1,t1,a0,b0,t0);
+ft1 = @(t1) costsum(m2,R2,x1,y1,z1,R1,m1,x0,y0,z0,R0,m0,a1,b1,t1,a0,b0,t0);
+ft0 = @(t0) costsum(m2,R2,x1,y1,z1,R1,m1,x0,y0,z0,R0,m0,a1,b1,t1,a0,b0,t0);
+
+
+
+
+ya1 = arrayfun(fa1,x);
+yb1 = arrayfun(fb1,x);
+ya0 = arrayfun(fa0,x);
+yb0 = arrayfun(fb0,x);
+yt1 = arrayfun(ft1,x);
+yt0 = arrayfun(ft0,x);
+
+plot(x,ya1,x,yb1,x,ya0,x,yb0,x,yt1,x,yt0);
+legend({'a1','b1','a0','b0','t1','t0'},'Location','southwest');
 
 %%
-x = 0:pi/100:2*pi;
-y = sin(x);
-plot(x,y)
+fall = @(params) costsum2(m2,R2,x1,y1,z1,R1,m1,x0,y0,z0,R0,m0,params);
