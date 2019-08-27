@@ -8,8 +8,8 @@ MVO::MVO() : _slidingWindow(5), _frameCounter(0), _iterativeRefinement(_slidingW
   cv::namedWindow("t2", cv::WINDOW_NORMAL);
   cv::namedWindow("t1", cv::WINDOW_NORMAL);
   cv::namedWindow("t0", cv::WINDOW_NORMAL);
-  cv::namedWindow("morph", cv::WINDOW_NORMAL);
-  cv::namedWindow("rotation", cv::WINDOW_NORMAL);
+  cv::namedWindow("morphBef", cv::WINDOW_NORMAL);
+  cv::namedWindow("morphAfter", cv::WINDOW_NORMAL);
 }
 
 MVO::~MVO()
@@ -98,7 +98,28 @@ OdomData MVO::handleImage(const cv::Mat image, const image_geometry::PinholeCame
     //
     std::vector<unsigned int> inlier;
     std::vector<cv::Point2f> outLierDraws;
+    std::vector<Feature> outLier;
     b = _epipolarGeometry.estimateBaseLine(beforeCorespFeaturesE, thisCorespFeaturesEUnrotate, inlier);
+    cv::Mat morphBeforeRemove(image.size(), CV_8UC3,cv::Scalar(0,0,0));
+    cv::Mat morphAfterRemove(image.size(), CV_8UC3,cv::Scalar(0,0,0));
+
+    if(_frameCounter > 1){
+      std::vector<cv::Point2f> ft0, ft1, ft2;
+      std::vector<std::vector<cv::Point2f> *> vectors{ &ft0, &ft1, &ft2 };
+      _slidingWindow.getCorrespondingFeatures(2, 0, vectors);
+
+            for (unsigned int i = 0; i < ft0.size(); i++)
+      {
+        cv::circle(morphBeforeRemove, ft2[i], 5, cv::Scalar(0, 0, 255), -1);
+        cv::line(morphBeforeRemove, ft2[i], ft1[i], cv::Scalar(255, 255, 255), 4);
+        cv::circle(morphBeforeRemove, ft1[i], 5, cv::Scalar(0, 255, 0), -1);
+        cv::line(morphBeforeRemove, ft1[i], ft0[i], cv::Scalar(255, 255, 255), 4);
+        cv::circle(morphBeforeRemove, ft0[i], 5, cv::Scalar(255, 0, 0), -1);
+      }
+
+    }
+
+    
     // Remove Outlier //TODO: very expensive!
     for (auto feature = thisCorespFeaturesE.begin(); feature != thisCorespFeaturesE.end(); feature++)
     {
@@ -118,6 +139,34 @@ OdomData MVO::handleImage(const cv::Mat image, const image_geometry::PinholeCame
         outLierDraws.push_back(cv::Point2f(cameraModel.project3dToPixel(*feature)));
       }
     }
+
+    for (auto out : outLierDraws)
+      {
+        cv::circle(morphBeforeRemove, out, 10, cv::Scalar(0, 255, 255), -1);
+         cv::circle(morphAfterRemove, out, 10, cv::Scalar(0, 255, 255), -1);
+      }
+
+
+    if(_frameCounter > 1){
+        std::vector<cv::Point2f> ft0, ft1, ft2;
+        std::vector<std::vector<cv::Point2f> *> vectors{ &ft0, &ft1, &ft2 };
+        _slidingWindow.getCorrespondingFeatures(2, 0, vectors);
+
+              for (unsigned int i = 0; i < ft0.size(); i++)
+        {
+          cv::circle(morphAfterRemove, ft2[i], 5, cv::Scalar(0, 0, 255), -1);
+          cv::line(morphAfterRemove, ft2[i], ft1[i], cv::Scalar(255, 255, 255), 4);
+          cv::circle(morphAfterRemove, ft1[i], 5, cv::Scalar(0, 255, 0), -1);
+          cv::line(morphAfterRemove, ft1[i], ft0[i], cv::Scalar(255, 255, 255), 4);
+          cv::circle(morphAfterRemove, ft0[i], 5, cv::Scalar(255, 0, 0), -1);
+        }
+
+      }
+    cv::imshow("morphBef", morphBeforeRemove);
+     cv::imshow("morphAfter", morphAfterRemove);
+    cv::waitKey(1);
+    _debugImage2 = morphAfterRemove;
+   
     //
     // Scale vote
     std::vector<double> depths(beforeCorespFeaturesE.size());
@@ -150,64 +199,13 @@ OdomData MVO::handleImage(const cv::Mat image, const image_geometry::PinholeCame
     if (_frameCounter > 1)
     {  // IterativeRefinemen -> Scale Estimation?
 
-      /*------> * Debug Features -> History **/
-      std::vector<cv::Point2f> ft0, ft1, ft2;
-      std::vector<std::vector<cv::Point2f> *> vectors{ &ft0, &ft1, &ft2 };
-
-      _slidingWindow.getCorrespondingFeatures(2, 0, vectors);
-      cv::Mat t2 = _slidingWindow.getImage(2).clone();
-      cv::Mat t1 = _slidingWindow.getImage(1).clone();
-      cv::Mat t0 = _slidingWindow.getImage(0).clone();
-      cv::Mat morph(t0.size(), CV_8UC3, cv::Scalar(0));
-      cv::Mat rotation(t0.size(), CV_8UC3, cv::Scalar(0));
-      for (unsigned int i = 0; i < thisCorespFeaturesEUnrotate.size(); i++)
-      {
-        cv::Point2d pt = cameraModel.project3dToPixel(thisCorespFeaturesE[i]); //ROT
-        cv::Point2d ptU = cameraModel.project3dToPixel(thisCorespFeaturesEUnrotate[i]); //Grün
-        cv::Point2d ptBU = cameraModel.project3dToPixel(beforeCorespFeaturesE[i]); //Blau
-        cv::circle(rotation, pt, 5, cv::Scalar(0, 0, 255), -1);
-        cv::line(rotation, pt, ptU, cv::Scalar(255, 255, 255), 4);
-        cv::circle(rotation, ptU, 5, cv::Scalar(0, 255, 0), -1);
-        cv::line(rotation, pt, ptBU, cv::Scalar(255, 255, 255), 4);
-        cv::circle(rotation, ptBU, 5, cv::Scalar(255, 0, 0), -1);
-      }
-
-      assert(ft0.size() == ft1.size() && ft1.size() == ft2.size());
-
-      for (auto out : outLierDraws)
-      {
-        cv::circle(morph, out, 10, cv::Scalar(0, 255, 255), -1);
-      }
-
-      for (unsigned int i = 0; i < ft0.size(); i++)
-      {
-        cv::circle(morph, ft2[i], 5, cv::Scalar(0, 0, 255), -1);
-        cv::line(morph, ft2[i], ft1[i], cv::Scalar(255, 255, 255), 4);
-        cv::circle(morph, ft1[i], 5, cv::Scalar(0, 255, 0), -1);
-        cv::line(morph, ft1[i], ft0[i], cv::Scalar(255, 255, 255), 4);
-        cv::circle(morph, ft0[i], 5, cv::Scalar(255, 0, 0), -1);
-      }
-
-      this->drawDebugPoints(ft2, cv::Scalar(0, 0, 255), t2);
-      this->drawDebugPoints(ft1, cv::Scalar(0, 0, 255), t1);
-      this->drawDebugPoints(ft0, cv::Scalar(0, 0, 255), t0);
-
-      cv::imshow("t2", t2);
-      cv::imshow("t1", t1);
-      cv::imshow("t0", t0);
-
-      cv::imshow("morph", morph);
-      cv::imshow("rotation", rotation);
-
-      cv::waitKey(1);
-      /*<----- END Debug */
-
+     
       cv::Vec3d st = _slidingWindow.getPosition(1) + b;
       _slidingWindow.setPosition(st, 0);
       _slidingWindow.setRotation(R, 0);
-      //_iterativeRefinement.refine(3);
+      _iterativeRefinement.refine(3);
 
-      this->drawDebugImage(_slidingWindow.getPosition(0) - _slidingWindow.getPosition(1), _debugImage,
+      this->drawDebugImage(_slidingWindow.getPosition(0) - _slidingWindow.getPosition(1), _debugImage2,
                            cv::Scalar(0, 0, 255));
     }
     else
@@ -215,7 +213,7 @@ OdomData MVO::handleImage(const cv::Mat image, const image_geometry::PinholeCame
       _slidingWindow.setPosition(_slidingWindow.getPosition(1) + sign * b, 0);
       _slidingWindow.setRotation(R, 0);
     }
-    this->drawDebugImage(sign * b, _debugImage, cv::Scalar(0, 255, 0));
+    this->drawDebugImage(sign * b, _debugImage2, cv::Scalar(0, 255, 0));
   }
 
   _frameCounter++;

@@ -29,6 +29,7 @@ void MVO_node::init()
   _dynamicConfigServer.setCallback(_dynamicConfigCallBackType);
   _odomPublisher = _nodeHandle.advertise<nav_msgs::Odometry>("odom", 10, true);
   _debugImagePublisher = _imageTransport.advertise("debug/image", 3, true);
+  _debugImage2Publisher = _imageTransport.advertise("debug/image2", 3, true);
   _imuSubscriber = _nodeHandle.subscribe("/imu/data", 10, &MVO_node::imuCallback, this);
 }
 
@@ -77,6 +78,8 @@ void MVO_node::imageCallback(const sensor_msgs::ImageConstPtr &image, const sens
   header.frame_id = "camera_link";
   cv_bridge::CvImage debugImage(header,"rgb8",_mvo._debugImage);
   _debugImagePublisher.publish(debugImage.toImageMsg());
+  cv_bridge::CvImage debugImage2(header,"rgb8",_mvo._debugImage2);
+  _debugImage2Publisher.publish(debugImage2.toImageMsg());
 }
 
 void MVO_node::dynamicConfigCallback(mvo::corner_detectorConfig &config, uint32_t level)

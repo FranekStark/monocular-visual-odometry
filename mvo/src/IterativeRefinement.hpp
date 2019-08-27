@@ -48,6 +48,8 @@ private:
     static double scale(double t);
     static double scaleDeriveT(double t);
 
+    static double funcWhole(const cv::Vec3d & mk2, const cv::Matx33d & Rk2, double x1, double y1, double z1, const cv::Matx33d & Rk1, const cv::Vec3d & mk1, double x, double y, double z, const cv::Matx33d & Rk, const cv::Vec3d & mk, double a1, double b1, double t1, double a, double b, double t);
+
   };
  
  void CreateJacobianAndFunction(cv::Mat J, cv::Mat F, const RefinementData & data, const cv::Mat & params);

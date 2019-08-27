@@ -54,4 +54,5 @@ public:
   OdomData handleImage(const cv::Mat image, const image_geometry::PinholeCameraModel &cameraModel, const cv::Matx33d &R);
   
   cv::Mat _debugImage;
+  cv::Mat _debugImage2;
 };

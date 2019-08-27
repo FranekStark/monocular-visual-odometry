@@ -31,6 +31,7 @@ private:
     dynamic_reconfigure::Server<mvo::corner_detectorConfig>::CallbackType _dynamicConfigCallBackType; 
 
     image_transport::Publisher _debugImagePublisher;
+    image_transport::Publisher _debugImage2Publisher;
 
     MVO _mvo;
 

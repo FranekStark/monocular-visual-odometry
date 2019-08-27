@@ -62,5 +62,7 @@ public:
   unsigned int getNumberOfCurrentTrackedFeatures() const;
 
   void removeFeatureFromCurrentWindow(const cv::Vec3d & feature);
+
+  void exportMatlabData();
 };
 #endif //SLIDING_WINDOW_HPP

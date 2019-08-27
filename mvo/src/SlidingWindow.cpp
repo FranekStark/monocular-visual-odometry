@@ -2,6 +2,9 @@
 
 #include <ros/ros.h>
 
+#include <iostream>
+#include <fstream>
+
 SlidingWindow::SlidingWindow(int len) : _length(len), _frameCounter(0), _frameNow(nullptr)
 {
 }
@@ -254,11 +257,10 @@ unsigned int SlidingWindow::getNumberOfCurrentTrackedFeatures() const
 }
 
 /*
- * This also deletes tze hole "FeatureWrapper"
+ * This also deletes the whole "FeatureWrapper"
  */
 void SlidingWindow::removeFeatureFromCurrentWindow(const cv::Vec3d& feature)
 {
-  ROS_INFO_STREAM("To Remove" << std::endl);
   auto featureIT = _frameNow->_features.begin();
   bool found = false;
   for(; featureIT != _frameNow->_features.end(); featureIT++){
@@ -269,7 +271,140 @@ void SlidingWindow::removeFeatureFromCurrentWindow(const cv::Vec3d& feature)
   }
   if(found){
     _frameNow->_features.erase(featureIT);
-    ROS_INFO_STREAM("removed" << std::endl);
   }
+}
+
+void SlidingWindow::exportMatlabData(){
+  
+
+  cv::Vec3d& st0 = this->getPosition(0);
+  cv::Vec3d& st1 = this->getPosition(1);
+  cv::Vec3d& st2 = this->getPosition(2);
+
+  double n0 = cv::norm(st0 - st1);
+  double n1 = cv::norm(st1 - st2);
+  cv::Vec3d u0 = (st0 - st1) / n0;
+  cv::Vec3d u1 = (st1 - st2) / n1;
+
+
+  double a0 = 0.0;                                                                                // A0
+  double b0 = 0.0;                                                                                // B0
+  double t0 = 1.0;                                                                                // T0
+  double x0 = u0(0);                                                                              // X0
+  double y0 = u0(1);                                                                              // Y0
+  double z0 = u0(2);                                                                              // Z0
+
+  double a1 = 0.0;                                                                                // A1
+  double b1 = 0.0;                                                                                // B1
+  double t1 = 1.0;                                                                                // T1
+  double x1 = u1(0);                                                                              // X1
+  double y1 = u1(1);                                                                              // Y1
+  double z1 = u1(2);                                                                              // Z1                                                                         // Z1
+
+  cv::Matx33d R0 = this->getRotation(0);
+  cv::Matx33d R1 = this->getRotation(1);
+  cv::Matx33d R2 = this->getRotation(2);
+
+  std::vector<cv::Vec3d> m0, m1, m2;
+  std::vector<std::vector<cv::Vec3d>*> vectors{ &(m0), &(m1), &(m2) };
+
+  this->getCorrespondingFeatures(3 - 1, 0, vectors);
+
+  //File
+  std::ofstream myfile;
+  myfile.open("/home/franek/data.m");
+
+  myfile << "R0 = ..." << std::endl;
+  myfile << "[" << R0(0,0) << " " << R0(0,1) << " " << R0(0,2) << ";" << std::endl;
+  myfile        << R0(1,0) << " " << R0(1,1) << " " << R0(1,2) << ";" << std::endl;
+  myfile        << R0(2,0) << " " << R0(2,1) << " " << R0(2,2) << "];" << std::endl;
+
+  myfile << std::endl;
+  myfile << std::endl;
+  myfile << std::endl;
+
+  myfile << "R1 = ..." << std::endl;
+  myfile << "[" << R1(0,0) << " " << R1(0,1) << " " << R1(0,2) << ";" << std::endl;
+  myfile        << R1(1,0) << " " << R1(1,1) << " " << R1(1,2) << ";" << std::endl;
+  myfile        << R1(2,0) << " " << R1(2,1) << " " << R1(2,2) << "];" << std::endl;
+
+  myfile << std::endl;
+  myfile << std::endl;
+  myfile << std::endl;
+
+  myfile << "R2 = ..." << std::endl;
+  myfile << "[" << R2(0,0) << " " << R2(0,1) << " " << R2(0,2) << ";" << std::endl;
+  myfile        << R2(1,0) << " " << R2(1,1) << " " << R2(1,2) << ";" << std::endl;
+  myfile        << R2(2,0) << " " << R2(2,1) << " " << R2(2,2) << "];" << std::endl;
+
+  myfile << std::endl;
+  myfile << std::endl;
+  myfile << std::endl;
+
+  myfile << "a0 = " << a0 << ";" << std::endl;
+  myfile << "b0 = " << b0 << ";" << std::endl;
+  myfile << "t0 = " << t0 << ";" << std::endl;
+  myfile << "a1 = " << a1 << ";" << std::endl;
+  myfile << "b1 = " << b1 << ";" << std::endl;
+  myfile << "t1 = " << t1 << ";" << std::endl;
+
+  myfile << "x0 = " << x0 << ";" << std::endl;
+  myfile << "y0 = " << y0 << ";" << std::endl;
+  myfile << "z0 = " << z0 << ";" << std::endl;
+
+  myfile << "x1 = " << x1 << ";" << std::endl;
+  myfile << "y1 = " << y1 << ";" << std::endl;
+  myfile << "z1 = " << z1 << ";" << std::endl;
+
+  myfile << "m0 = ..." << std::endl;
+  myfile << "[";
+  for(unsigned int i = 0; i < m0.size(); i++){ //First Row
+    myfile << m0[i](0) << " ";
+  }
+  myfile << ";" << std::endl;
+  for(unsigned int i = 0; i < m0.size(); i++){ //Second Row
+    myfile << m0[i](1) << " ";
+  }
+  myfile << ";" << std::endl;
+  for(unsigned int i = 0; i < m0.size(); i++){ //Third Row
+    myfile << m0[i](2) << " ";
+  }
+  myfile << "];" << std::endl;
+
+   myfile << "m1 = ..." << std::endl;
+  myfile << "[";
+  for(unsigned int i = 0; i < m1.size(); i++){ //First Row
+    myfile << m1[i](0) << " ";
+  }
+  myfile << ";" << std::endl;
+  for(unsigned int i = 0; i < m1.size(); i++){ //Second Row
+    myfile << m1[i](1) << " ";
+  }
+  myfile << ";" << std::endl;
+  for(unsigned int i = 0; i < m1.size(); i++){ //Third Row
+    myfile << m1[i](2) << " ";
+  }
+  myfile << "];" << std::endl;
+
+  myfile << "m2 = ..." << std::endl;
+  myfile << "[";
+  for(unsigned int i = 0; i < m2.size(); i++){ //First Row
+    myfile << m2[i](0) << " ";
+  }
+  myfile << ";" << std::endl;
+  for(unsigned int i = 0; i < m2.size(); i++){ //Second Row
+    myfile << m2[i](1) << " ";
+  }
+  myfile << ";" << std::endl;
+  for(unsigned int i = 0; i < m2.size(); i++){ //Third Row
+    myfile << m2[i](2) << " ";
+  }
+  myfile << "];" << std::endl;
+
+
+
+
+  myfile.close();
+
 }
 
