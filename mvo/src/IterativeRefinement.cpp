@@ -31,7 +31,7 @@ double IterativeRefinement::derivationParam(double x){
   if(x == 0){
     return std::sqrt(DBL_EPSILON);
   }
-  return x * std::sqrt(DBL_EPSILON);
+  return x * std::pow(DBL_EPSILON, 1.0/3.0);
 }
 
 
@@ -128,26 +128,59 @@ cv::Mat IterativeRefinement::CreateFunction(const RefinementData& data, const cv
 // TODO: From https://www.mrpt.org/Levenberg-Marquardt_algorithm
 void IterativeRefinement::GaussNewton(const RefinementData& data, cv::Mat& params)
 {
- assert(data.m0.size() == data.m1.size() && data.m1.size() == data.m2.size());
-  unsigned int n = data.m0.size();
-  double lambda = 10.0E-10; //Damping
-  double thetha = 0.1; //tolerance
 
-  cv::Mat J(n, 6, CV_64F);
-  cv::Mat F(n,1,CV_64F);
+  int n = data.m0.size();
+
+  /*params */
+  double tau = 10E-3;
+  double epsilon1, epsilon2, epsilon3, epsilon4;
+  epsilon1 = epsilon2 = epsilon3 = 10E-12;
+  epsilon4 = 0;
+  unsigned int kmax = 100;
+
   cv::Mat delta(6,1,CV_64F);
-  do{
-    CreateJacobianAndFunction(J, F, data, params);
-    cv::Mat H = J.t() * J;
-    cv::Mat gradient = J.t() * F;
-    cv::solve(H + lambda * cv::Mat::eye(H.size(), CV_64F), gradient, delta, cv::DECOMP_CHOLESKY); //Was QR
 
-      cv::Mat newParams = params.col(0) + delta;
+  cv::Mat J(n, 6, CV_64F);  // Jacobian of Func()
+  cv::Mat f(n, 1, CV_64F);  // f
 
+  this->CreateJacobianAndFunction(J,f,data,params);
 
-      auto newF = CreateFunction(data, newParams);
-      ROS_INFO_STREAM("F:" << std::endl << F <<std::endl << "newF:" << std::endl << newF << std::endl);
-      if(cv::norm(newF) < cv::norm(F)){ //Is it a better Estimation (Less Cost)?
+  // ROS_INFO_STREAM("J: " << J << std::endl << "f: " << f << std::endl);
+
+  cv::Mat gradient = J.t() * f;
+  cv::Mat A = J.t() * J;
+  double mue;
+  cv::minMaxLoc(A.diag(), NULL, &mue);
+  mue = mue * tau;
+
+  bool stop = (cv::norm(gradient, cv::NormTypes::NORM_INF) <= epsilon1);
+  unsigned int k = 0;
+  int v = 2;
+  while (!stop && (k < kmax))
+  {
+    k++;
+    double rho = 0;
+    do
+    {
+      cv::solve(A + mue * cv::Mat::eye(A.size(), CV_64F), gradient, delta, cv::DECOMP_QR);  
+      if (cv::norm(delta, cv::NormTypes::NORM_L2) <=
+          epsilon2 * (cv::norm(params.col(0), cv::NormTypes::NORM_L2) + epsilon2))
+      {
+        stop = true;
+      }
+      else
+      { 
+        ROS_INFO_STREAM(params << std::endl);
+        ROS_INFO_STREAM(delta << std::endl);
+        cv::Mat newParams = params.clone();
+        newParams.col(0) = newParams.col(0) + delta;
+        cv::Mat newF = CreateFunction(data, newParams);
+        rho = (cv::norm(f, cv::NormTypes::NORM_L2SQR) - cv::norm(newF, cv::NormTypes::NORM_L2SQR)) /
+              (0.5 * cv::Mat(delta.t() * ((mue * delta) - gradient)).at<double>(0, 0)); 
+        if (rho > 0)
+        {
+          stop = ((cv::norm(f, cv::NormTypes::NORM_L2) - cv::norm(newF, cv::NormTypes::NORM_L2)) <
+                  (epsilon4 * cv::norm(f, cv::NormTypes::NORM_L2)));
           auto newBaseLine0 =
           CostFunction::baseLine(newParams.at<double>(0, 0), newParams.at<double>(1, 0), params.at<double>(0, 1),
                                   params.at<double>(1, 1), params.at<double>(2, 1));
@@ -170,18 +203,27 @@ void IterativeRefinement::GaussNewton(const RefinementData& data, cv::Mat& param
           params.at<double>(3, 1) = newBaseLine1(0);  // X1
           params.at<double>(4, 1) = newBaseLine1(1);  // Y1
           params.at<double>(5, 1) = newBaseLine1(2);  // Z1
-          ROS_INFO("accepted\r\n");
-          lambda = 0.2 * lambda;
-          break;
-      }else{
-        ROS_INFO_STREAM("receted lambda :" << lambda << std::endl);
-        lambda = 10.0 * lambda;
+
+          this->CreateJacobianAndFunction(J, f, data, params);
+          // ROS_INFO_STREAM("J: " << J << std::endl << "f: " << f << std::endl);
+          gradient = J.t() * f;
+          A = J.t() * J;
+
+          stop = stop || (cv::norm(gradient, cv::NormTypes::NORM_INF) <= epsilon1);
+          mue = mue * std::max(1.0 / 3.0, 1.0 - std::pow(2.0 * rho - 1, 3));
+          v = 2;
+        }
+        else
+        {
+          mue = mue * v;
+          v = 2 * v;
+        }
       }
-
-      ROS_INFO_STREAM("Inner Loop: " << delta << std::endl);
-    }while(lambda >= 1.0 || cv::norm(delta, cv::NORM_INF) >= (thetha / 1000.0));
-
+    } while (rho <= 0 && !stop);
+    stop = (cv::norm(f, cv::NormTypes::NORM_L2) <= epsilon3);
   }
+}
+
 
 
 
