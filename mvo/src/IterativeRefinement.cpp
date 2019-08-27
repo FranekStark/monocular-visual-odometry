@@ -179,7 +179,6 @@ void IterativeRefinement::GaussNewton(const RefinementData& data, cv::Mat& param
       }
 
       ROS_INFO_STREAM("Inner Loop: " << delta << std::endl);
-      cv::waitKey(0);
     }while(lambda >= 1.0 || cv::norm(delta, cv::NORM_INF) >= (thetha / 1000.0));
 
   }
