@@ -2,6 +2,7 @@
 
 #include <ros/ros.h>
 
+
 EpipolarGeometry::EpipolarGeometry() :
 PI(3.14159265),
 THRESHOLD(cos(3.0*PI/180.0)),

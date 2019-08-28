@@ -136,7 +136,7 @@ void IterativeRefinement::GaussNewton(const RefinementData& data, cv::Mat& param
   double epsilon1, epsilon2, epsilon3, epsilon4;
   epsilon1 = epsilon2 = epsilon3 = 10E-12;
   epsilon4 = 0;
-  unsigned int kmax = 100;
+  unsigned int kmax = 800;
 
   cv::Mat delta(6,1,CV_64F);
 
@@ -162,7 +162,7 @@ void IterativeRefinement::GaussNewton(const RefinementData& data, cv::Mat& param
     double rho = 0;
     do
     {
-      cv::solve(A + mue * cv::Mat::eye(A.size(), CV_64F), gradient, delta, cv::DECOMP_QR);  
+      cv::solve(A + (mue * cv::Mat::eye(A.size(), CV_64F)), gradient, delta, cv::DECOMP_LU);  
       if (cv::norm(delta, cv::NormTypes::NORM_L2) <=
           epsilon2 * (cv::norm(params.col(0), cv::NormTypes::NORM_L2) + epsilon2))
       {
@@ -170,10 +170,13 @@ void IterativeRefinement::GaussNewton(const RefinementData& data, cv::Mat& param
       }
       else
       { 
-        ROS_INFO_STREAM(params << std::endl);
-        ROS_INFO_STREAM(delta << std::endl);
+
+        ROS_INFO_STREAM("params: " << std::endl << params << std::endl);
+        ROS_INFO_STREAM("delta: " << std::endl << delta << std::endl);
         cv::Mat newParams = params.clone();
         newParams.col(0) = newParams.col(0) + delta;
+        ROS_INFO_STREAM("newParams: "<< std::endl << newParams << std::endl);
+        cv::waitKey(0);
         cv::Mat newF = CreateFunction(data, newParams);
         rho = (cv::norm(f, cv::NormTypes::NORM_L2SQR) - cv::norm(newF, cv::NormTypes::NORM_L2SQR)) /
               (0.5 * cv::Mat(delta.t() * ((mue * delta) - gradient)).at<double>(0, 0)); 
@@ -205,7 +208,6 @@ void IterativeRefinement::GaussNewton(const RefinementData& data, cv::Mat& param
           params.at<double>(5, 1) = newBaseLine1(2);  // Z1
 
           this->CreateJacobianAndFunction(J, f, data, params);
-          // ROS_INFO_STREAM("J: " << J << std::endl << "f: " << f << std::endl);
           gradient = J.t() * f;
           A = J.t() * J;
 
@@ -257,14 +259,14 @@ void IterativeRefinement::refine(unsigned int n)
 
   params.at<double>(0, 0) = 0.0;                                                                                // A0
   params.at<double>(1, 0) = 0.0;                                                                                // B0
-  params.at<double>(2, 0) = CostFunction::scale(1);                                                             // T0
+  params.at<double>(2, 0) = 1;   //TODO:                                                          // T0
   params.at<double>(0, 1) = u0(0);                                                                              // X0
   params.at<double>(1, 1) = u0(1);                                                                              // Y0
   params.at<double>(2, 1) = u0(2);                                                                              // Z0
 
   params.at<double>(3, 0) = 0.0;                                                                                // A1
   params.at<double>(4, 0) = 0.0;                                                                                // B1
-  params.at<double>(5, 0) = CostFunction::scale(1);                                                             // T1
+  params.at<double>(5, 0) = 1;//TODO                                                            // T1
   params.at<double>(3, 1) = u1(0);                                                                              // X1
   params.at<double>(4, 1) = u1(1);                                                                              // Y1
   params.at<double>(5, 1) = u1(2);                                                                              // Z1
@@ -314,7 +316,7 @@ cv::Vec3d IterativeRefinement::CostFunction::baseLine(double a, double b, double
     -2.0*b    , 0        ,  1.0 - b*b 
   );
 
-  return A * B * v / ((1.0 + a*a) * (1.0 + b*b));
+  return (A * B) * (1.0 / ((1.0 + a*a) * (1.0 + b*b))) * v; 
 }
 
 
