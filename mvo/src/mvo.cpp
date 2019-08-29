@@ -203,9 +203,11 @@ OdomData MVO::handleImage(const cv::Mat image, const image_geometry::PinholeCame
       cv::Vec3d st = _slidingWindow.getPosition(1) + b;
       _slidingWindow.setPosition(st, 0);
       _slidingWindow.setRotation(R, 0);
-      _iterativeRefinement.refine(3); 
+     // cv::waitKey(0);
       _slidingWindow.exportMatlabData();
       //cv::waitKey(0);
+      _iterativeRefinement.refine(3); 
+      
 
       this->drawDebugImage(_slidingWindow.getPosition(0) - _slidingWindow.getPosition(1), _debugImage2,
                            cv::Scalar(0, 0, 255));
@@ -222,6 +224,7 @@ OdomData MVO::handleImage(const cv::Mat image, const image_geometry::PinholeCame
   OdomData od;
   od.b = b;
   od.s = _slidingWindow.getPosition(0);
+
   return od;
 }
 

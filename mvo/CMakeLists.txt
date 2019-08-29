@@ -27,10 +27,16 @@ generate_dynamic_reconfigure_options(
 catkin_package()
 find_package(OpenCV 4.1.0 REQUIRED )
 
+find_package(Ceres REQUIRED)
+include_directories(${CERES_INCLUDE_DIRS})
+
+find_package (Eigen3 3.3 REQUIRED NO_MODULE)
 
 
 add_executable(mvo_node src/mvo_node.cpp src/SlidingWindow.cpp src/mvo.cpp src/IterativeRefinement.cpp src/CornerTracker.cpp src/EpipolarGeometry.cpp)
 target_link_libraries(mvo_node ${catkin_LIBRARIES})
+target_link_libraries(mvo_node ${CERES_LIBRARIES})
+target_link_libraries (mvo_node Eigen3::Eigen)
 add_dependencies(mvo_node mvo_gencfg)
 
 target_compile_options(mvo_node PRIVATE -Wall -Werror -pedantic -Wextra)

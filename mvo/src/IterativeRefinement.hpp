@@ -1,5 +1,8 @@
 #include <opencv2/core.hpp>
 #include "SlidingWindow.hpp"
+//#include <opencv2/core/eigen.hpp>
+#include <eigen3/Eigen/Dense>
+#include <opencv2/core/eigen.hpp>
 
 class IterativeRefinement
 {
@@ -7,8 +10,9 @@ private:
   SlidingWindow & _slidingWindow;
 
   double THRESHOLD = 0.0001;
+ 
 
-  struct RefinementData
+  struct RefinementDataCV
   {
     std::vector<cv::Vec3d>  m2;
     std::vector<cv::Vec3d>  m1;
@@ -16,50 +20,96 @@ private:
     cv::Matx33d  R2;
     cv::Matx33d  R1;
     cv::Matx33d  R0;
+    cv::Vec3d vec0;
+    cv::Vec3d vec1;
   };
- 
-  class CostFunction
+
+  struct RefinementDataEIG
   {
-     public:
+    std::vector<Eigen::Vector3d>  m2;
+    std::vector<Eigen::Vector3d>  m1;
+    std::vector<Eigen::Vector3d>  m0;
+    Eigen::Matrix3d R2;
+    Eigen::Matrix3d R1;
+    Eigen::Matrix3d R0;
+    Eigen::Vector3d vec0;
+    Eigen::Vector3d vec1;
+  };
 
-    static constexpr double HIGH_VALUE = 10;
-    static constexpr double LOW_VALUE = 0.25;
-    static constexpr double DERIV_STEP = std::sqrt(DBL_EPSILON);
+  void cvt_cv_eigen(const std::vector<cv::Vec3d> & vecaCV, std::vector<Eigen::Vector3d> & vecaEIGEN);
+  void cvt_cv_eigen(const cv::Matx33d & matCV, Eigen::Matrix3d & matEIG);
+  void cvt_cv_eigen(const cv::Vec3d & vecCV, Eigen::Vector3d & vecEIG);
+  cv::Vec3d cvt_eigen_cv(const Eigen::Vector3d & vecEIG);
+ 
+  struct CostFunctionScaled
+  {
+    private:
+      const Eigen::Vector3d & _m2;
+      const Eigen::Vector3d & _m1;
+      const Eigen::Vector3d & _m0;
+      const Eigen::Matrix3d & _R2;
+      const Eigen::Matrix3d & _R1;
+      const Eigen::Matrix3d & _R0;
+      const Eigen::Vector3d & _vec0;
+      const Eigen::Vector3d & _vec1;
 
-    struct Input
-    {
-      const cv::Vec3d & m2;
-      const cv::Vec3d & m1;
-      const cv::Vec3d & m0;
-      const cv::Matx33d & R2;
-      const cv::Matx33d & R1;
-      const cv::Matx33d & R0;
-    };
+    
+    public:
+     CostFunctionScaled(const Eigen::Vector3d & m2,
+                        const Eigen::Vector3d & m1,
+                        const Eigen::Vector3d & m0,
+                        const Eigen::Matrix3d & R2,
+                        const Eigen::Matrix3d & R1,
+                        const Eigen::Matrix3d & R0,
+                        const Eigen::Vector3d & vec0,
+                        const Eigen::Vector3d & vec1);
 
-    static double func10(const Input & input, double a, double b, double x, double y, double z);
-    static double func21(const Input & input, double a1, double b1, double x1, double y1, double z1);
-    static double func20(const Input & input, double a, double b, double x, double y, double z, double t, double a1, double b1, double x1, double y1, double z1, double t1);
+      //Templated things for Ceres:
+      template <typename T> bool operator()(const T* parameters0, const T* parameters1, T* residuals) const;
+      
 
-    static double func(const cv::Vec3d & mk1, const cv::Matx33d & Rk1, const cv::Vec3d & uk, const cv::Matx33d & Rk, const cv::Vec3d & mk);
-    static double derive(const Input & input, const cv::Mat & params, unsigned int index);
-    static cv::Vec3d baseLine(double a, double b, double x, double y, double z);
-    static cv::Vec3d baseLineDeriveA(double a, double b, double x, double y, double z);
-    static cv::Vec3d baseLineDeriveB(double a, double b, double x, double y, double z);
-    static double scale(double t);
-    static double scaleDeriveT(double t);
 
-    static double funcWhole(const cv::Vec3d & mk2, const cv::Matx33d & Rk2, double x1, double y1, double z1, const cv::Matx33d & Rk1, const cv::Vec3d & mk1, double x, double y, double z, const cv::Matx33d & Rk, const cv::Vec3d & mk, double a1, double b1, double t1, double a, double b, double t);
 
   };
+
+  struct CostFunction
+  {
+    private:
+      const Eigen::Vector3d & _m1;
+      const Eigen::Vector3d & _m0;
+      const Eigen::Matrix3d & _R1;
+      const Eigen::Matrix3d & _R0;
+      const Eigen::Vector3d & _vec;
+
+      
+
+    
+    public:
+      CostFunction(
+     const  Eigen::Vector3d & m1,
+     const  Eigen::Vector3d & m0,
+     const  Eigen::Matrix3d & R1,
+     const  Eigen::Matrix3d & R0,
+     const  Eigen::Vector3d & vec);
+
+      //Templated things for Ceres:
+    
+      template <typename T> bool operator()(const T* parameters, T* residuals) const;
+      
+
+
+
+  };
+  static constexpr double LOW_VALUE = 0.25;
+  static constexpr double HIGH_VALUE = 2;
+
+  template <typename T> static Eigen::Matrix<T,3,1> baseLineTemplated(const Eigen::Vector3d & vec, const T a, const T b);
+  template <typename T> static T scaleTemplated(const T t);
+
+
  
- void CreateJacobianAndFunction(cv::Mat J, cv::Mat F, const RefinementData & data, const cv::Mat & params);
- cv::Mat CreateFunction(const RefinementData & data, const cv::Mat & params);
- void GaussNewton(const RefinementData & data, cv::Mat & params);
-
- static double derivationParam(double x);
-
-
 public:
+  
   IterativeRefinement(SlidingWindow & slidingWindow);
   ~IterativeRefinement();
 

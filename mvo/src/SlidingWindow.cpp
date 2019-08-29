@@ -312,7 +312,7 @@ void SlidingWindow::exportMatlabData(){
 
   //File
   std::ofstream myfile;
-  myfile.open("/home/franek/data.m");
+  myfile.open("/home/franek/Repos/ba/MATLAB2/dataTEMP.m");
 
   myfile << "R0 = ..." << std::endl;
   myfile << "[" << R0(0,0) << " " << R0(0,1) << " " << R0(0,2) << ";" << std::endl;
