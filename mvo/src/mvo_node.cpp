@@ -11,7 +11,7 @@ int main(int argc, char *argv[])
 }
 
 MVO_node::MVO_node(ros::NodeHandle nh, ros::NodeHandle pnh)
-  : _nodeHandle(nh), _privateNodeHandle(pnh), _imageTransport(nh), _transFormListener(_tfBuffer), _transformWorldToCamera(0,0,1,-1,0,0,0,-1,0), _rotation(1,0,0,0,1,0,0,0,1)
+  : _nodeHandle(nh), _privateNodeHandle(pnh), _imageTransport(nh), _transFormListener(_tfBuffer), _transformWorldToCamera(0,0,1,-1,0,0,0,-1,0)
 {
   //ROS_INFO_STREAM("M = " << _transformWorldToCamera << std::endl);
   this->init();
@@ -30,21 +30,30 @@ void MVO_node::init()
   _odomPublisher = _nodeHandle.advertise<nav_msgs::Odometry>("odom", 10, true);
   _debugImagePublisher = _imageTransport.advertise("debug/image", 3, true);
   _debugImage2Publisher = _imageTransport.advertise("debug/image2", 3, true);
-  _imuSubscriber = _nodeHandle.subscribe("/imu/data", 10, &MVO_node::imuCallback, this);
 }
 
 void MVO_node::imageCallback(const sensor_msgs::ImageConstPtr &image, const sensor_msgs::CameraInfoConstPtr &camInfo)
 {
   (void)(camInfo);  // TODO: unused
-  cv_bridge::CvImageConstPtr bridgeImage = cv_bridge::toCvShare(image, "mono8");
+  cv_bridge::CvImageConstPtr bridgeImage = cv_bridge::toCvCopy(image, "mono8");
   image_geometry::PinholeCameraModel model;
   model.fromCameraInfo(camInfo);
 
-  _rotationMutex.lock();
-  cv::Matx33d rotation = _rotation;
-  _rotationMutex.unlock();
+  //Get Rotation for The Image Timestamp
+  auto orientation = _tfBuffer.lookupTransform("base_footprint", "base_link", camInfo->header.stamp);
+  tf2::Quaternion rotationQuat(orientation.transform.rotation.x, orientation.transform.rotation.y, orientation.transform.rotation.z, orientation.transform.rotation.w);
+  tf2::Matrix3x3 rotation(rotationQuat);
 
-  auto od = _mvo.handleImage(bridgeImage->image, model, rotation);  
+
+  double yaw, pitch, roll;
+  rotation.getEulerYPR(yaw, pitch, roll);
+  rotation.setRPY(-pitch,-yaw,roll);
+  cv::Matx33d rotationCV;
+  rotationCV(0,0) = rotation[0][0]; rotationCV(0,1) = rotation[0][1]; rotationCV(0,2) = rotation[0][2];
+  rotationCV(1,0) = rotation[1][0]; rotationCV(1,1) = rotation[1][1]; rotationCV(1,2) = rotation[1][2];
+  rotationCV(2,0) = rotation[2][0]; rotationCV(2,1) = rotation[2][1]; rotationCV(2,2) = rotation[2][2];
+
+  auto od = _mvo.handleImage(bridgeImage->image, model, rotationCV);  
   //ROS_INFO_STREAM("before: " << od.s << std::endl);
   od.b = _transformWorldToCamera * od.b;
   od.s = _transformWorldToCamera * od.s; 
@@ -86,41 +95,4 @@ void MVO_node::dynamicConfigCallback(mvo::corner_detectorConfig &config, uint32_
 {
   (void)(level);  // TODO: unused
   _mvo._cornerTracker.setCornerDetectorParams(config.block_size, config.aperture_size, config.k, config.threshold);
-}
-
-void MVO_node::imuCallback(const sensor_msgs::ImuConstPtr & imu_msg){
-  // //Anuglar Velocity Vector
-  // cv::Vec3d angular_velocity(imu_msg->angular_velocity.x, imu_msg->angular_velocity.y, imu_msg->angular_velocity.z);
-  // //Transform into Camera Cordinates
-  // angular_velocity = _transformWorldToCamera.t() * angular_velocity;
-  // //Caluclate relative Rotation:
-  // double theta = cv::norm(angular_velocity);
-  // cv::Matx33d angular_velocity_cross( 0                          ,-1.0 * angular_velocity[2], angular_velocity[1],
-  //                                     angular_velocity[2]        ,0                         , -1.0 * angular_velocity[1],
-  //                                     -1.0 * angular_velocity[1] ,angular_velocity[0]       ,0                           );
-                                    
-  // cv::Matx33d Rd = cv::Matx33d::eye() + (std::sin(theta)/theta) * angular_velocity_cross + 
-  // ((1.0 - std::cos(theta)) / theta*theta) *  angular_velocity_cross * angular_velocity_cross; //TODO: fasten up through before calc
-
-  // _rotationMutex.lock();
-  // _rotation = _rotation * Rd;
-  // ROS_INFO_STREAM( " new Rotationdelta: " << std::endl << Rd << std::endl);
-  // tf2::Matrix3x3 rot(_rotation(0,0), _rotation(0,1),_rotation(0,2),
-  //                _rotation(1,0), _rotation(1,1),_rotation(1,2),
-  //                _rotation(2,0), _rotation(2,1),_rotation(2,2));
-
-  
-  tf2::Quaternion quat(imu_msg->orientation.x,imu_msg->orientation.y,imu_msg->orientation.z, imu_msg->orientation.w);
-  tf2::Matrix3x3 rot(quat);
-  double yaw, pitch, roll;
-  rot.getEulerYPR(yaw, pitch, roll);
-  rot.setRPY(-pitch,-yaw,roll);
-  _rotationMutex.lock();
-  _rotation(0,0) = rot[0][0]; _rotation(0,1) = rot[0][1]; _rotation(0,2) = rot[0][2];
-  _rotation(1,0) = rot[1][0]; _rotation(1,1) = rot[1][1]; _rotation(1,2) = rot[1][2];
-  _rotation(2,0) = rot[2][0]; _rotation(2,1) = rot[2][1]; _rotation(2,2) = rot[2][2];
-  _rotationMutex.unlock();
-
-
-
 }

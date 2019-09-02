@@ -3,6 +3,7 @@
 //#include <opencv2/core/eigen.hpp>
 #include <eigen3/Eigen/Dense>
 #include <opencv2/core/eigen.hpp>
+#include <ceres/ceres.h>
 
 class IterativeRefinement
 {
@@ -65,7 +66,7 @@ private:
                         const Eigen::Vector3d & vec1);
 
       //Templated things for Ceres:
-      template <typename T> bool operator()(const T* parameters0, const T* parameters1, T* residuals) const;
+      bool operator()(const double* parameters0, const double* parameters1, double* residuals) const;
       
 
 
@@ -94,9 +95,8 @@ private:
 
       //Templated things for Ceres:
     
-      template <typename T> bool operator()(const T* parameters, T* residuals) const;
-      
-
+      bool operator()(const double* parameters, double* residuals) const;
+    
 
 
   };
@@ -105,6 +105,19 @@ private:
 
   template <typename T> static Eigen::Matrix<T,3,1> baseLineTemplated(const Eigen::Vector3d & vec, const T a, const T b);
   template <typename T> static T scaleTemplated(const T t);
+
+  class VectorChanger : public ceres::EvaluationCallback
+  {
+    public:
+      VectorChanger(Eigen::Vector3d & vec0, Eigen::Vector3d & vec1, double* parameters0, double* parameters1);
+      void PrepareForEvaluation(bool evaluate_jacobians, bool new_evaluation_point);
+    private:
+      Eigen::Vector3d & _vec0;
+      Eigen::Vector3d & _vec1;
+      double * _parameters0;
+      double * _parameters1;
+
+  };
 
 
  

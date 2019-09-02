@@ -4,7 +4,7 @@
 #include <ros/ros.h>
 
 #include <limits>
-#include <ceres/ceres.h>
+
 
 
 // TODO: FROM: https://nghiaho.com/?page_id=355
@@ -78,20 +78,27 @@ void IterativeRefinement::refine(unsigned int n)
   //ceres_solver_options.check_gradients = true; ///DEBUG!
 
   for(unsigned int i = 0; i < data.m0.size(); i++){
-    ceres::CostFunction* cost_functiom20 = new ceres::AutoDiffCostFunction<CostFunctionScaled, 1, 3, 3>(
+    ceres::CostFunction* cost_functiom20 = new ceres::NumericDiffCostFunction<CostFunctionScaled,ceres::CENTRAL, 1, 3, 3>(
       new CostFunctionScaled(dataEIG.m2[i], dataEIG.m1[i], dataEIG.m0[i], dataEIG.R2, dataEIG.R1, dataEIG.R0,dataEIG.vec0, dataEIG.vec1)
     );
-    ceres::CostFunction* cost_functiom21 = new ceres::AutoDiffCostFunction<CostFunction, 1, 3>(
+    ceres::CostFunction* cost_functiom21 = new ceres::NumericDiffCostFunction<CostFunction,ceres::CENTRAL, 1, 3>(
       new CostFunction(dataEIG.m2[i], dataEIG.m1[i], dataEIG.R2, dataEIG.R1,dataEIG.vec1)
     );
-    ceres::CostFunction* cost_functiom10 = new ceres::AutoDiffCostFunction<CostFunction, 1, 3>(
+    ceres::CostFunction* cost_functiom10 = new ceres::NumericDiffCostFunction<CostFunction,ceres::CENTRAL, 1, 3>(
       new CostFunction(dataEIG.m1[i], dataEIG.m0[i], dataEIG.R1, dataEIG.R0,dataEIG.vec0)
     );
 
-    ceres_problem.AddResidualBlock(cost_functiom20, NULL, params0, params1);
-    ceres_problem.AddResidualBlock(cost_functiom21, NULL, params1);
-    ceres_problem.AddResidualBlock(cost_functiom10, NULL, params0);
+    ceres::LossFunction *loss_function20 = new ceres::CauchyLoss(0.5);
+    ceres::LossFunction *loss_function21 = new ceres::CauchyLoss(0.5);
+    ceres::LossFunction *loss_function10 = new ceres::CauchyLoss(0.5);
+    ceres_problem.AddResidualBlock(cost_functiom20, loss_function20, params0, params1);
+    ceres_problem.AddResidualBlock(cost_functiom21, loss_function21, params1);
+    ceres_problem.AddResidualBlock(cost_functiom10, loss_function10, params0);
+
   }
+
+  
+  ceres_solver_options.evaluation_callback = new VectorChanger(dataEIG.vec0, dataEIG.vec1, params0, params1);
   
 
   ceres::Solver::Summary ceres_summary;
@@ -139,25 +146,25 @@ IterativeRefinement::CostFunctionScaled::CostFunctionScaled(const Eigen::Vector3
      {}
 
 
-template <typename T>
-bool IterativeRefinement::CostFunctionScaled::operator()(const T* parameters0, const T* parameters1, T* residuals) const{
-  T a0 = parameters0[0];
-  T b0 = parameters0[1];
-  T t0 = parameters0[2];
-  T a1 = parameters1[0];
-  T b1 = parameters1[1];
-  T t1 = parameters1[2];
 
-  T n0 = scaleTemplated(t0);
-  T n1 = scaleTemplated(t1);
+bool IterativeRefinement::CostFunctionScaled::operator()(const double* parameters0, const double* parameters1, double* residuals) const{
+  double a0 = parameters0[0];
+  double b0 = parameters0[1];
+  double t0 = parameters0[2];
+  double a1 = parameters1[0];
+  double b1 = parameters1[1];
+  double t1 = parameters1[2];
 
-  Eigen::Matrix<T,3,1>  u0 = baseLineTemplated(_vec0, a0, b0);
-  Eigen::Matrix<T,3,1>  u1 = baseLineTemplated(_vec1, a1, b1);
+  double n0 = scaleTemplated(t0);
+  double n1 = scaleTemplated(t1);
 
-  Eigen::Matrix<T,3,1>  u01 = n1 * u1 + n0 * u0;
+  Eigen::Matrix<double,3,1>  u0 = baseLineTemplated(_vec0, a0, b0);
+  Eigen::Matrix<double,3,1>  u1 = baseLineTemplated(_vec1, a1, b1);
+
+  Eigen::Matrix<double,3,1>  u01 = n1 * u1 + n0 * u0;
   u01.normalize();
 
-  T cost = ((_m2).transpose().template cast<T>() * (_R2).transpose().template cast<T>() * u01.cross((_R0).template cast<T>() * (_m0).template cast<T>())).value();  
+  double cost = ((_m2).transpose() * (_R2).transpose() * u01.cross((_R0) * (_m0))).value();  
   residuals[0] = cost;
   return true;
 }
@@ -176,14 +183,14 @@ IterativeRefinement::CostFunction::CostFunction(const Eigen::Vector3d & m1,
      _vec(vec)
      {}
 
-template <typename T>
-bool IterativeRefinement::CostFunction::operator()(const T* parameters, T* residuals) const{
-   T a = parameters[0];
-   T b = parameters[1];
 
-  Eigen::Matrix<T,3,1>  u = baseLineTemplated(_vec, a, b);
+bool IterativeRefinement::CostFunction::operator()(const double* parameters, double* residuals) const{
+   double a = parameters[0];
+   double b = parameters[1];
 
-  T cost = (_m1.transpose().template cast<T>() * _R1.transpose().template cast<T>() * u.cross(_R0.template cast<T>() * _m0.template cast<T>())).value();
+  Eigen::Matrix<double,3,1>  u = baseLineTemplated(_vec, a, b);
+
+  double cost = (_m1.transpose() * _R1.transpose() * u.cross(_R0 * _m0)).value();
   residuals[0] = cost;
   return true;
 }
@@ -232,4 +239,27 @@ void IterativeRefinement::cvt_cv_eigen(const cv::Vec3d & vecCV, Eigen::Vector3d 
 
 cv::Vec3d IterativeRefinement::cvt_eigen_cv(const Eigen::Vector3d & vecEIG){
   return cv::Vec3d(vecEIG(0), vecEIG(1), vecEIG(2));
+}
+
+IterativeRefinement::VectorChanger::VectorChanger(Eigen::Vector3d & vec0, Eigen::Vector3d & vec1, double* parameters0, double* parameters1):
+_vec0(vec0),
+_vec1(vec1),
+_parameters0(parameters0),
+_parameters1(parameters1)
+{
+}
+
+void IterativeRefinement::VectorChanger::PrepareForEvaluation(bool evaluate_jacobians, bool new_evaluation_point){
+  (void)(new_evaluation_point);
+  if(evaluate_jacobians)//In that Case the Ceres Solver will Calculate new Derives, so we have to update the Vectors
+  {
+    _vec0 = baseLineTemplated<double>(_vec0, _parameters0[0], _parameters0[1]);
+    _vec1 = baseLineTemplated<double>(_vec1, _parameters1[0], _parameters1[1]);
+    _parameters0[0] = 0;
+    _parameters0[1] = 0;
+    _parameters1[0] = 0;
+    _parameters1[1] = 0;
+
+  }
+
 }

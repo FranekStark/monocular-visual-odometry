@@ -18,7 +18,6 @@ class MVO_node
 private:
     ros::NodeHandle _nodeHandle;
     ros::NodeHandle _privateNodeHandle;
-    ros::Subscriber _imuSubscriber;
     image_transport::ImageTransport _imageTransport;
     image_transport::CameraSubscriber _imageSubscriber;
     std::string _imageSubscriberTopic;
@@ -37,8 +36,6 @@ private:
 
     cv::Matx33d _transformWorldToCamera;
 
-    cv::Matx33d _rotation;
-    std::mutex _rotationMutex;
 
     void init();
 
@@ -46,6 +43,5 @@ public:
     MVO_node(ros::NodeHandle nh, ros::NodeHandle pnh);
     ~MVO_node();
     void imageCallback(const sensor_msgs::ImageConstPtr &, const sensor_msgs::CameraInfoConstPtr &);
-    void imuCallback(const sensor_msgs::ImuConstPtr &);
     void dynamicConfigCallback(mvo::corner_detectorConfig & config, uint32_t level);
 };
