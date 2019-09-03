@@ -31,7 +31,9 @@ private:
   void sortOutSameFeatures(const std::vector<cv::Point2f> & beforeFeatures, std::vector<cv::Point2f> & newFeatures);
   void euclidNormFeatures(const std::vector<cv::Point2f> &features, std::vector<cv::Vec3d> & featuresE, const image_geometry::PinholeCameraModel & cameraModel);
   void drawDebugPoints(const std::vector<cv::Point2f> & points, const cv::Scalar & color, cv::Mat & image);
-  void drawDebugImage(const cv::Vec3d baseLine, cv::Mat & image, const cv::Scalar & color);
+  void drawDebugImage(const cv::Vec3d & baseLine, cv::Mat &image, const cv::Scalar &color, unsigned int index);
+  void drawDebugScale(cv::Mat image, double scaleBefore, double scaleAfter);
+ 
   /*Fields */
   SlidingWindow _slidingWindow;
 

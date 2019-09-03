@@ -23,8 +23,8 @@ MVO_node::~MVO_node()
 
 void MVO_node::init()
 {
-  _imageSubscriberTopic = "/pylon_camera_node/image_rect";
-  _imageSubscriber = _imageTransport.subscribeCamera(_imageSubscriberTopic, 3, &MVO_node::imageCallback, this);
+  _imageSubscriberTopic = "/camera_ueye/image_rect";
+  _imageSubscriber = _imageTransport.subscribeCamera(_imageSubscriberTopic, 10, &MVO_node::imageCallback, this);
   _dynamicConfigCallBackType = boost::bind(&MVO_node::dynamicConfigCallback, this, _1, _2);
   _dynamicConfigServer.setCallback(_dynamicConfigCallBackType);
   _odomPublisher = _nodeHandle.advertise<nav_msgs::Odometry>("odom", 10, true);

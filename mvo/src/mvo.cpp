@@ -210,14 +210,15 @@ OdomData MVO::handleImage(const cv::Mat image, const image_geometry::PinholeCame
       
 
       this->drawDebugImage(_slidingWindow.getPosition(0) - _slidingWindow.getPosition(1), _debugImage2,
-                           cv::Scalar(0, 0, 255));
+                           cv::Scalar(0, 0, 255), 1);
     }
     else
     {
       _slidingWindow.setPosition(_slidingWindow.getPosition(1) + sign * b, 0);
       _slidingWindow.setRotation(R, 0);
     }
-    this->drawDebugImage(sign * b, _debugImage2, cv::Scalar(0, 255, 0));
+    this->drawDebugImage(sign * b, _debugImage2, cv::Scalar(0, 255, 0), 2);
+    this->drawDebugScale(_debugImage2, 1, cv::norm(_slidingWindow.getPosition(0)));
   }
 
   _frameCounter++;
@@ -253,7 +254,7 @@ void MVO::euclidNormFeatures(const std::vector<cv::Point2f> &features, std::vect
   }
 }
 
-void MVO::drawDebugImage(const cv::Vec3d baseLine, cv::Mat &image, const cv::Scalar &color)
+void MVO::drawDebugImage(const cv::Vec3d & baseLine, cv::Mat &image, const cv::Scalar &color, unsigned int index)
 {
   auto baseLineNorm = cv::normalize(baseLine);
 
@@ -263,7 +264,13 @@ void MVO::drawDebugImage(const cv::Vec3d baseLine, cv::Mat &image, const cv::Sca
   double scaleY = (image.rows - mitY) / 1.5;
   cv::arrowedLine(image, cv::Point(mitX, mitY),
                   cv::Point(scaleX * baseLineNorm(0) + mitX, (scaleY * baseLineNorm(1)) + mitY), color, 10);
-  cv::line(image, cv::Point(mitY, 20), cv::Point(mitY + (scaleX * baseLineNorm(2)), 20), color, 10);
+  cv::line(image, cv::Point(mitY, index * 20), cv::Point(mitY + (scaleX * baseLineNorm(2)), index * 20), color, 10);
+}
+
+void MVO::drawDebugScale(cv::Mat image, double scaleBefore, double scaleAfter){
+  cv::rectangle(image, cv::Rect(10, 10, 40, image.rows - 20), cv::Scalar(0,0,255),4);
+  double scaling = scaleAfter / scaleBefore;
+  cv::rectangle(image, cv::Rect(12, 10, 8, scaling * (image.rows - 20)), cv::Scalar(0,255,0),-1);
 }
 
 void MVO::drawDebugPoints(const std::vector<cv::Point2f> &points, const cv::Scalar &color, cv::Mat &image)

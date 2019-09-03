@@ -50,27 +50,17 @@ private:
       const Eigen::Vector3d & _m0;
       const Eigen::Matrix3d & _R2;
       const Eigen::Matrix3d & _R1;
-      const Eigen::Matrix3d & _R0;
-      const Eigen::Vector3d & _vec0;
-      const Eigen::Vector3d & _vec1;
-
-    
+      const Eigen::Matrix3d & _R0;  
     public:
      CostFunctionScaled(const Eigen::Vector3d & m2,
                         const Eigen::Vector3d & m1,
                         const Eigen::Vector3d & m0,
                         const Eigen::Matrix3d & R2,
                         const Eigen::Matrix3d & R1,
-                        const Eigen::Matrix3d & R0,
-                        const Eigen::Vector3d & vec0,
-                        const Eigen::Vector3d & vec1);
-
-      //Templated things for Ceres:
-      bool operator()(const double* parameters0, const double* parameters1, double* residuals) const;
+                        const Eigen::Matrix3d & R0);
       
-
-
-
+      template <typename T>
+      bool operator()(const T* vec0, const T* vec1, const T* scale0, const T* scale1, T* residuals) const;
   };
 
   struct CostFunction
@@ -80,45 +70,31 @@ private:
       const Eigen::Vector3d & _m0;
       const Eigen::Matrix3d & _R1;
       const Eigen::Matrix3d & _R0;
-      const Eigen::Vector3d & _vec;
-
-      
-
-    
     public:
       CostFunction(
      const  Eigen::Vector3d & m1,
      const  Eigen::Vector3d & m0,
      const  Eigen::Matrix3d & R1,
-     const  Eigen::Matrix3d & R0,
-     const  Eigen::Vector3d & vec);
+     const  Eigen::Matrix3d & R0);
 
-      //Templated things for Ceres:
-    
-      bool operator()(const double* parameters, double* residuals) const;
-    
-
+    template <typename T>
+    bool operator()(const T* vec, T* residuals) const;
 
   };
+  
   static constexpr double LOW_VALUE = 0.25;
   static constexpr double HIGH_VALUE = 2;
 
-  template <typename T> static Eigen::Matrix<T,3,1> baseLineTemplated(const Eigen::Vector3d & vec, const T a, const T b);
-  template <typename T> static T scaleTemplated(const T t);
+  template <typename T> 
+  static Eigen::Matrix<T,3,1> baseLineTemplated(const Eigen::Matrix<T,3,1> & vec, const T a, const T b);
 
-  class VectorChanger : public ceres::EvaluationCallback
-  {
-    public:
-      VectorChanger(Eigen::Vector3d & vec0, Eigen::Vector3d & vec1, double* parameters0, double* parameters1);
-      void PrepareForEvaluation(bool evaluate_jacobians, bool new_evaluation_point);
-    private:
-      Eigen::Vector3d & _vec0;
-      Eigen::Vector3d & _vec1;
-      double * _parameters0;
-      double * _parameters1;
+  template <typename T> 
+  static T scaleTemplated(const T t);
 
+  struct ParametrizedBaseLine {
+    template<typename T>
+     bool operator()(const T* x, const T* delta, T* x_plus_delta) const;
   };
-
 
  
 public:
