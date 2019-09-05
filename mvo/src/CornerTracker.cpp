@@ -1,7 +1,7 @@
 #include "CornerTracker.hpp"
 #include  <ros/ros.h>
 
-CornerTracker::CornerTracker() : _blockSize(3), _minDifPercent(0.10), _qualityLevel(0.40)
+CornerTracker::CornerTracker() : _blockSize(3), _minDifPercent(0.02), _qualityLevel(0.4)
 {
 }
 
@@ -27,7 +27,7 @@ void CornerTracker::detectFeatures(std::vector<cv::Point2f> &corner, const cv::M
 
   double qualityLevel = _qualityLevel;
   if(forceDetection){
-    qualityLevel = 0.4; //Set Quality Low, to Detect as much features as possible
+    qualityLevel = 0.01; //Set Quality Low, to Detect as much features as possible
   }
   cv::goodFeaturesToTrack(image, corner, numberToDetect, qualityLevel, mindistance, maskImage, _blockSize,
                           bool(true),

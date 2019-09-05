@@ -11,9 +11,18 @@ int main(int argc, char *argv[])
 }
 
 MVO_node::MVO_node(ros::NodeHandle nh, ros::NodeHandle pnh)
-  : _nodeHandle(nh), _privateNodeHandle(pnh), _imageTransport(nh), _transFormListener(_tfBuffer), _transformWorldToCamera(0,0,1,-1,0,0,0,-1,0)
+  : _nodeHandle(nh), 
+  _privateNodeHandle(pnh), 
+  _imageTransport(nh), 
+  _imageSubscriberTopic ("/camera_ueye/image_rect"),
+  _imageSubscriber(_imageTransport, "/camera_ueye/image_rect", 10),
+  _cameraInfoSubscriber(_nodeHandle, "/camera_ueye/camera_info", 10),
+  _imuSubscriber(_nodeHandle, "/imu/data",100),
+  _synchronizer(SyncPolicie(200), _imageSubscriber, _cameraInfoSubscriber, _imuSubscriber),
+  _transformWorldToCamera(0,0,1,-1,0,0,0,-1,0)
 {
-  //ROS_INFO_STREAM("M = " << _transformWorldToCamera << std::endl);
+
+ 
   this->init();
 }
 
@@ -23,18 +32,17 @@ MVO_node::~MVO_node()
 
 void MVO_node::init()
 {
-  _imageSubscriberTopic = "/camera_ueye/image_rect";
-  _imageSubscriber = _imageTransport.subscribeCamera(_imageSubscriberTopic, 10, &MVO_node::imageCallback, this);
-  _dynamicConfigCallBackType = boost::bind(&MVO_node::dynamicConfigCallback, this, _1, _2);
+   _dynamicConfigCallBackType = boost::bind(&MVO_node::dynamicConfigCallback, this, _1, _2);
   _dynamicConfigServer.setCallback(_dynamicConfigCallBackType);
   _odomPublisher = _nodeHandle.advertise<nav_msgs::Odometry>("odom", 10, true);
   _debugImagePublisher = _imageTransport.advertise("debug/image", 3, true);
   _debugImage2Publisher = _imageTransport.advertise("debug/image2", 3, true);
+  _synchronizer.registerCallback(boost::bind(&MVO_node::imageCallback, this, _1,_2,_3));
+
 }
 
-void MVO_node::imageCallback(const sensor_msgs::ImageConstPtr &image, const sensor_msgs::CameraInfoConstPtr &camInfo)
+void MVO_node::imageCallback(const sensor_msgs::ImageConstPtr &image, const sensor_msgs::CameraInfoConstPtr &camInfo, const sensor_msgs::ImuConstPtr & imu)
 {
-  assert(image->header.stamp == camInfo->header.stamp);
 
   (void)(camInfo);  // TODO: unused
   cv_bridge::CvImageConstPtr bridgeImage = cv_bridge::toCvCopy(image, "mono8");
@@ -42,11 +50,9 @@ void MVO_node::imageCallback(const sensor_msgs::ImageConstPtr &image, const sens
   model.fromCameraInfo(camInfo);
 
   //Get Rotation for The Image Timestamp
-  auto orientation = _tfBuffer.lookupTransform("base_footprint", "base_link", camInfo->header.stamp);
-  tf2::Quaternion rotationQuat(orientation.transform.rotation.x, orientation.transform.rotation.y, orientation.transform.rotation.z, orientation.transform.rotation.w);
+  tf2::Quaternion rotationQuat(imu->orientation.x, imu->orientation.y, imu->orientation.z, imu->orientation.w);
   tf2::Matrix3x3 rotation(rotationQuat);
 
-  assert(image->header.stamp == orientation.header.stamp);
 
 
   double yaw, pitch, roll;
@@ -63,6 +69,18 @@ void MVO_node::imageCallback(const sensor_msgs::ImageConstPtr &image, const sens
   od.s = _transformWorldToCamera * od.s; 
   //ROS_INFO_STREAM("after: " << od.s << std::endl);
   /*Publish */
+
+  tf2::Matrix3x3 orientation(od.o(0,0), od.o(0,1), od.o(0,2),
+                             od.o(1,0), od.o(1,1), od.o(1,2),
+                             od.o(2,0), od.o(2,1), od.o(2,2));
+  orientation.getEulerYPR(yaw, pitch, roll);
+  orientation.setEulerYPR(-pitch,-roll,yaw);                          
+  
+
+  tf2::Quaternion orientationQuat;
+  orientation.getRotation(orientationQuat);
+
+
   nav_msgs::Odometry odomMsg;
   odomMsg.header.stamp = ros::Time::now();
   odomMsg.header.frame_id = "odom";
@@ -70,7 +88,10 @@ void MVO_node::imageCallback(const sensor_msgs::ImageConstPtr &image, const sens
   odomMsg.pose.pose.position.x = od.s(0);
   odomMsg.pose.pose.position.y = od.s(1);
   odomMsg.pose.pose.position.z = od.s(2);
-  odomMsg.pose.pose.orientation.w = 1;
+  odomMsg.pose.pose.orientation.w = orientationQuat.getW();
+  odomMsg.pose.pose.orientation.x = orientationQuat.getX();
+  odomMsg.pose.pose.orientation.y = orientationQuat.getY();
+  odomMsg.pose.pose.orientation.z = orientationQuat.getZ();
   odomMsg.twist.twist.linear.x = od.b(0);
   odomMsg.twist.twist.linear.y = od.b(1);
   odomMsg.twist.twist.linear.z = od.b(2);
@@ -83,7 +104,10 @@ void MVO_node::imageCallback(const sensor_msgs::ImageConstPtr &image, const sens
   transformMsg.transform.translation.x = od.s(0);
   transformMsg.transform.translation.y = od.s(1);
   transformMsg.transform.translation.z = od.s(2);
-  transformMsg.transform.rotation.w = 1;
+  transformMsg.transform.rotation.w = orientationQuat.getW();
+  transformMsg.transform.rotation.x = orientationQuat.getX();
+  transformMsg.transform.rotation.y = orientationQuat.getY();
+  transformMsg.transform.rotation.z = orientationQuat.getZ();
   _odomTfBroadcaster.sendTransform(transformMsg);
 
   std_msgs::Header header;
@@ -95,8 +119,15 @@ void MVO_node::imageCallback(const sensor_msgs::ImageConstPtr &image, const sens
   _debugImage2Publisher.publish(debugImage2.toImageMsg());
 }
 
-void MVO_node::dynamicConfigCallback(mvo::corner_detectorConfig &config, uint32_t level)
+void MVO_node::dynamicConfigCallback(mvo::mvoConfig &config, uint32_t level)
 {
   (void)(level);  // TODO: unused
   _mvo._cornerTracker.setCornerDetectorParams(config.block_size, config.minDifPercent, config.qualityLevel);
+  _mvo.setParameters(config.numberOfFeatures, config.disparityThreshold);
+  ROS_INFO_STREAM("New parameters set sucessfully: " << std::endl
+  << "block_size: " << config.block_size << std::endl
+  << "minDifPercent: " << config.minDifPercent << std::endl
+  << "qualityLevel" << config.qualityLevel << std::endl
+  << "numberOfFeatures" << config.numberOfFeatures << std::endl
+  << "disparityThreshold" << config.disparityThreshold << std::endl);
 }

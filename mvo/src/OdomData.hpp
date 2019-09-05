@@ -9,6 +9,7 @@ struct OdomData
 {
     cv::Vec3d b;
     cv::Vec3d s;
+    cv::Matx33d o; 
 };
 
 

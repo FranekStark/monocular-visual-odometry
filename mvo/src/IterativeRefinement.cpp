@@ -174,7 +174,7 @@ bool IterativeRefinement::CostFunctionScaled::operator()(const T* vec0, const T*
   Eigen::Matrix<T,3,1>  u01 = n1 * u1 + n0 * u0;
   u01.normalize();
 
-  T cost = ((_m2).transpose().template cast<T>() * (_R2).transpose().template cast<T>() * u01.cross((_R0).template cast<T>() * (_m0).template cast<T>())).value();  
+  T cost = ((_m2.template cast<T>()).dot((_R2).transpose().template cast<T>() * u01.cross((_R0).template cast<T>() * (_m0).template cast<T>())));  
   residuals[0] = cost;
   return true;
 }
@@ -197,7 +197,7 @@ bool IterativeRefinement::CostFunction::operator()(const T* vec, T* residuals) c
   Eigen::Matrix<T,3,1>  u;
   u << vec[0], vec[1], vec[2];
 
-  T cost = (_m1.transpose().template cast<T>() * _R1.transpose().template cast<T>() * u.cross(_R0.template cast<T>() * _m0.template cast<T>())).value();
+  T cost = ((_m1.template cast<T>()).dot(_R1.transpose().template cast<T>() * u.cross(_R0.template cast<T>() * _m0.template cast<T>())));
   residuals[0] = cost;
   return true;
 }

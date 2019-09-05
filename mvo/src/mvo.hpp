@@ -21,6 +21,8 @@
 
 #define PI 3.14159265
 
+#define DEBUGIMAGES
+
 class MVO
 {
 private:
@@ -38,7 +40,9 @@ private:
 
   unsigned int _frameCounter;
 
-  unsigned int _NUMBEROFFEATURES = 60;
+  unsigned int _numberOfFeatures;
+
+  double _disparityThreshold;
 
   bool checkEnoughDisparity(const std::vector<cv::Vec3d> &first, const std::vector<cv::Vec3d> &second);
 
@@ -53,6 +57,7 @@ public:
   MVO();
   ~MVO();
   OdomData handleImage(const cv::Mat image, const image_geometry::PinholeCameraModel &cameraModel, const cv::Matx33d &R);
+  void setParameters(unsigned int numberOfFeatures, double disparityThreshold);
   
   cv::Mat _debugImage;
   cv::Mat _debugImage2;
