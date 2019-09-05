@@ -34,6 +34,8 @@ void MVO_node::init()
 
 void MVO_node::imageCallback(const sensor_msgs::ImageConstPtr &image, const sensor_msgs::CameraInfoConstPtr &camInfo)
 {
+  assert(image->header.stamp == camInfo->header.stamp);
+
   (void)(camInfo);  // TODO: unused
   cv_bridge::CvImageConstPtr bridgeImage = cv_bridge::toCvCopy(image, "mono8");
   image_geometry::PinholeCameraModel model;
@@ -44,15 +46,17 @@ void MVO_node::imageCallback(const sensor_msgs::ImageConstPtr &image, const sens
   tf2::Quaternion rotationQuat(orientation.transform.rotation.x, orientation.transform.rotation.y, orientation.transform.rotation.z, orientation.transform.rotation.w);
   tf2::Matrix3x3 rotation(rotationQuat);
 
+  assert(image->header.stamp == orientation.header.stamp);
+
 
   double yaw, pitch, roll;
   rotation.getEulerYPR(yaw, pitch, roll);
-  rotation.setRPY(-pitch,-yaw,roll);
+  rotation.setEulerYPR(roll,-yaw,-pitch);
   cv::Matx33d rotationCV;
   rotationCV(0,0) = rotation[0][0]; rotationCV(0,1) = rotation[0][1]; rotationCV(0,2) = rotation[0][2];
   rotationCV(1,0) = rotation[1][0]; rotationCV(1,1) = rotation[1][1]; rotationCV(1,2) = rotation[1][2];
   rotationCV(2,0) = rotation[2][0]; rotationCV(2,1) = rotation[2][1]; rotationCV(2,2) = rotation[2][2];
-
+  
   auto od = _mvo.handleImage(bridgeImage->image, model, rotationCV);  
   //ROS_INFO_STREAM("before: " << od.s << std::endl);
   od.b = _transformWorldToCamera * od.b;
@@ -94,5 +98,5 @@ void MVO_node::imageCallback(const sensor_msgs::ImageConstPtr &image, const sens
 void MVO_node::dynamicConfigCallback(mvo::corner_detectorConfig &config, uint32_t level)
 {
   (void)(level);  // TODO: unused
-  _mvo._cornerTracker.setCornerDetectorParams(config.block_size, config.aperture_size, config.k, config.threshold);
+  _mvo._cornerTracker.setCornerDetectorParams(config.block_size, config.minDifPercent, config.qualityLevel);
 }

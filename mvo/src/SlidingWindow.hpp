@@ -32,6 +32,8 @@ public:
   void addNewFeaturesToCurrentFrame(const std::vector<cv::Point2f> & features, const std::vector<cv::Vec3d> & featuresE);
 
 
+  void persistCurrentFrame();
+
   /**
    * past = 0, means Current Windows Features
    * When no Window at this time, nullptr is returned

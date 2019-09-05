@@ -5,6 +5,10 @@
 #include <vector>
 #include "Feature.hpp"
 
+enum FrameType
+{
+    TEMP, PERSIST
+};
 
 struct Frame
 {
@@ -15,6 +19,8 @@ struct Frame
     cv::Matx33d _rotation;
 
     Frame * _preFrame;
+
+    FrameType _type;
 };
 
 #endif //FRAME_HPP

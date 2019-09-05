@@ -1,7 +1,7 @@
 #include "CornerTracker.hpp"
 #include  <ros/ros.h>
 
-CornerTracker::CornerTracker() : _blockSize(2), _apertureSize(3), _k(0.02), _thresh(200)
+CornerTracker::CornerTracker() : _blockSize(3), _minDifPercent(0.10), _qualityLevel(0.40)
 {
 }
 
@@ -9,7 +9,7 @@ CornerTracker::~CornerTracker()
 {
 }
 
-void CornerTracker::detectFeatures(std::vector<cv::Point2f> &corner, const cv::Mat &image, int numberToDetect, const std::vector<cv::Point2f> & existingFeatures, cv::Rect2d &mask)
+void CornerTracker::detectFeatures(std::vector<cv::Point2f> &corner, const cv::Mat &image, int numberToDetect, const std::vector<cv::Point2f> & existingFeatures, cv::Rect2d &mask, bool forceDetection)
 {
   if (numberToDetect <= 0)
   {
@@ -18,12 +18,18 @@ void CornerTracker::detectFeatures(std::vector<cv::Point2f> &corner, const cv::M
   //Create Mask
   cv::Mat maskImage(image.size(), CV_8U);
   maskImage = cv::Scalar(255); //First use all Pixels
+  double imageDiag = sqrt(image.rows * image.rows + image.cols * image.cols);
+  double mindistance = _minDifPercent * imageDiag;
   for(auto existingFeature : existingFeatures){
-    cv::circle(maskImage, existingFeature, 40, cv::Scalar(0), -1); //Here no Feature Detection! //TODO: param
+    cv::circle(maskImage, existingFeature, mindistance, cv::Scalar(0), -1); //Here no Feature Detection! //TODO: param
   }
   cv::rectangle(maskImage, mask, cv::Scalar(0), cv::FILLED);
 
-  cv::goodFeaturesToTrack(image, corner, numberToDetect, double(0.04), double(30.0), maskImage, _blockSize,
+  double qualityLevel = _qualityLevel;
+  if(forceDetection){
+    qualityLevel = 0.4; //Set Quality Low, to Detect as much features as possible
+  }
+  cv::goodFeaturesToTrack(image, corner, numberToDetect, qualityLevel, mindistance, maskImage, _blockSize,
                           bool(true),
                           _k);  // Corners berechnen TODO: More params -> especially the detection Quality
 
@@ -55,6 +61,10 @@ void CornerTracker::trackFeatures(const cv::Mat &prevImage, const cv::Mat &curre
   std::vector<float> error;
   cv::calcOpticalFlowPyrLK(prevPyramide, nowPyramide, prevFeatures, trackedFeatures, found, error);  // TODO: more
 
+
+  double imageDiag = sqrt(currentImage.rows * currentImage.rows + currentImage.cols * currentImage.cols);
+  double mindistance = _minDifPercent * imageDiag;
+
   //TODO: Sort out to Close features!
   std::vector<cv::Point2f>::iterator f1,f2;
    std::vector<unsigned char>::iterator f1Found, f2Found;
@@ -77,7 +87,7 @@ void CornerTracker::trackFeatures(const cv::Mat &prevImage, const cv::Mat &curre
         continue; //Don't sort out the same Feature
       }
 
-      if(cv::norm(*f1 - *f2) < 40){ //TODO: Param
+      if(cv::norm(*f1 - *f2) < mindistance){ //TODO: Param
         *f2Found = 0; //Sort Out
       }
 
@@ -85,10 +95,9 @@ void CornerTracker::trackFeatures(const cv::Mat &prevImage, const cv::Mat &curre
   }
 
 }
-void CornerTracker::setCornerDetectorParams(int blockSize, int aperatureSize, double k, int thresh)
+void CornerTracker::setCornerDetectorParams(int blockSize,double minDifPercent, double qualityLevel)
 {
   _blockSize = blockSize;
-  _apertureSize = aperatureSize;
-  _k = k;
-  _thresh = thresh;
+  _qualityLevel = qualityLevel;
+  _minDifPercent = minDifPercent;
 }
