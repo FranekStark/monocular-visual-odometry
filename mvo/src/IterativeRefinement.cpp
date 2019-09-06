@@ -265,13 +265,13 @@ bool IterativeRefinement::ParametrizedBaseLine::operator()(const T* x, const T* 
 
 double IterativeRefinement::reverseScale(const double length){
   double t = 1;
-  if(length < LOW_VALUE) //Catch the Cases in which the SCaling is to low or high, cause it is Mathematical impossible to calc t
+  if(length <= LOW_VALUE) //Catch the Cases in which the SCaling is to low or high, cause it is Mathematical impossible to calc t
   {
-    t = reverseScale(LOW_VALUE);
+    t = reverseScale(LOW_VALUE + std::numeric_limits<double>::epsilon());
     ROS_WARN_STREAM("Lower bound of scaling to high: " << length << std::endl);
   }
-  else if(length > HIGH_VALUE){
-    t = reverseScale(HIGH_VALUE);
+  else if(length >= HIGH_VALUE){
+    t = reverseScale(HIGH_VALUE - std::numeric_limits<double>::epsilon());
     ROS_WARN_STREAM("Upper bound of scaling to low: " << length << std::endl);
   }else{
     t = -1.0 * std::log((HIGH_VALUE - length) / (length - LOW_VALUE));
