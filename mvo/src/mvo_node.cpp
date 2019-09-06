@@ -43,44 +43,52 @@ void MVO_node::init()
 
 void MVO_node::imageCallback(const sensor_msgs::ImageConstPtr &image, const sensor_msgs::CameraInfoConstPtr &camInfo, const sensor_msgs::ImuConstPtr & imu)
 {
-
-  (void)(camInfo);  // TODO: unused
+  /**
+   * Convert the Image and the CameraInfo
+   **/
   cv_bridge::CvImageConstPtr bridgeImage = cv_bridge::toCvCopy(image, "mono8");
   image_geometry::PinholeCameraModel model;
   model.fromCameraInfo(camInfo);
 
-  //Get Rotation for The Image Timestamp
-  tf2::Quaternion rotationQuat(imu->orientation.x, imu->orientation.y, imu->orientation.z, imu->orientation.w);
-  tf2::Matrix3x3 rotation(rotationQuat);
-
-
-
-  double yaw, pitch, roll;
-  rotation.getEulerYPR(yaw, pitch, roll);
-  rotation.setEulerYPR(roll,-yaw,-pitch);
-  cv::Matx33d rotationCV;
-  rotationCV(0,0) = rotation[0][0]; rotationCV(0,1) = rotation[0][1]; rotationCV(0,2) = rotation[0][2];
-  rotationCV(1,0) = rotation[1][0]; rotationCV(1,1) = rotation[1][1]; rotationCV(1,2) = rotation[1][2];
-  rotationCV(2,0) = rotation[2][0]; rotationCV(2,1) = rotation[2][1]; rotationCV(2,2) = rotation[2][2];
+  /**
+   * Convert the Orientation
+   **/
+  tf2::Quaternion orientationQuat(imu->orientation.x, imu->orientation.y,imu->orientation.z,imu->orientation.w);
+  tf2::Matrix3x3 orientationMat(orientationQuat);
+  cv::Matx33d orientationMatCV( orientationMat[0][0], orientationMat[0][1], orientationMat[0][1],
+                                orientationMat[1][0], orientationMat[1][1], orientationMat[1][1],
+                                orientationMat[2][0], orientationMat[2][1], orientationMat[2][1]
+                              );
+  /**
+   * Project To Camera Coordinates
+   **/
+  orientationMatCV = _transformWorldToCamera.t() * orientationMatCV * _transformWorldToCamera;
   
-  auto od = _mvo.handleImage(bridgeImage->image, model, rotationCV);  
-  //ROS_INFO_STREAM("before: " << od.s << std::endl);
+  /**
+   * Call the Algorithm
+   **/
+  auto od = _mvo.handleImage(bridgeImage->image, model, orientationMatCV); 
+
+  /**
+   * Reproject TO World Coordinates
+   */ 
   od.b = _transformWorldToCamera * od.b;
   od.s = _transformWorldToCamera * od.s; 
-  //ROS_INFO_STREAM("after: " << od.s << std::endl);
-  /*Publish */
-
-  tf2::Matrix3x3 orientation(od.o(0,0), od.o(0,1), od.o(0,2),
-                             od.o(1,0), od.o(1,1), od.o(1,2),
-                             od.o(2,0), od.o(2,1), od.o(2,2));
-  orientation.getEulerYPR(yaw, pitch, roll);
-  orientation.setEulerYPR(-pitch,-roll,yaw);                          
-  
-
-  tf2::Quaternion orientationQuat;
-  orientation.getRotation(orientationQuat);
+  orientationMatCV = _transformWorldToCamera * od.o * _transformWorldToCamera.t();
 
 
+  /**
+   * Reconvert
+   **/
+  orientationMat[0][0] = orientationMatCV(0,0); orientationMat[0][1] = orientationMatCV(0,1); orientationMat[0][2] = orientationMatCV(0,2);
+  orientationMat[1][0] = orientationMatCV(1,0);  orientationMat[1][1] = orientationMatCV(1,1);   orientationMat[1][2] = orientationMatCV(1,2);
+  orientationMat[2][0] = orientationMatCV(2,0);  orientationMat[2][1] = orientationMatCV(2,1);   orientationMat[2][2] = orientationMatCV(2,2);                         
+  orientationMat.getRotation(orientationQuat);
+
+
+  /**
+   * Pack Message and Publish
+   **/
   nav_msgs::Odometry odomMsg;
   odomMsg.header.stamp = ros::Time::now();
   odomMsg.header.frame_id = "odom";
@@ -97,6 +105,9 @@ void MVO_node::imageCallback(const sensor_msgs::ImageConstPtr &image, const sens
   odomMsg.twist.twist.linear.z = od.b(2);
   _odomPublisher.publish(odomMsg);
 
+  /**
+   * Pack Tranform and Publish
+   **/
   geometry_msgs::TransformStamped transformMsg;
   transformMsg.header.stamp = ros::Time::now();
   transformMsg.header.frame_id = "odom";
@@ -110,6 +121,9 @@ void MVO_node::imageCallback(const sensor_msgs::ImageConstPtr &image, const sens
   transformMsg.transform.rotation.z = orientationQuat.getZ();
   _odomTfBroadcaster.sendTransform(transformMsg);
 
+  /**
+   * Pack DebugImages and Publish
+   */
   std_msgs::Header header;
   header.stamp = ros::Time::now();
   header.frame_id = "camera_link";

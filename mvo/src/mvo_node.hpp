@@ -9,6 +9,8 @@
 #include <tf2_ros/transform_listener.h>
 #include <tf2/LinearMath/Matrix3x3.h>
 #include <tf2/LinearMath/Vector3.h>
+#include <tf2_msgs/TFMessage.h>
+
 #include <nav_msgs/Odometry.h>
 #include <sensor_msgs/Imu.h>
 #include <mutex>
