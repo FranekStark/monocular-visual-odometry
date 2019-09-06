@@ -76,7 +76,7 @@ void IterativeRefinement::refine(unsigned int n)
   ceres::Solver::Options ceres_solver_options;
   ceres_solver_options.trust_region_strategy_type = ceres::LEVENBERG_MARQUARDT;
   ceres_solver_options.linear_solver_type = ceres::DENSE_QR;
-  ceres_solver_options.max_num_iterations = 100;
+  ceres_solver_options.max_num_iterations = 500;
   ceres_solver_options.num_threads = 8;
   ceres_solver_options.function_tolerance = 1e-10;
   //ceres_solver_options.check_gradients = true; ///DEBUG!

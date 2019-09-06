@@ -55,9 +55,9 @@ void MVO_node::imageCallback(const sensor_msgs::ImageConstPtr &image, const sens
    **/
   tf2::Quaternion orientationQuat(imu->orientation.x, imu->orientation.y,imu->orientation.z,imu->orientation.w);
   tf2::Matrix3x3 orientationMat(orientationQuat);
-  cv::Matx33d orientationMatCV( orientationMat[0][0], orientationMat[0][1], orientationMat[0][1],
-                                orientationMat[1][0], orientationMat[1][1], orientationMat[1][1],
-                                orientationMat[2][0], orientationMat[2][1], orientationMat[2][1]
+  cv::Matx33d orientationMatCV( orientationMat[0][0], orientationMat[0][1], orientationMat[0][2],
+                                orientationMat[1][0], orientationMat[1][1], orientationMat[1][2],
+                                orientationMat[2][0], orientationMat[2][1], orientationMat[2][2]
                               );
   /**
    * Project To Camera Coordinates
@@ -84,6 +84,7 @@ void MVO_node::imageCallback(const sensor_msgs::ImageConstPtr &image, const sens
   orientationMat[1][0] = orientationMatCV(1,0);  orientationMat[1][1] = orientationMatCV(1,1);   orientationMat[1][2] = orientationMatCV(1,2);
   orientationMat[2][0] = orientationMatCV(2,0);  orientationMat[2][1] = orientationMatCV(2,1);   orientationMat[2][2] = orientationMatCV(2,2);                         
   orientationMat.getRotation(orientationQuat);
+
 
 
   /**

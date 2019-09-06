@@ -101,48 +101,23 @@ OdomData MVO::handleImage(const cv::Mat image, const image_geometry::PinholeCame
     auto beforeRot = _slidingWindow.getRotation(1);
     auto diffRot = beforeRot.t() * R;
     this->unrotateFeatures(thisCorespFeaturesE, thisCorespFeaturesUnrotatedE, diffRot);
-    
-    /**
-     * Check  for enaough Disparity
-     **/
-    if (true || !(this->checkEnoughDisparity(beforeCorespFeaturesE, thisCorespFeaturesUnrotatedE)))
-    {
-      OdomData od;
-      od.b = b;
-      od.s = _slidingWindow.getPosition(1);
-      od.o = R;
-      return od; //In Case if there is not enough Disparity between the Points, the Function returns with same Position.
-    }else if(thisCorespFeaturesUnrotatedE.size() <= 4){ //TODO: How many?
-      ROS_WARN_STREAM("Lost almost all tracking Points, scaling lost..." << std::endl);
-      _slidingWindow.setPosition(_slidingWindow.getPosition(1),0);
-      _slidingWindow.setRotation(R,0);
-      _slidingWindow.persistCurrentFrame();
-      OdomData od;
-      od.b = b;
-      od.s = _slidingWindow.getPosition(0);
-      od.o = _slidingWindow.getRotation(0);
-      _frameCounter++;
-      return od; //In Case there aren't enough Features anynore, persist this Frame and return. Because this is the new Last Frame, uppon we estimate new Motions. 
-    }
-   
 
-      
+
+
 
     // /**
     //  * Debug Images For Rotation View
     //  **/
     // {
     //   auto imageRot = cv::Mat(image.size(), CV_8SC3, cv::Scalar(0));
-    //   std::vector<cv::Vec3d> beforeCorrespFeaturesE, nowCorrespFeaturesE, nowCorrespFeaturesUnrotatedE;
-    //   _slidingWindow.getCorrespondingFeatures(1,0,beforeCorrespFeaturesE, nowCorrespFeaturesE);
 
       
 
     //   std::vector<cv::Point2f> beforeCorrespFeatures, nowCorrespFeaturesUnrotated, nowCorrespFeatures;
-    //   auto beforeCorrespFeaturesEIt = beforeCorrespFeaturesE.begin();
-    //   auto nowCorrespFeaturesUnrotatedEIt = nowCorrespFeaturesUnrotatedE.begin();
-    //   auto nowCorrespFeaturesEIt = nowCorrespFeaturesE.begin();
-    //   while(beforeCorrespFeaturesEIt != beforeCorrespFeaturesE.end()){
+    //   auto beforeCorrespFeaturesEIt = beforeCorespFeaturesE.begin();
+    //   auto nowCorrespFeaturesUnrotatedEIt = thisCorespFeaturesUnrotatedE.begin();
+    //   auto nowCorrespFeaturesEIt = thisCorespFeaturesE.begin();
+    //   while(beforeCorrespFeaturesEIt != beforeCorespFeaturesE.end()){
     //     beforeCorrespFeatures.push_back(cameraModel.project3dToPixel(*beforeCorrespFeaturesEIt));
     //     nowCorrespFeaturesUnrotated.push_back(cameraModel.project3dToPixel(*nowCorrespFeaturesUnrotatedEIt));
     //     nowCorrespFeatures.push_back(cameraModel.project3dToPixel(*nowCorrespFeaturesEIt));
@@ -177,12 +152,61 @@ OdomData MVO::handleImage(const cv::Mat image, const image_geometry::PinholeCame
     //       y = atan2(-diffRot(2,0), sy);
     //       z = 0;
     //   }
-    //   ROS_INFO_STREAM("Decomposed: " << "yaw: " << z*(180.0/3.141592653589793238463) <<", pitch: " << y*(180.0/3.141592653589793238463) <<", roll: " << x*(180.0/3.141592653589793238463) << std::endl);
+    //   ROS_INFO_STREAM("Decomposed diff: " << "yaw: " << z*(180.0/3.141592653589793238463) <<", pitch: " << y*(180.0/3.141592653589793238463) <<", roll: " << x*(180.0/3.141592653589793238463) << std::endl);
 
 
     //   }
 
+    //   {
+    //   float sy = sqrt(R(0,0) * R(0,0) +  R(1,0) * R(1,0) );
+  
+    //   bool singular = sy < 1e-6; // If
+  
+    //   float x, y, z;
+    //   if (!singular)
+    //   {
+    //       x = atan2(R(2,1) , R(2,2));
+    //       y = atan2(-R(2,0), sy);
+    //       z = atan2(R(1,0), R(0,0));
+    //   }
+    //   else
+    //   {
+    //       x = atan2(-R(1,2), R(1,1));
+    //       y = atan2(-R(2,0), sy);
+    //       z = 0;
+    //   }
+    //   ROS_INFO_STREAM("Decomposed R: " << "yaw: " << z*(180.0/3.141592653589793238463) <<", pitch: " << y*(180.0/3.141592653589793238463) <<", roll: " << x*(180.0/3.141592653589793238463) << std::endl);
+
+
+    //   }
+
+
     
+    /**
+     * Check  for enaough Disparity
+     **/
+    if (!(this->checkEnoughDisparity(beforeCorespFeaturesE, thisCorespFeaturesUnrotatedE)))
+    {
+      OdomData od;
+      od.b = b;
+      od.s = _slidingWindow.getPosition(1);
+      od.o = R;
+      return od; //In Case if there is not enough Disparity between the Points, the Function returns with same Position.
+    }else if(thisCorespFeaturesUnrotatedE.size() <= 4){ //TODO: How many?
+      ROS_WARN_STREAM("Lost almost all tracking Points, scaling lost..." << std::endl);
+      _slidingWindow.setPosition(_slidingWindow.getPosition(1),0);
+      _slidingWindow.setRotation(R,0);
+      _slidingWindow.persistCurrentFrame();
+      OdomData od;
+      od.b = b;
+      od.s = _slidingWindow.getPosition(0);
+      od.o = _slidingWindow.getRotation(0);
+      _frameCounter++;
+      return od; //In Case there aren't enough Features anynore, persist this Frame and return. Because this is the new Last Frame, uppon we estimate new Motions. 
+    }
+   
+
+        
 
     /**
      * The Points have enough Disparity, so we will persist this Frame and start a new Algorithm
@@ -201,21 +225,23 @@ OdomData MVO::handleImage(const cv::Mat image, const image_geometry::PinholeCame
     cv::Mat morphBeforeRemove(image.size(), CV_8UC3, cv::Scalar(0, 0, 0));
     cv::Mat morphAfterRemove(image.size(), CV_8UC3, cv::Scalar(0, 0, 0));
 
-    if (_frameCounter > 1)
-    {
-      std::vector<cv::Point2f> ft0, ft1, ft2;
-      std::vector<std::vector<cv::Point2f> *> vectors{ &ft0, &ft1, &ft2 };
-      _slidingWindow.getCorrespondingFeatures(2, 0, vectors);
-
-      for (unsigned int i = 0; i < ft0.size(); i++)
+    #ifdef DEBUGIMAGES
+      if (_frameCounter > 1)
       {
-        cv::circle(morphBeforeRemove, ft2[i], 5, cv::Scalar(0, 0, 255), -1);
-        cv::line(morphBeforeRemove, ft2[i], ft1[i], cv::Scalar(255, 255, 255), 4);
-        cv::circle(morphBeforeRemove, ft1[i], 5, cv::Scalar(0, 255, 0), -1);
-        cv::line(morphBeforeRemove, ft1[i], ft0[i], cv::Scalar(255, 255, 255), 4);
-        cv::circle(morphBeforeRemove, ft0[i], 5, cv::Scalar(255, 0, 0), -1);
+        std::vector<cv::Point2f> ft0, ft1, ft2;
+        std::vector<std::vector<cv::Point2f> *> vectors{ &ft0, &ft1, &ft2 };
+        _slidingWindow.getCorrespondingFeatures(2, 0, vectors);
+
+        for (unsigned int i = 0; i < ft0.size(); i++)
+        {
+          cv::circle(morphBeforeRemove, ft2[i], 5, cv::Scalar(0, 0, 255), -1);
+          cv::line(morphBeforeRemove, ft2[i], ft1[i], cv::Scalar(255, 255, 255), 4);
+          cv::circle(morphBeforeRemove, ft1[i], 5, cv::Scalar(0, 255, 0), -1);
+          cv::line(morphBeforeRemove, ft1[i], ft0[i], cv::Scalar(255, 255, 255), 4);
+          cv::circle(morphBeforeRemove, ft0[i], 5, cv::Scalar(255, 0, 0), -1);
+        }
       }
-    }
+    #endif
 
     // Remove Outlier //TODO: very expensive!
     for (auto feature = thisCorespFeaturesE.begin(); feature != thisCorespFeaturesE.end(); feature++)
@@ -233,40 +259,44 @@ OdomData MVO::handleImage(const cv::Mat image, const image_geometry::PinholeCame
       if (!found)
       {
         _slidingWindow.removeFeatureFromCurrentWindow(*feature);
-        outLierDraws.push_back(cv::Point2f(cameraModel.project3dToPixel(*feature)));
+        #ifdef DEBUGIMAGES
+          outLierDraws.push_back(cv::Point2f(cameraModel.project3dToPixel(*feature)));
+        #endif
       }
     }
 
-    for (auto out : outLierDraws)
-    {
-      cv::circle(morphBeforeRemove, out, 10, cv::Scalar(0, 255, 255), -1);
-      cv::circle(morphAfterRemove, out, 10, cv::Scalar(0, 255, 255), -1);
-    }
-
-    if (_frameCounter > 1)
-    {
-      std::vector<cv::Point2f> ft0, ft1, ft2;
-      std::vector<std::vector<cv::Point2f> *> vectors{ &ft0, &ft1, &ft2 };
-      _slidingWindow.getCorrespondingFeatures(2, 0, vectors);
-
-      for (unsigned int i = 0; i < ft0.size(); i++)
+    #ifdef DEBUGIMAGES
+      for (auto out : outLierDraws)
       {
-        cv::circle(morphAfterRemove, ft2[i], 5, cv::Scalar(0, 0, 255), -1);
-        cv::line(morphAfterRemove, ft2[i], ft1[i], cv::Scalar(255, 255, 255), 4);
-        cv::circle(morphAfterRemove, ft1[i], 5, cv::Scalar(0, 255, 0), -1);
-        cv::line(morphAfterRemove, ft1[i], ft0[i], cv::Scalar(255, 255, 255), 4);
-        cv::circle(morphAfterRemove, ft0[i], 5, cv::Scalar(255, 0, 0), -1);
+        cv::circle(morphBeforeRemove, out, 10, cv::Scalar(0, 255, 255), -1);
+        cv::circle(morphAfterRemove, out, 10, cv::Scalar(0, 255, 255), -1);
       }
-    }
-    cv::imshow("morphBef", morphBeforeRemove);
-    cv::imshow("morphAfter", morphAfterRemove);
-    cv::waitKey(1);
-    _debugImage2 = morphAfterRemove;
 
-    //
-    // Scale vote
+      if (_frameCounter > 1)
+      {
+        std::vector<cv::Point2f> ft0, ft1, ft2;
+        std::vector<std::vector<cv::Point2f> *> vectors{ &ft0, &ft1, &ft2 };
+        _slidingWindow.getCorrespondingFeatures(2, 0, vectors);
+
+        for (unsigned int i = 0; i < ft0.size(); i++)
+        {
+          cv::circle(morphAfterRemove, ft2[i], 5, cv::Scalar(0, 0, 255), -1);
+          cv::line(morphAfterRemove, ft2[i], ft1[i], cv::Scalar(255, 255, 255), 4);
+          cv::circle(morphAfterRemove, ft1[i], 5, cv::Scalar(0, 255, 0), -1);
+          cv::line(morphAfterRemove, ft1[i], ft0[i], cv::Scalar(255, 255, 255), 4);
+          cv::circle(morphAfterRemove, ft0[i], 5, cv::Scalar(255, 0, 0), -1);
+        }
+      }
+      cv::imshow("morphBef", morphBeforeRemove);
+      cv::imshow("morphAfter", morphAfterRemove);
+      cv::waitKey(1);
+      _debugImage2 = morphAfterRemove;
+    #endif
+
+    /**
+     * Vote for the sign of the Baseline,, which generates the feweset negative Gradients
+     **/
     std::vector<double> depths(beforeCorespFeaturesE.size());
-    //
     this->reconstructDepth(depths, thisCorespFeaturesE, beforeCorespFeaturesE, rDiff, b);
     double sign = 0;
     for (auto depth = depths.begin(); depth != depths.end(); depth++)
@@ -291,6 +321,12 @@ OdomData MVO::handleImage(const cv::Mat image, const image_geometry::PinholeCame
       sign = 1;
     }
     sign = 1.0;
+
+    /**
+     * Transform the relative BaseLine into WorldCordinates
+     */
+    b = beforeRot * b;
+
 
     if (_frameCounter > 1)
     {  // IterativeRefinemen -> Scale Estimation?
