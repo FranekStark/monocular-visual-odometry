@@ -183,7 +183,7 @@ OdomData MVO::handleImage(const cv::Mat image, const image_geometry::PinholeCame
 
     
     /**
-     * Check  for enaough Disparity
+     * Check  for enaough Disparity and Enough Points
      **/
     if (!(this->checkEnoughDisparity(beforeCorespFeaturesE, thisCorespFeaturesUnrotatedE)))
     {
@@ -215,6 +215,7 @@ OdomData MVO::handleImage(const cv::Mat image, const image_geometry::PinholeCame
     cv::Matx33d rBefore = _slidingWindow.getRotation(1);
     cv::Matx33d rDiff = rBefore.t() * R;  // Difference Rotation
    
+
     /**
      * First Guess of the Direction-BaseLine
      */
@@ -331,6 +332,10 @@ OdomData MVO::handleImage(const cv::Mat image, const image_geometry::PinholeCame
     if (_frameCounter > 1)
     {  // IterativeRefinemen -> Scale Estimation?
 
+      #ifdef DEBUGIMAGES
+        cv::Vec3d b1Before = _slidingWindow.getPosition(2) - _slidingWindow.getPosition(1);
+      #endif
+
       cv::Vec3d st = _slidingWindow.getPosition(1) + b;
       _slidingWindow.setPosition(st, 0);
       _slidingWindow.setRotation(R, 0);
@@ -341,6 +346,15 @@ OdomData MVO::handleImage(const cv::Mat image, const image_geometry::PinholeCame
       #ifdef DEBUGIMAGES
         this->drawDebugImage(_slidingWindow.getPosition(0) - _slidingWindow.getPosition(1), _debugImage2,
                             cv::Scalar(0, 0, 255), 1);
+
+        /**
+         * Small Image with before Motion
+         */
+        cv::Vec3d b1After = _slidingWindow.getPosition(2) - _slidingWindow.getPosition(1);
+        cv::Rect subImageField(_debugImage2.cols / 2, _debugImage2.rows / 2, (_debugImage2.cols / 2) - 1, (_debugImage2.rows / 2) - 1); //SubImage unteres rechtes Viertel
+        cv::Mat smallDebug2Image = _debugImage2(subImageField);
+        this->drawDebugImage(b1Before, smallDebug2Image, cv::Scalar(0,255,0), 0);
+        this->drawDebugImage(b1After, smallDebug2Image, cv::Scalar(0,0,255), 1);
       #endif
     }
     else
@@ -376,6 +390,7 @@ void MVO::euclidNormFeatures(const std::vector<cv::Point2f> &features, std::vect
 
 void MVO::drawDebugImage(const cv::Vec3d &baseLine, cv::Mat &image, const cv::Scalar &color, unsigned int index)
 {
+  double norm = cv::norm(baseLine);
   auto baseLineNorm = cv::normalize(baseLine);
 
   int mitX = double(image.cols) / 2.0;
@@ -385,6 +400,8 @@ void MVO::drawDebugImage(const cv::Vec3d &baseLine, cv::Mat &image, const cv::Sc
   cv::arrowedLine(image, cv::Point(mitX, mitY),
                   cv::Point(scaleX * baseLineNorm(0) + mitX, (scaleY * baseLineNorm(1)) + mitY), color, 10);
   cv::line(image, cv::Point(mitY, index * 20), cv::Point(mitY + (scaleX * baseLineNorm(2)), index * 20), color, 10);
+  double scaleMin = std::min(scaleX, scaleY);
+  cv::circle(image, cv::Point2d(mitX, mitY), scaleMin * norm, color, 10);
 }
 
 void MVO::drawDebugScale(cv::Mat image, double scaleBefore, double scaleAfter)

@@ -36,6 +36,8 @@ void IterativeRefinement::refine(unsigned int n)
 
   double n0 = cv::norm(st0 - st1);
   double n1 = cv::norm(st1 - st2);
+  ROS_INFO_STREAM("norm n0: " << n0 << std::endl);
+  ROS_INFO_STREAM("norm n1: " << n1 << std::endl);
   cv::Vec3d u0 = (st0 - st1) / n0;
   cv::Vec3d u1 = (st1 - st2) / n1;
 
@@ -66,8 +68,8 @@ void IterativeRefinement::refine(unsigned int n)
 
 
 
-  double scale0[1] = {1};
-  double scale1[1] = {1};
+  double scale0[1] = {reverseScale(n0)};
+  double scale1[1] = {reverseScale(n1)};
 
   double vec0[3] = {dataEIG.vec0(0),dataEIG.vec0(1), dataEIG.vec0(2)};
   double vec1[3] = {dataEIG.vec1(0),dataEIG.vec1(1), dataEIG.vec1(2)};
@@ -99,7 +101,6 @@ void IterativeRefinement::refine(unsigned int n)
     ceres_problem.AddResidualBlock(cost_functiom20, NULL, vec0, vec1, scale0, scale1);
     ceres_problem.AddResidualBlock(cost_functiom21, NULL, vec1);
     ceres_problem.AddResidualBlock(cost_functiom10, NULL, vec0);
-
   }
 
   ceres::LocalParameterization* local_parametrization = new ceres::AutoDiffLocalParameterization<ParametrizedBaseLine, 3, 2>;
@@ -260,4 +261,20 @@ bool IterativeRefinement::ParametrizedBaseLine::operator()(const T* x, const T* 
   x_plus_delta[2] = vecRefine[2];
 
   return true;
+}
+
+double IterativeRefinement::reverseScale(const double length){
+  double t = 1;
+  if(length < LOW_VALUE) //Catch the Cases in which the SCaling is to low or high, cause it is Mathematical impossible to calc t
+  {
+    t = reverseScale(LOW_VALUE);
+    ROS_WARN_STREAM("Lower bound of scaling to high: " << length << std::endl);
+  }
+  else if(length > HIGH_VALUE){
+    t = reverseScale(HIGH_VALUE);
+    ROS_WARN_STREAM("Upper bound of scaling to low: " << length << std::endl);
+  }else{
+    t = -1.0 * std::log((HIGH_VALUE - length) / (length - LOW_VALUE));
+  }
+  return t;
 }

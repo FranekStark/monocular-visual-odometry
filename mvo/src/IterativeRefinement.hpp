@@ -91,6 +91,8 @@ private:
   template <typename T> 
   static T scaleTemplated(const T t);
 
+  static double reverseScale(const double length);
+
   struct ParametrizedBaseLine {
     template<typename T>
      bool operator()(const T* x, const T* delta, T* x_plus_delta) const;
