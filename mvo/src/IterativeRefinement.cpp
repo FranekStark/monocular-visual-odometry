@@ -107,7 +107,7 @@ void IterativeRefinement::refine(unsigned int n)
   ceres_problem.SetParameterization(vec0,local_parametrization);
   ceres_problem.SetParameterization(vec1,local_parametrization);
    
-  ceres_solver_options.minimizer_progress_to_stdout = true;
+  //ceres_solver_options.minimizer_progress_to_stdout = true;
   //ceres_solver_options.check_gradients = true;
   // std::vector<int> it_to_dump;
   // it_to_dump.push_back(0);

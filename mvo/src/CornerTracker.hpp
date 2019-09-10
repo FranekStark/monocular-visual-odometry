@@ -12,6 +12,9 @@ private:
   int _thresh;
   double _minDifPercent;
   double _qualityLevel;
+  cv::Size _windowSize;
+  int _maxPyramideLevel;
+
 
 public:
   CornerTracker();
@@ -20,5 +23,5 @@ public:
   void trackFeatures(const cv::Mat &prevImage, const cv::Mat &currentImage,
                      const std::vector<cv::Point2f> &prevFeatures, std::vector<cv::Point2f> &trackedFeatures,
                      std::vector<unsigned char> &found, cv::Rect2d &mask);
-  void setCornerDetectorParams(int blockSize,double minDifPercent, double qualityLevel);
+  void setCornerDetectorParams(int blockSize,double minDifPercent, double qualityLevel, int windowSize, int maxPyramideLevel);
 };

@@ -37,6 +37,8 @@ void MVO_node::init()
   _odomPublisher = _nodeHandle.advertise<nav_msgs::Odometry>("odom", 10, true);
   _debugImagePublisher = _imageTransport.advertise("debug/image", 3, true);
   _debugImage2Publisher = _imageTransport.advertise("debug/image2", 3, true);
+  _debugImage3Publisher = _imageTransport.advertise("debug/image3", 3, true);
+  _debugImage4Publisher = _imageTransport.advertise("debug/image4", 3, true);
   _synchronizer.registerCallback(boost::bind(&MVO_node::imageCallback, this, _1,_2,_3));
 
 }
@@ -132,17 +134,15 @@ void MVO_node::imageCallback(const sensor_msgs::ImageConstPtr &image, const sens
   _debugImagePublisher.publish(debugImage.toImageMsg());
   cv_bridge::CvImage debugImage2(header,"rgb8",_mvo._debugImage2);
   _debugImage2Publisher.publish(debugImage2.toImageMsg());
+  cv_bridge::CvImage debugImage3(header,"rgb8",_mvo._debugImage3);
+  _debugImage3Publisher.publish(debugImage3.toImageMsg());
+   cv_bridge::CvImage debugImage4(header,"rgb8",_mvo._debugImage4);
+  _debugImage4Publisher.publish(debugImage4.toImageMsg());
 }
 
 void MVO_node::dynamicConfigCallback(mvo::mvoConfig &config, uint32_t level)
 {
   (void)(level);  // TODO: unused
-  _mvo._cornerTracker.setCornerDetectorParams(config.block_size, config.minDifPercent, config.qualityLevel);
+  _mvo._cornerTracker.setCornerDetectorParams(config.block_size, config.minDifPercent, config.qualityLevel, config.trackerWindowSize, config.maxPyramideLevel);
   _mvo.setParameters(config.numberOfFeatures, config.disparityThreshold);
-  ROS_INFO_STREAM("New parameters set sucessfully: " << std::endl
-  << "block_size: " << config.block_size << std::endl
-  << "minDifPercent: " << config.minDifPercent << std::endl
-  << "qualityLevel" << config.qualityLevel << std::endl
-  << "numberOfFeatures" << config.numberOfFeatures << std::endl
-  << "disparityThreshold" << config.disparityThreshold << std::endl);
 }

@@ -1,7 +1,7 @@
 #include "CornerTracker.hpp"
 #include  <ros/ros.h>
 
-CornerTracker::CornerTracker() : _blockSize(3), _minDifPercent(0.02), _qualityLevel(0.4)
+CornerTracker::CornerTracker() : _blockSize(3), _minDifPercent(0.02), _qualityLevel(0.4),_windowSize(21,21), _maxPyramideLevel(3)
 {
 }
 
@@ -48,18 +48,31 @@ void CornerTracker::trackFeatures(const cv::Mat &prevImage, const cv::Mat &curre
                                   const std::vector<cv::Point2f> &prevFeatures,
                                   std::vector<cv::Point2f> &trackedFeatures, std::vector<unsigned char> &found, cv::Rect2d &mask)
 {
+  /**
+   * Params
+   **/
+  cv::TermCriteria criteria(cv::TermCriteria::COUNT+cv::TermCriteria::EPS,30,0.01);
+  int flags = 0;
+
+  /**
+   * If there a Features in Vector 'tracked Features', we use them as inital Estimation.
+   **/
+  if(prevFeatures.size() == trackedFeatures.size())
+  {
+    flags = cv::OPTFLOW_USE_INITIAL_FLOW;
+  }
+
+
   std::vector<cv::Mat> nowPyramide;
   std::vector<cv::Mat> prevPyramide;
-  cv::Size winSize(21, 21);  // Has to be the same as in calcOpeitcalcOpticalFLow
-  int maxLevel = 3;
   // TODO: The call of these Funtions only make sense, if we store the pyramids for reuse.
   // Otherwise calcOpticalFlow could do this on its own.
-  cv::buildOpticalFlowPyramid(currentImage, nowPyramide, winSize, maxLevel);
-  cv::buildOpticalFlowPyramid(prevImage, prevPyramide, winSize, maxLevel);
+  cv::buildOpticalFlowPyramid(currentImage, nowPyramide, _windowSize, _maxPyramideLevel);
+  cv::buildOpticalFlowPyramid(prevImage, prevPyramide, _windowSize, _maxPyramideLevel);
 
   // TODO: Handle Case, when no before Features!
   std::vector<float> error;
-  cv::calcOpticalFlowPyrLK(prevPyramide, nowPyramide, prevFeatures, trackedFeatures, found, error);  // TODO: more
+  cv::calcOpticalFlowPyrLK(prevPyramide, nowPyramide, prevFeatures, trackedFeatures, found, error, _windowSize, _maxPyramideLevel, criteria, flags);  // TODO: more
 
 
   double imageDiag = sqrt(currentImage.rows * currentImage.rows + currentImage.cols * currentImage.cols);
@@ -95,9 +108,11 @@ void CornerTracker::trackFeatures(const cv::Mat &prevImage, const cv::Mat &curre
   }
 
 }
-void CornerTracker::setCornerDetectorParams(int blockSize,double minDifPercent, double qualityLevel)
+void CornerTracker::setCornerDetectorParams(int blockSize,double minDifPercent, double qualityLevel, int windowSize, int maxPyramideLevel) 
 {
   _blockSize = blockSize;
   _qualityLevel = qualityLevel;
   _minDifPercent = minDifPercent;
+  _windowSize = cv::Size(windowSize, windowSize);
+  _maxPyramideLevel = maxPyramideLevel;
 }

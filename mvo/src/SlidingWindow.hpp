@@ -29,7 +29,11 @@ public:
                  const std::vector<cv::Vec3d> & trackedFeaturesNowE,
                  const std::vector<unsigned char> & found, cv::Mat image);
 
-  void addNewFeaturesToCurrentFrame(const std::vector<cv::Point2f> & features, const std::vector<cv::Vec3d> & featuresE);
+  void addNewFeaturesToFrame(const std::vector<cv::Point2f>& features,
+                                                 const std::vector<cv::Vec3d>& featuresE, unsigned int past);
+
+  void addNewFeaturesToBeforeFrame(const std::vector<cv::Point2f>& features,
+                                                 const std::vector<cv::Vec3d>& featuresE);
 
 
   void persistCurrentFrame();

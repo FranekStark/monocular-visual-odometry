@@ -129,7 +129,7 @@ void SlidingWindow::persistCurrentFrame(){
   _frameNow->_type = PERSIST;
 }
 
-void SlidingWindow::addNewFeaturesToCurrentFrame(const std::vector<cv::Point2f>& features,
+void SlidingWindow::addNewFeaturesToBeforeFrame(const std::vector<cv::Point2f>& features,
                                                  const std::vector<cv::Vec3d>& featuresE)
 {
   assert(features.size() == featuresE.size());
@@ -137,7 +137,27 @@ void SlidingWindow::addNewFeaturesToCurrentFrame(const std::vector<cv::Point2f>&
   auto featureEIT = featuresE.begin();
   while (featureIT != features.end())
   {
-    _frameNow->_features.push_back(Feature(*featureIT, *featureEIT, nullptr, 0));
+     _frameNow->_preFrame->_features.push_back(Feature(*featureIT, *featureEIT, nullptr, 0));
+
+     //TODO: das geht nicht, weil der Vektor deallokiert wird, wenn push_back aufgerufen wird. Damit sin ddie Referenzen im schon existenten Folgeframe ungültig.
+    //Feature * featurBefore = &(_frameNow->_preFrame->_features.back());
+    //_frameNow->_features.push_back(Feature(*featureIT, *featureEIT,nullptr, 0));
+    featureEIT++;
+    featureIT++;
+  }
+}
+
+
+void SlidingWindow::addNewFeaturesToFrame(const std::vector<cv::Point2f>& features,
+                                                 const std::vector<cv::Vec3d>& featuresE, unsigned int past)
+{
+  assert(features.size() == featuresE.size());
+  auto featureIT = features.begin();
+  auto featureEIT = featuresE.begin();
+  auto & frame = this->getFrame(past);
+  while (featureIT != features.end())
+  {
+    frame._features.push_back(Feature(*featureIT, *featureEIT, nullptr, 0));
 
     featureEIT++;
     featureIT++;

@@ -39,6 +39,8 @@ private:
 
     image_transport::Publisher _debugImagePublisher;
     image_transport::Publisher _debugImage2Publisher;
+    image_transport::Publisher _debugImage3Publisher;
+    image_transport::Publisher _debugImage4Publisher;
 
     MVO _mvo;
 

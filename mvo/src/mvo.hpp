@@ -31,6 +31,7 @@ private:
                            const cv::Vec3d &b);
 
   void euclidNormFeatures(const std::vector<cv::Point2f> &features, std::vector<cv::Vec3d> & featuresE, const image_geometry::PinholeCameraModel & cameraModel);
+  void euclidUnNormFeatures(const std::vector<cv::Vec3d> &featuresE, std::vector<cv::Point2f> & features, const image_geometry::PinholeCameraModel & cameraModel);
   void drawDebugPoints(const std::vector<cv::Point2f> & points, const cv::Scalar & color, cv::Mat & image);
   void drawDebugImage(const cv::Vec3d & baseLine, cv::Mat &image, const cv::Scalar &color, unsigned int index);
   void drawDebugScale(cv::Mat image, double scaleBefore, double scaleAfter);
@@ -44,7 +45,7 @@ private:
 
   double _disparityThreshold;
 
-  bool checkEnoughDisparity(const std::vector<cv::Vec3d> &first, const std::vector<cv::Vec3d> &second);
+  double calcDisparity(const std::vector<cv::Vec3d> &first, const std::vector<cv::Vec3d> &second);
 
   void unrotateFeatures(const std::vector<cv::Vec3d> & features, std::vector<cv::Vec3d> & unrotatedFeatures, const cv::Matx33d & R);
 
@@ -61,4 +62,6 @@ public:
   
   cv::Mat _debugImage;
   cv::Mat _debugImage2;
+  cv::Mat _debugImage3;
+  cv::Mat _debugImage4;
 };
