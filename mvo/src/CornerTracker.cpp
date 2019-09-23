@@ -1,18 +1,17 @@
 #include "CornerTracker.hpp"
 #include  <ros/ros.h>
 
-CornerTracker::CornerTracker() : _blockSize(3), _minDifPercent(0.02), _qualityLevel(0.4),_windowSize(21,21), _maxPyramideLevel(3)
-{
+CornerTracker::CornerTracker() : _blockSize(3), _minDifPercent(0.02), _qualityLevel(0.4), _windowSize(21, 21),
+                                 _maxPyramideLevel(3) {
 }
 
-CornerTracker::~CornerTracker()
-{
+CornerTracker::~CornerTracker() {
 }
 
-void CornerTracker::detectFeatures(std::vector<cv::Point2f> &corner, const cv::Mat &image, int numberToDetect, const std::vector<cv::Point2f> & existingFeatures, cv::Rect2d &mask, bool forceDetection)
-{
-  if (numberToDetect <= 0)
-  {
+void CornerTracker::detectFeatures(std::vector<cv::Point2f> &corner, const cv::Mat &image, int numberToDetect,
+                                   const std::vector<cv::Point2f> &existingFeatures, cv::Rect2d &mask,
+                                   bool forceDetection) {
+  if (numberToDetect <= 0) {
     return;
   }
   //Create Mask
@@ -20,13 +19,14 @@ void CornerTracker::detectFeatures(std::vector<cv::Point2f> &corner, const cv::M
   maskImage = cv::Scalar(255); //First use all Pixels
   double imageDiag = sqrt(image.rows * image.rows + image.cols * image.cols);
   double mindistance = _minDifPercent * imageDiag;
-  for(auto existingFeature : existingFeatures){
-    cv::circle(maskImage, existingFeature, mindistance, cv::Scalar(0), -1); //Here no Feature Detection! //TODO: param
+  for (auto existingFeature : existingFeatures) {
+    cv::circle(maskImage, existingFeature, mindistance, cv::Scalar(0),
+               -1); //Here no Feature Detection! //TODO: param
   }
   cv::rectangle(maskImage, mask, cv::Scalar(0), cv::FILLED);
 
   double qualityLevel = _qualityLevel;
-  if(forceDetection){
+  if (forceDetection) {
     qualityLevel = 0.01; //Set Quality Low, to Detect as much features as possible
   }
   cv::goodFeaturesToTrack(image, corner, numberToDetect, qualityLevel, mindistance, maskImage, _blockSize,
@@ -34,8 +34,7 @@ void CornerTracker::detectFeatures(std::vector<cv::Point2f> &corner, const cv::M
                           _k);  // Corners berechnen TODO: More params -> especially the detection Quality
 
   // Subpixel-genau:
-  if (corner.size() > 0)
-  {
+  if (corner.size() > 0) {
     cv::Size winSize = cv::Size(5, 5);
     cv::Size zeroZone = cv::Size(-1, -1);
     cv::TermCriteria criteria =
@@ -44,63 +43,57 @@ void CornerTracker::detectFeatures(std::vector<cv::Point2f> &corner, const cv::M
   }
 }
 
-void CornerTracker::trackFeatures(const cv::Mat &prevImage, const cv::Mat &currentImage,
+void CornerTracker::trackFeatures(const cv::Mat &currentPyramide,
                                   const std::vector<cv::Point2f> &prevFeatures,
-                                  std::vector<cv::Point2f> &trackedFeatures, std::vector<unsigned char> &found, cv::Rect2d &mask)
-{
+                                  std::vector<cv::Point2f> &trackedFeatures, std::vector<unsigned char> &found,
+                                  cv::Rect2d &mask) {
   /**
    * Params
    **/
-  cv::TermCriteria criteria(cv::TermCriteria::COUNT+cv::TermCriteria::EPS,30,0.01);
+  cv::TermCriteria criteria(cv::TermCriteria::COUNT + cv::TermCriteria::EPS, 30, 0.01);
   int flags = 0;
 
   /**
    * If there a Features in Vector 'tracked Features', we use them as inital Estimation.
    **/
-  if(prevFeatures.size() == trackedFeatures.size())
-  {
+  if (prevFeatures.size() == trackedFeatures.size()) {
     flags = cv::OPTFLOW_USE_INITIAL_FLOW;
   }
 
 
-  std::vector<cv::Mat> nowPyramide;
-  std::vector<cv::Mat> prevPyramide;
-  // TODO: The call of these Funtions only make sense, if we store the pyramids for reuse.
-  // Otherwise calcOpticalFlow could do this on its own.
-  cv::buildOpticalFlowPyramid(currentImage, nowPyramide, _windowSize, _maxPyramideLevel);
-  cv::buildOpticalFlowPyramid(prevImage, prevPyramide, _windowSize, _maxPyramideLevel);
-
   // TODO: Handle Case, when no before Features!
   std::vector<float> error;
-  cv::calcOpticalFlowPyrLK(prevPyramide, nowPyramide, prevFeatures, trackedFeatures, found, error, _windowSize, _maxPyramideLevel, criteria, flags);  // TODO: more
+  cv::calcOpticalFlowPyrLK(_beforePyramide, currentPyramide, prevFeatures, trackedFeatures, found, error, _windowSize,
+                           _maxPyramideLevel, criteria, flags);  // TODO: more
+  _beforePyramide = currentPyramide;
 
 
-  double imageDiag = sqrt(currentImage.rows * currentImage.rows + currentImage.cols * currentImage.cols);
+  double imageDiag = sqrt(currentPyramide[0].rows * currentPyramide[0].rows + currentPyramide[0].cols * currentPyramide[0].cols);
   double mindistance = _minDifPercent * imageDiag;
 
   //TODO: Sort out to Close features!
-  std::vector<cv::Point2f>::iterator f1,f2;
-   std::vector<unsigned char>::iterator f1Found, f2Found;
-  for(f1 = trackedFeatures.begin(), f1Found = found.begin(); f1 != trackedFeatures.end(); f1++, f1Found++){
-    if(*f1Found == 0){
+  std::vector<cv::Point2f>::iterator f1, f2;
+  std::vector<unsigned char>::iterator f1Found, f2Found;
+  for (f1 = trackedFeatures.begin(), f1Found = found.begin(); f1 != trackedFeatures.end(); f1++, f1Found++) {
+    if (*f1Found == 0) {
       continue;
     }
 
     //Features in Mask:
-    if(mask.contains(*f1)){
+    if (mask.contains(*f1)) {
       *f1Found = 0;
       continue;
     }
 
-    for(f2 = trackedFeatures.begin(), f2Found = found.begin(); f2 != trackedFeatures.end(); f2++, f2Found++){
-      if(*f2Found == 0){
+    for (f2 = trackedFeatures.begin(), f2Found = found.begin(); f2 != trackedFeatures.end(); f2++, f2Found++) {
+      if (*f2Found == 0) {
         continue;
       }
-      if(f1 == f2){
+      if (f1 == f2) {
         continue; //Don't sort out the same Feature
       }
 
-      if(cv::norm(*f1 - *f2) < mindistance){ //TODO: Param
+      if (cv::norm(*f1 - *f2) < mindistance) { //TODO: Param
         *f2Found = 0; //Sort Out
       }
 
@@ -108,8 +101,15 @@ void CornerTracker::trackFeatures(const cv::Mat &prevImage, const cv::Mat &curre
   }
 
 }
-void CornerTracker::setCornerDetectorParams(int blockSize,double minDifPercent, double qualityLevel, int windowSize, int maxPyramideLevel) 
-{
+
+cv::Mat CornerTracker::createPyramide(cv::Mat image) const {
+  cv::Mat result;
+  cv::buildOpticalFlowPyramid(image, result, _windowSize, _maxPyramideLevel);
+  return result;
+}
+
+void CornerTracker::setCornerDetectorParams(int blockSize, double minDifPercent, double qualityLevel, int windowSize,
+                                            int maxPyramideLevel) {
   _blockSize = blockSize;
   _qualityLevel = qualityLevel;
   _minDifPercent = minDifPercent;
