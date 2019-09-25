@@ -6,67 +6,33 @@
 #include <limits>
 
 
-
-// TODO: FROM: https://nghiaho.com/?page_id=355
-
 IterativeRefinement::IterativeRefinement(SlidingWindow &slidingWindow) : _slidingWindow(slidingWindow) {
 }
 
 IterativeRefinement::~IterativeRefinement() {
 }
 
-void IterativeRefinement::refine(unsigned int firstFrame, unsigned int secondFrame) {
-
-  _slidingWindow.exportMatlabData();
-  ROS_INFO_STREAM("BEFORE: " << std::endl
-                             << "st0: " << _slidingWindow.getPosition(0) << std::endl
-                             << "st1: " << _slidingWindow.getPosition(1) << std::endl
-                             << "st2: " << _slidingWindow.getPosition(2) << std::endl);
-
-  assert((firstFrame - secondFrame) == 2);  // TODO: currently only WindowSize 3 (diff = 2) available
-  RefinementDataCV data;
-
-  cv::Vec3d &st0 = _slidingWindow.getPosition(secondFrame);
-  cv::Vec3d &st1 = _slidingWindow.getPosition(secondFrame + 1);
-  cv::Vec3d &st2 = _slidingWindow.getPosition(firstFrame);
-
-  double n0 = cv::norm(st0 - st1);
-  double n1 = cv::norm(st1 - st2);
-  ROS_INFO_STREAM("norm n0: " << n0 << std::endl);
-  ROS_INFO_STREAM("norm n1: " << n1 << std::endl);
-  cv::Vec3d u0 = (st0 - st1) / n0;
-  cv::Vec3d u1 = (st1 - st2) / n1;
-
-  ROS_INFO_STREAM("Before: " << std::endl);
-  ROS_INFO_STREAM("n0 * u0: " << n0 << " * " << u0 << std::endl);
-  ROS_INFO_STREAM("n1 * u1: " << n1 << " * " << u1 << std::endl);
-
-  data.vec0 = u0;
-  data.vec1 = u1;
-
-  data.R0 = _slidingWindow.getRotation(secondFrame);
-  data.R1 = _slidingWindow.getRotation(secondFrame + 1);
-  data.R2 = _slidingWindow.getRotation(firstFrame);
-
-  std::vector<std::vector<cv::Vec3d> *> vectors{&(data.m0), &(data.m1), &(data.m2)};
-
-  _slidingWindow.getCorrespondingFeatures(firstFrame, secondFrame, vectors);
+void IterativeRefinement::refine(RefinementDataCV &refinementData) {
 
   RefinementDataEIG dataEIG;
-  cvt_cv_eigen(data.m0, dataEIG.m0);
-  cvt_cv_eigen(data.m1, dataEIG.m1);
-  cvt_cv_eigen(data.m2, dataEIG.m2);
-  cvt_cv_eigen(data.R0, dataEIG.R0);
-  cvt_cv_eigen(data.R1, dataEIG.R1);
-  cvt_cv_eigen(data.R2, dataEIG.R2);
-  cvt_cv_eigen(data.vec0, dataEIG.vec0);
-  cvt_cv_eigen(data.vec1, dataEIG.vec1);
+  cvt_cv_eigen(refinementData.m0, dataEIG.m0);
+  cvt_cv_eigen(refinementData.m1, dataEIG.m1);
+  cvt_cv_eigen(refinementData.m2, dataEIG.m2);
+  cvt_cv_eigen(refinementData.R0, dataEIG.R0);
+  cvt_cv_eigen(refinementData.R1, dataEIG.R1);
+  cvt_cv_eigen(refinementData.R2, dataEIG.R2);
+  cvt_cv_eigen(refinementData.vec0, dataEIG.vec0);
+  cvt_cv_eigen(refinementData.vec1, dataEIG.vec1);
 
-  double scale0[1] = {reverseScale(n0)};
-  double scale1[1] = {reverseScale(n1)};
+  double scale0[1] = {reverseScale(dataEIG.vec0.norm())};
+  double scale1[1] = {reverseScale(dataEIG.vec1.norm())};
 
   double vec0[3] = {dataEIG.vec0(0), dataEIG.vec0(1), dataEIG.vec0(2)};
   double vec1[3] = {dataEIG.vec1(0), dataEIG.vec1(1), dataEIG.vec1(2)};
+
+  ROS_INFO_STREAM("Before: " << std::endl);
+  ROS_INFO_STREAM("n0 * u0: " << scale0 << " * " << dataEIG.vec0 << std::endl);
+  ROS_INFO_STREAM("n1 * u1: " << scale1 << " * " << dataEIG.vec1 << std::endl);
 
   ceres::Problem ceres_problem;
   ceres::Solver::Options ceres_solver_options;
@@ -78,7 +44,7 @@ void IterativeRefinement::refine(unsigned int firstFrame, unsigned int secondFra
   //ceres_solver_options.check_gradients = true; ///DEBUG!
 
 
-  for (unsigned int i = 0; i < data.m0.size(); i++) {
+  for (unsigned int i = 0; i < refinementData.m0.size(); i++) {
     ceres::CostFunction *cost_functiom20 = new ceres::AutoDiffCostFunction<CostFunctionScaled, 1, 3, 3, 1, 1>(
         new CostFunctionScaled(dataEIG.m2[i], dataEIG.m1[i], dataEIG.m0[i], dataEIG.R2, dataEIG.R1, dataEIG.R0)
     );
@@ -117,23 +83,18 @@ void IterativeRefinement::refine(unsigned int firstFrame, unsigned int secondFra
 
   ROS_INFO_STREAM(ceres_summary.FullReport() << std::endl);
 
-  n0 = scaleTemplated<double>(scale0[0]);  // T0
-  n1 = scaleTemplated<double>(scale1[0]);  // T1
+  double n0 = scaleTemplated<double>(scale0[0]);  // T0
+  double n1 = scaleTemplated<double>(scale1[0]);  // T1
 
-  u0 = cvt_eigen_cv(Eigen::Vector3d(vec0[0], vec0[1], vec0[2]));
-  u1 = cvt_eigen_cv(Eigen::Vector3d(vec1[0], vec1[1], vec1[2]));
+  cv::Vec3d u0 = cvt_eigen_cv(Eigen::Vector3d(vec0[0], vec0[1], vec0[2]));
+  cv::Vec3d u1 = cvt_eigen_cv(Eigen::Vector3d(vec1[0], vec1[1], vec1[2]));
 
   ROS_INFO_STREAM("After: " << std::endl);
   ROS_INFO_STREAM("n0 * u0: " << n0 << " * " << u0 << std::endl);
   ROS_INFO_STREAM("n1 * u1: " << n1 << " * " << u1 << std::endl);
 
-  st1 = (n1 * u1) + st2;
-  st0 = (n0 * u0) + st1;
-
-  ROS_INFO_STREAM("After: " << std::endl
-                            << "st0: " << _slidingWindow.getPosition(0) << std::endl
-                            << "st1: " << _slidingWindow.getPosition(1) << std::endl
-                            << "st2: " << _slidingWindow.getPosition(2) << std::endl);
+  refinementData.vec0 = u0;
+  refinementData.vec1 = u1;
 }
 
 IterativeRefinement::CostFunctionScaled::CostFunctionScaled(const Eigen::Vector3d &m2,

@@ -9,8 +9,6 @@ struct Feature {
 
   /*Points to feature Before, if no feature Before exists -1*/
   int _preFeature;
-  /*Points to feature After, if no feature After exists -1*/
-  int _afterFeature;
   /*Number of Features Before*/
   unsigned int _preFeatureCounter;
 
@@ -18,7 +16,6 @@ struct Feature {
       : _positionImage(positionImage),
         _positionEuclidian(positionEucilidan),
         _preFeature(preFeature),
-        _afterFeature(-1),
         _preFeatureCounter(preFeatureCounter) {
   }
 };

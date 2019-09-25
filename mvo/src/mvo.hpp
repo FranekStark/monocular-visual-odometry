@@ -10,9 +10,9 @@
 #include <stdio.h>
 #include <list>
 
-#include "SlidingWindow.hpp"
+#include "sliding_window/SlidingWindow.hpp"
 #include "IterativeRefinement.hpp"
-#include "CornerTracker.hpp"
+#include "CornerTracking.hpp"
 #include "EpipolarGeometry.hpp"
 #include "OdomData.hpp"
 
@@ -42,8 +42,6 @@ class MVO {
 
   void drawDebugScale(cv::Mat image, double scaleBefore, double scaleAfter) const;
 
-  cv::Rect2d getShipMask() const;
-
   /*Fields */
   unsigned int _numberOfFeatures;
 
@@ -53,20 +51,20 @@ class MVO {
 
   double _disparityThreshold;
 
-  double calcDisparity(const std::vector<cv::Vec3d> &first, const std::vector<cv::Vec3d> &second);
+
 
   void unrotateFeatures(const std::vector<cv::Vec3d> &features, std::vector<cv::Vec3d> &unrotatedFeatures,
                         const cv::Matx33d &R);
 
  public:
-  CornerTracker _cornerTracker;
+  CornerTracking _cornerTracker;
   IterativeRefinement _iterativeRefinement;
   EpipolarGeometry _epipolarGeometry;
 
   MVO();
-
   ~MVO();
 
+  static cv::Rect2d getShipMask(cv::Size imageSize) const;
 
   void newImage(const cv::Mat image, const image_geometry::PinholeCameraModel &cameraModel, const cv::Matx33d &R);
   void estimateBaseLine(int firstFrame, int secondFrame);

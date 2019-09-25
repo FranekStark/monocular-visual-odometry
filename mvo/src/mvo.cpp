@@ -29,114 +29,21 @@ void MVO::newImage(const cv::Mat image, const image_geometry::PinholeCameraModel
 }
 
 void MVO::trackFeatures() {
-  std::vector<cv::Point2f> prevFeatures, trackedFeatures;
-  /*Get previous Features*/
-  _slidingWindow.getFeatures(1, prevFeatures);
-  /*Calculate Difference rotation*/
-  auto prevRotation = _slidingWindow.getRotation(1);
-  auto nowRotation = _slidingWindow.getRotation(0);
-  auto diffRotation = prevRotation * nowRotation;
-  /*Estimate new location regarding to rotation*/
-  std::vector<cv::Vec3d> prevFeaturesE; //Project the Features to Rotate them
-  this->euclidNormFeatures(prevFeatures, prevFeaturesE, _slidingWindow.getCameraModel(1));
-  this->unrotateFeatures(prevFeaturesE, prevFeaturesE, diffRotation.t()); //Rotate them onto new Position
-  this->euclidUnNormFeatures(prevFeaturesE, trackedFeatures, _slidingWindow.getCameraModel(0));
-  /*Track the Features (with guess from Rotation)*/
-  std::vector<unsigned char> found;
-  auto shipMask = this->getShipMask();
-  _cornerTracker.trackFeatures(_slidingWindow.getImage(0), prevFeatures, trackedFeatures, found, shipMask);
-  /*Project them to Euclidean*/
-  std::vector<cv::Vec3d> trackedFeaturesE;
-  this->euclidNormFeatures(trackedFeatures, trackedFeaturesE, _slidingWindow.getCameraModel(0));
-  _slidingWindow.addTrackedFeatures(trackedFeatures, trackedFeaturesE, found);
+
 }
 
 void MVO::detectFeatures() {
   /*How much needed?*/
-  int numberToDetect = _numberOfFeatures - _slidingWindow.getNumberOfCurrentTrackedFeatures();
-  /*Detect new Features*/
-  std::vector<cv::Point2f> existingFeatures, newFeatures;
-  _slidingWindow.getFeatures(0, existingFeatures); //get Current Existing Features
-  auto shipMask = this->getShipMask();
-  _cornerTracker.detectFeatures(newFeatures,
-                                std::vector<cv::Mat>(_slidingWindow.getImage(0))[0],
-                                numberToDetect,
-                                existingFeatures,
-                                shipMask,
-                                false);
-  /*Convert them and Put them back*/
-  std::vector<cv::Vec3d> newFeaturesE;
-  this->euclidNormFeatures(newFeatures, newFeaturesE, _slidingWindow.getCameraModel(0));
-  _slidingWindow.addNewFeaturesToFrame(newFeatures, newFeaturesE, 0);
+
+
 }
 
 void MVO::estimateBaseLine(int firstFrame, int secondFrame) {
-  assert((firstFrame - secondFrame) == 1);
-  /* Get CorrespondingFeatures */
-  std::vector<cv::Vec3d> beforeCorespFeaturesE, thisCorespFeaturesUnrotatedE, thisCorespFeaturesE;
-  _slidingWindow.getCorrespondingFeatures(firstFrame, secondFrame, beforeCorespFeaturesE, thisCorespFeaturesE);
-  /* Unroate the Features */
-  auto beforeRotaton = _slidingWindow.getRotation(firstFrame);
-  auto thisRotation = _slidingWindow.getRotation(secondFrame);
-  auto diffRotation = beforeRotaton.t() * thisRotation;
-  this->unrotateFeatures(thisCorespFeaturesE, thisCorespFeaturesUnrotatedE, diffRotation);
-  /* First Guess of the Direction-BaseLine */
-  std::vector<int> inlier, outlier;
-  auto baseLine = _epipolarGeometry.estimateBaseLine(beforeCorespFeaturesE, thisCorespFeaturesUnrotatedE, inlier);
-  /*Special Algorithm to get Outlier Indeces from Inlier*/
-  std::sort(inlier.begin(), inlier.end());
-  auto inlierIT = inlier.begin();
-  for (int i = 0; i < thisCorespFeaturesE.size(); i++) {
-    if(inlierIT == inlier.end()){ //In that Case every following Index is an outlier, cause the inlier list is "empty"
 
-      continue;
-    }
-    if (i < *inlierIT) { //Then the Value is an outlier, cause we start at lowest inlier value
-      outlier.push_back(i);
-    } else if (i == *inlierIT) {
-      inlierIT++; //Rise both
-    } else {// i > inlierIT
-      ROS_ERROR("That case shouldn't match!\n\r");
-    }
-  }
-  /*Remove Outlier*/
-  _slidingWindow.removeFeaturesFromWindow(outlier, secondFrame);
-  /* Vote for the sign of the Baseline, which generates the feweset negative Gradients */
-  std::vector<double> depths(beforeCorespFeaturesE.size());
-  std::vector<double> depthsNegate(beforeCorespFeaturesE.size());
-  auto bnegate = -1.0 * baseLine;
-  this->reconstructDepth(depths, thisCorespFeaturesE, beforeCorespFeaturesE, diffRotation, baseLine);
-  this->reconstructDepth(depthsNegate, thisCorespFeaturesE, beforeCorespFeaturesE, diffRotation, bnegate);
-  unsigned int negCountb = 0;
-  unsigned int negCountbnegate = 0;
-  assert(depths.size() == depthsNegate.size());
-  auto depthIt = depths.begin();
-  auto depthnegateIt = depthsNegate.begin();
-  while (depthIt != depths.end()) {
-    if (*depthIt < 0) { //TODO: Count here also for vanishing depths?
-      negCountb++;
-    }
-    if (*depthnegateIt < 0) {
-      negCountbnegate++;
-    }
-    depthIt++;
-    depthnegateIt++;
-  }
-  if (negCountb < negCountbnegate) {
-    //baseLine = baseLine;
-  } else if (negCountbnegate < negCountb) {
-    baseLine = bnegate;
-  } else {
-    ROS_WARN_STREAM("Couldn't find unambiguous solution for sign of movement." << std::endl);
-  }
-  /* Transform the relative BaseLine into WorldCoordinates */
-  baseLine = beforeRotaton * baseLine;
-  /* Save Movement */
-  _slidingWindow.setPosition(_slidingWindow.getPosition(firstFrame) + baseLine, secondFrame);
 }
 
 void MVO::refine(int firstFrame, int secondFrame) {
-  _iterativeRefinement.refine(3)
+  _iterativeRefinement.refine(firstFrame);
 }
 
 OdomData MVO::handleImage(const cv::Mat image, const image_geometry::PinholeCameraModel &cameraModel,
@@ -201,7 +108,7 @@ OdomData MVO::handleImage(const cv::Mat image, const image_geometry::PinholeCame
 #ifdef MEASURETIME
     auto time_1_preprocess = ros::Time::now();
 #endif
-    _cornerTracker.trackFeatures(prevImage, image, prevFeatures, trackedFeatures, found, shipMask);
+    _cornerTracker.trackFeatures(prevImage, <#initializer#>, image, prevFeatures, trackedFeatures, found);
     trackedFeaturesE.clear();
     this->euclidNormFeatures(trackedFeatures, trackedFeaturesE, cameraModel);
 
@@ -600,31 +507,10 @@ void MVO::drawDebugPoints(const std::vector<cv::Point2f> &points, const cv::Scal
 
 void MVO::reconstructDepth(std::vector<double> &depth, const std::vector<cv::Vec3d> &m2L,
                            const std::vector<cv::Vec3d> &m1L, const cv::Matx33d &r, const cv::Vec3d &b) {
-  assert(m1L.size() == m2L.size());
-  for (auto m1 = m1L.begin(), m2 = m2L.begin(); m1 != m1L.end() && m2 != m2L.end(); m1++, m2++) {
-    cv::Matx33d C;
-    C << 1, 0, -(*m2)(0),  //
-        0, 1, -(*m2)(1),   //
-        -(*m2)(0), -(*m2)(1), (*m2)(0) * (*m2)(0) + (*m2)(1) * (*m2)(1);
-    double Z = (m1->t() * r * C * r.t() * b)(0) / (m1->t() * r * C * r.t() * (*m1))(0);
-    depth.push_back(Z);
-  }
+
 }
 
-double MVO::calcDisparity(const std::vector<cv::Vec3d> &first, const std::vector<cv::Vec3d> &second) {
-  assert(first.size() == second.size());
-  if (first.size() == 0) {
-    return 0;
-  }
-  //
-  double diff = 0;
-  for (auto p1 = first.begin(), p2 = second.begin(); p1 != first.end() && p2 != second.end(); p1++, p2++) {
-    diff += cv::norm((*p2) - (*p1));
-  }
-  diff = diff / first.size();
-  //
-  return diff;
-}
+
 
 void MVO::unrotateFeatures(const std::vector<cv::Vec3d> &features, std::vector<cv::Vec3d> &unrotatedFeatures,
                            const cv::Matx33d &R) {
@@ -638,15 +524,15 @@ void MVO::unrotateFeatures(const std::vector<cv::Vec3d> &features, std::vector<c
   }
 }
 
-cv::Rect2d MVO::getShipMask() const {
+cv::Rect2d MVO::getShipMask(cv::Size imageSize) const {
   /* Mask, where Ship is In Image*/
-  cv::Rect2d shipMask((image.size().width / 2) - (1.6 / 16.0) * image.size().width,
-                      image.size().height - (6.5 / 16.0) * image.size().height, (3.2 / 16.0) * image.size().width,
-                      (6.5 / 16.0) * image.size().width);
+  cv::Rect2d shipMask((imageSize.width / 2) - (1.6 / 16.0) * imageSize.width,
+                      imageSize.height - (6.5 / 16.0) * imageSize.height, (3.2 / 16.0) * imageSize.width,
+                      (6.5 / 16.0) * imageSize.width);
   cv::Mat maskImage = _debugImage.clone();
   cv::rectangle(maskImage, shipMask, cv::Scalar(0, 0, 255), -1);
   cv::addWeighted(_debugImage, 0.5, maskImage, 0.5, 0.0, _debugImage);
-  return shipMask
+  return shipMask;
 }
 
 void MVO::setParameters(unsigned int numberOfFeatures, double disparityThreshold) {

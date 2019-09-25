@@ -1,16 +1,16 @@
-#include "CornerTracker.hpp"
+#include "CornerTracking.hpp"
 #include  <ros/ros.h>
 
-CornerTracker::CornerTracker() : _blockSize(3), _minDifPercent(0.02), _qualityLevel(0.4), _windowSize(21, 21),
-                                 _maxPyramideLevel(3) {
+CornerTracking::CornerTracking() : _blockSize(3), _minDifPercent(0.02), _qualityLevel(0.4), _windowSize(21, 21),
+                                   _maxPyramideLevel(3) {
 }
 
-CornerTracker::~CornerTracker() {
+CornerTracking::~CornerTracking() {
 }
 
-void CornerTracker::detectFeatures(std::vector<cv::Point2f> &corner, const cv::Mat &image, int numberToDetect,
-                                   const std::vector<cv::Point2f> &existingFeatures, cv::Rect2d &mask,
-                                   bool forceDetection) {
+void CornerTracking::detectFeatures(std::vector<cv::Point2f> &corner, const cv::Mat &image, int numberToDetect,
+                                    const std::vector<cv::Point2f> &existingFeatures, cv::Rect2d &mask,
+                                    bool forceDetection) {
   if (numberToDetect <= 0) {
     return;
   }
@@ -43,10 +43,12 @@ void CornerTracker::detectFeatures(std::vector<cv::Point2f> &corner, const cv::M
   }
 }
 
-void CornerTracker::trackFeatures(const cv::Mat &currentPyramide,
-                                  const std::vector<cv::Point2f> &prevFeatures,
-                                  std::vector<cv::Point2f> &trackedFeatures, std::vector<unsigned char> &found,
-                                  cv::Rect2d &mask) {
+void CornerTracking::trackFeatures(const cv::Mat &currentPyramide,
+                                   const cv::Mat &previousPyramide,
+                                   const std::vector<cv::Point2f> &prevFeatures,
+                                   std::vector<cv::Point2f> &trackedFeatures,
+                                   std::vector<unsigned char> &found,
+                                   cv::Rect2d &mask) {
   /**
    * Params
    **/
@@ -63,12 +65,12 @@ void CornerTracker::trackFeatures(const cv::Mat &currentPyramide,
 
   // TODO: Handle Case, when no before Features!
   std::vector<float> error;
-  cv::calcOpticalFlowPyrLK(_beforePyramide, currentPyramide, prevFeatures, trackedFeatures, found, error, _windowSize,
+  cv::calcOpticalFlowPyrLK(previousPyramide, currentPyramide, prevFeatures, trackedFeatures, found, error, _windowSize,
                            _maxPyramideLevel, criteria, flags);  // TODO: more
-  _beforePyramide = currentPyramide;
+  auto currentTopImage = std::vector<cv::Mat>(currentPyramide)[0];
 
 
-  double imageDiag = sqrt(currentPyramide[0].rows * currentPyramide[0].rows + currentPyramide[0].cols * currentPyramide[0].cols);
+  double imageDiag = sqrt(currentTopImage.rows * currentTopImage.rows + currentTopImage.cols * currentTopImage.cols);
   double mindistance = _minDifPercent * imageDiag;
 
   //TODO: Sort out to Close features!
@@ -102,14 +104,14 @@ void CornerTracker::trackFeatures(const cv::Mat &currentPyramide,
 
 }
 
-cv::Mat CornerTracker::createPyramide(cv::Mat image) const {
+cv::Mat CornerTracking::createPyramide(cv::Mat image) const {
   cv::Mat result;
   cv::buildOpticalFlowPyramid(image, result, _windowSize, _maxPyramideLevel);
   return result;
 }
 
-void CornerTracker::setCornerDetectorParams(int blockSize, double minDifPercent, double qualityLevel, int windowSize,
-                                            int maxPyramideLevel) {
+void CornerTracking::setCornerDetectorParams(int blockSize, double minDifPercent, double qualityLevel, int windowSize,
+                                             int maxPyramideLevel) {
   _blockSize = blockSize;
   _qualityLevel = qualityLevel;
   _minDifPercent = minDifPercent;

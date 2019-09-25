@@ -64,7 +64,7 @@ void MVO_node::imageCallback(const sensor_msgs::ImageConstPtr &image, const sens
   /**
    * Call the Algorithm
    **/
-  auto od = _mvo.handleImage(bridgeImage->image, model, orientationMatCV);
+  //auto od = _mvo.handleImage(bridgeImage->image, model, orientationMatCV);
 
   /**
    * Reproject TO World Coordinates

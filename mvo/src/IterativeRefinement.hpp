@@ -1,5 +1,5 @@
 #include <opencv2/core.hpp>
-#include "SlidingWindow.hpp"
+#include "sliding_window/SlidingWindow.hpp"
 //#include <opencv2/core/eigen.hpp>
 #include <eigen3/Eigen/Dense>
 #include <opencv2/core/eigen.hpp>
@@ -11,16 +11,7 @@ class IterativeRefinement {
 
   double THRESHOLD = 0.0001;
 
-  struct RefinementDataCV {
-    std::vector<cv::Vec3d> m2;
-    std::vector<cv::Vec3d> m1;
-    std::vector<cv::Vec3d> m0;
-    cv::Matx33d R2;
-    cv::Matx33d R1;
-    cv::Matx33d R0;
-    cv::Vec3d vec0;
-    cv::Vec3d vec1;
-  };
+
 
   struct RefinementDataEIG {
     std::vector<Eigen::Vector3d> m2;
@@ -97,10 +88,21 @@ class IterativeRefinement {
 
  public:
 
+  struct RefinementDataCV {
+    std::vector<cv::Vec3d> m2;
+    std::vector<cv::Vec3d> m1;
+    std::vector<cv::Vec3d> m0;
+    cv::Matx33d R2;
+    cv::Matx33d R1;
+    cv::Matx33d R0;
+    cv::Vec3d vec0;
+    cv::Vec3d vec1;
+  };
+
   IterativeRefinement(SlidingWindow &slidingWindow);
 
   ~IterativeRefinement();
 
-  void refine(unsigned int firstFrame, unsigned int secondFrame);
+  void refine(RefinementDataCV &refinementData);
 
 };
