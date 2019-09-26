@@ -8,13 +8,8 @@
 #include "Frame.hpp"
 
 class SlidingWindow {
- private:
 
  public:
-  SlidingWindow();
-
-  ~SlidingWindow();
-
 
 /**
  * Adds tracked Features from Frame before to the current Frame.

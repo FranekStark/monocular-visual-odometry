@@ -5,13 +5,15 @@
 #ifndef MVO_SRC_TRACKERDETECTOR_HPP_
 #define MVO_SRC_TRACKERDETECTOR_HPP_
 
+#include <opencv2/highgui.hpp>
+
 #include "PipelineStage.h"
 #include "../sliding_window/SlidingWindow.hpp"
 #include "../operations/FeatureOperations.h"
-#include "../mvo.hpp"
 #include "../operations/VisualisationUtils.hpp"
+#include "../algorithms/CornerTracking.hpp"
 
-class TrackerDetector : PipelineStage{
+class TrackerDetector : public PipelineStage{
  private:
   /**
    * Reference to the previous Frame. Has already been passed to successor.
@@ -30,6 +32,7 @@ class TrackerDetector : PipelineStage{
                   unsigned int number);
   ~TrackerDetector();
   Frame* stage(Frame * newFrame) override;
+  static cv::Rect2d getShipMask(cv::Size imageSize);
 };
 
 #endif //MVO_SRC_TRACKERDETECTOR_HPP_

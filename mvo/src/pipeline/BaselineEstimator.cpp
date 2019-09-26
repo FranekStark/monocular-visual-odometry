@@ -5,7 +5,7 @@
 #include "BaselineEstimator.hpp"
 BaselineEstimator::BaselineEstimator(PipelineStage &precursor,
                                      unsigned int out_going_channel_size,
-                                     EpipolarGeometry &epipolarGeometry) : PipelineStage(precursor,
+                                     EpipolarGeometry &epipolarGeometry) : PipelineStage(&precursor,
                                                                                          out_going_channel_size),
                                                                            _epipolarGeometry(epipolarGeometry),
                                                                            _baseLine(1)

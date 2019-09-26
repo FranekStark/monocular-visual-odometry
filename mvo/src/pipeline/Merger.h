@@ -8,9 +8,8 @@
 #include "PipelineStage.h"
 #include "../operations/FeatureOperations.h"
 #include "../operations/VisualisationUtils.hpp"
-#include "../mvo.hpp"
 
-class Merger : PipelineStage {
+class Merger : public PipelineStage {
  private:
   Frame* _preFrame;
   Frame* _keepFrame;

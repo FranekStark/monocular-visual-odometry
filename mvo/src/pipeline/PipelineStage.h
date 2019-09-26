@@ -19,7 +19,6 @@ class PipelineStage {
       PipelineStage *precursor,
       unsigned int outGoingChannelSize);
   virtual ~PipelineStage();
-
   void operator()();
 
   /**

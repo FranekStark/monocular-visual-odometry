@@ -7,7 +7,7 @@
 
 #include "PipelineStage.h"
 
-class PipelineBegin : PipelineStage{
+class PipelineBegin : public PipelineStage{
  public:
   PipelineBegin();
   virtual ~PipelineBegin();

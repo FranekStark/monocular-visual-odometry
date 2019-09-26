@@ -33,7 +33,7 @@
 #define DEBUGIMAGES
 #define MEASURETIME
 
-class MVO : PipelineBegin {
+class MVO : public PipelineBegin {
  private:
   /**
    * Positions
@@ -86,7 +86,6 @@ class MVO : PipelineBegin {
       std::function<void(cv::Point3d)> refinedPositionCallback);
   ~MVO();
 
-  static cv::Rect2d getShipMask(cv::Size imageSize);
   void newImage(const cv::Mat image, const image_geometry::PinholeCameraModel &cameraModel, const cv::Matx33d &R);
 
 };

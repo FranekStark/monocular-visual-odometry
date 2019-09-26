@@ -1,3 +1,6 @@
+#ifndef ITERATIVE_REFINEMENT_HPP
+#define ITERATIVE_REFINEMENT_HPP
+
 #include <opencv2/core.hpp>
 #include "../sliding_window/SlidingWindow.hpp"
 //#include <opencv2/core/eigen.hpp>
@@ -105,3 +108,5 @@ class IterativeRefinement {
   void refine(RefinementDataCV &refinementData);
 
 };
+
+#endif //ITERATIVE_REFINEMENT_HPP

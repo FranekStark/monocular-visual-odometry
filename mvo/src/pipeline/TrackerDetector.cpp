@@ -8,7 +8,7 @@ TrackerDetector::TrackerDetector(PipelineStage &precursor,
                                  unsigned int outGoingChannelSize,
                                  CornerTracking &cornerTracking,
                                  unsigned int number) :
-    PipelineStage(precursor, outGoingChannelSize),
+    PipelineStage(&precursor, outGoingChannelSize),
     _cornerTracking(cornerTracking),
     _numberToDetect(number) {
 #ifdef DEBUGIMAGES
@@ -16,8 +16,6 @@ TrackerDetector::TrackerDetector(PipelineStage &precursor,
 #endif
 
 }
-
-
 
 Frame *TrackerDetector::stage(Frame *newFrame) {
   //In Case the previous Frame is null only detect new Features
@@ -28,9 +26,9 @@ Frame *TrackerDetector::stage(Frame *newFrame) {
     int numberToDetect = _numberToDetect - SlidingWindow::getNumberOfKnownFeatures(*newFrame);
     detect(*newFrame, numberToDetect);
 #ifdef DEBUGIMAGES
-  cv::Mat image = SlidingWindow::getImage(*newFrame).clone();
-  VisualisationUtils::drawFeatures(*newFrame, image);
-  cv::imshow("TrackerImage", image);
+    cv::Mat image = SlidingWindow::getImage(*newFrame).clone();
+    VisualisationUtils::drawFeatures(*newFrame, image);
+    cv::imshow("TrackerImage", image);
 #endif
   }
   //Pass through the new Frame
@@ -56,7 +54,7 @@ void TrackerDetector::track(Frame &newFrame) {
   FeatureOperations::euclidUnNormFeatures(prevFeaturesE, trackedFeatures, SlidingWindow::getCameraModel(newFrame));
   /*Track the Features (with guess from Rotation)*/
   std::vector<unsigned char> found;
-  auto shipMask = MVO::getShipMask(cv::Size());
+  auto shipMask = getShipMask(cv::Size());
   _cornerTracking.trackFeatures(SlidingWindow::getImagePyramid(newFrame),
                                 SlidingWindow::getImagePyramid(*_prevFrame),
                                 prevFeatures,
@@ -74,7 +72,7 @@ void TrackerDetector::detect(Frame &newFrame, unsigned int number) {
   /*Detect new Features*/
   std::vector<cv::Point2f> existingFeatures, newFeatures;
   SlidingWindow::getFeatures(newFrame, existingFeatures); //get Current Existing Features
-  auto shipMask = MVO::getShipMask(cv::Size());
+  auto shipMask = getShipMask(cv::Size());
   _cornerTracking.detectFeatures(newFeatures,
                                  std::vector<cv::Mat>(SlidingWindow::getImagePyramid(newFrame))[0],
                                  number,
@@ -88,6 +86,15 @@ void TrackerDetector::detect(Frame &newFrame, unsigned int number) {
 }
 TrackerDetector::~TrackerDetector() {
   cv::destroyWindow("TrackerImage");
+}
+cv::Rect2d TrackerDetector::getShipMask(cv::Size imageSize) {
+
+  /* Mask, where Ship is In Image*/
+  cv::Rect2d shipMask((imageSize.width / 2) - (1.6 / 16.0) * imageSize.width,
+                      imageSize.height - (6.5 / 16.0) * imageSize.height, (3.2 / 16.0) * imageSize.width,
+                      (6.5 / 16.0) * imageSize.width);
+  return shipMask;
+
 }
 
 

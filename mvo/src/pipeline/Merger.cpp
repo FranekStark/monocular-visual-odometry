@@ -8,7 +8,7 @@ Merger::Merger(PipelineStage &precursor,
                unsigned int outGoingChannelSize,
                double sameThreshold,
                double movementThreshold) :
-    PipelineStage( precursor, outGoingChannelSize),
+    PipelineStage(&precursor, outGoingChannelSize),
     _sameDisparityThreshold(sameThreshold),
     _movementDisparityThreshold(movementThreshold) {
 #ifdef DEBUGIMAGES

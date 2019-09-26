@@ -7,7 +7,7 @@ Refiner::Refiner(PipelineStage &precursor,
                  unsigned int out_going_channel_size,
                  IterativeRefinement &iterativeRefinement,
                  unsigned int numberToRefine)
-    : PipelineStage(precursor, out_going_channel_size),
+    : PipelineStage(&precursor, out_going_channel_size),
       _iterativeRefinement(iterativeRefinement),
       _ringBuffer(numberToRefine - 1),
       _baseLine(1)
@@ -39,12 +39,12 @@ Frame *Refiner::stage(Frame *newFrame) {
     data.vec1 = u1;
 
     data.R0 = SlidingWindow::getRotation(*newFrame);
-    data.R1 = _slidingWindow.getRotation(*_ringBuffer[1]);
-    data.R2 = _slidingWindow.getRotation(*_ringBuffer[0]);
+    data.R1 = SlidingWindow::getRotation(*_ringBuffer[1]);
+    data.R2 = SlidingWindow::getRotation(*_ringBuffer[0]);
 
     std::vector<std::vector<cv::Vec3d> *> vectors{&(data.m0), &(data.m1), &(data.m2)};
 
-    _slidingWindow.getCorrespondingFeatures(*_ringBuffer[0], *newFrame, vectors);
+    SlidingWindow::getCorrespondingFeatures(*_ringBuffer[0], *newFrame, vectors);
 
 
     ROS_INFO_STREAM("After: " << std::endl
@@ -58,7 +58,7 @@ Frame *Refiner::stage(Frame *newFrame) {
   _ringBuffer.pop();
   _ringBuffer.push(newFrame);
   if(_ringBuffer[0] != nullptr){
-    _baseLine.enqueue(SlidingWindow::getBaseLineToPrevious(_ringBuffer[0]));
+    _baseLine.enqueue(SlidingWindow::getBaseLineToPrevious(*_ringBuffer[0]));
   }
   //Pass the _preFrame (now _prepreFrame, cause the old _prepreFrame is not part of Refinementwrite and only hold to get the values and Features)
   return _ringBuffer[0];

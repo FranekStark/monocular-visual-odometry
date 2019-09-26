@@ -12,12 +12,12 @@ PipelineStage::PipelineStage(PipelineStage *precursor,
 
 PipelineStage::~PipelineStage() {
   _outGoingChannel.destroy();
-};
+}
 
 void PipelineStage::operator()() {
   while (ros::ok()) {
     /*Block on new Frame*/
-    Frame *ingoingFrame = _precursorStage._outGoingChannel.dequeue();
+    Frame *ingoingFrame = _precursorStage->_outGoingChannel.dequeue();
     /*Process the new Frame and get an Outgoing Frame*/
     Frame *outgoingFrame = stage(ingoingFrame);
     /*If the Outgoing Frame is not null than pass it on*/

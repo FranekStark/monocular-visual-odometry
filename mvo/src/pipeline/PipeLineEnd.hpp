@@ -9,11 +9,12 @@
 class PipeLineEnd : PipelineStage{
  private:
   Frame * _lastFrame;
+  Frame *stage(Frame *newFrame) override;
  public:
   virtual ~PipeLineEnd();
   PipeLineEnd(PipelineStage *precursor);
- private:
-  Frame *stage(Frame *newFrame) override;
+
+
 };
 
 #endif //MVO_SRC_PIPELINE_PIPELINEEND_HPP_

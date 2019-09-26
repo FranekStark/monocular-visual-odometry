@@ -9,7 +9,7 @@
 #include "../algorithms/EpipolarGeometry.hpp"
 #include "../operations/FeatureOperations.h"
 
-class BaselineEstimator: PipelineStage {
+class BaselineEstimator: public PipelineStage {
  private:
   Frame * _prevFrame;
   EpipolarGeometry & _epipolarGeometry;

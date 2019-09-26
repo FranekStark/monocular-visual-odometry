@@ -3,17 +3,18 @@
 //
 
 #include "VisualisationUtils.hpp"
+#include "../sliding_window/SlidingWindow.hpp"
 
 void VisualisationUtils::drawFeatures(const Frame &frame, cv::Mat &image) {
   frame._lock.lock();
   for (auto feature = frame._features.begin(); feature != frame._features.end(); feature++) {
     cv::Scalar color;
-    if (feature._preFeature < 0) { //Blue, if ne prefeatures
+    if (feature->_preFeature < 0) { //Blue, if ne prefeatures
       color = cv::Scalar(255, 0, 0); //BGR
     } else { //If tracked, than GREEN
       color = cv::Scalar(0, 255, 0);
     }
-    cv::circle(image, cv::Point(feature._positionImage), 10, color, -10);
+    cv::circle(image, cv::Point(feature->_positionImage), 10, color, -10);
   }
   frame._lock.unlock();
 }
@@ -24,19 +25,18 @@ void VisualisationUtils::drawCorrespondences(const Frame &oldestFrame, const Fra
   //Check Depth
   unsigned int depth = 0;
   {
-    Frame *frame = &newestFrame;
+    const Frame *frame = &newestFrame;
     while (frame != &oldestFrame) {
       frame = frame->_preFrame;
       //Lock Prefame;
       frame->_lock.lock();
-      depth++
+      depth++;
     }
   }
 
-  for (auto feature = frame._features.begin(); feature != frame._features.end(); feature++) {
+  for (auto feature = newestFrame._features.begin(); feature != newestFrame._features.end(); feature++) {
     if (feature->_preFeatureCounter >= depth) {
-      Frame *frame = &newestFrame;
-      Feature *feature = feature;
+      const Frame *frame = &newestFrame;
       unsigned  int counter = 0;
       cv::circle(image, feature->_positionImage, 5, cv::Scalar(0, 0, 255), -1);
       cv::putText(image,
@@ -50,14 +50,14 @@ void VisualisationUtils::drawCorrespondences(const Frame &oldestFrame, const Fra
         //Line to next
         cv::line(image,
                  feature->_positionImage,
-                 frame->_preFrame._features[feature->_preFeature]._positionImage,
+                 frame->_preFrame->_features[feature->_preFeature]._positionImage,
                  cv::Scalar(255, 255, 255),
                  4);
         //Next
         cv::circle(image, feature->_positionImage, 5, cv::Scalar(0, 0, 255), -1);
         cv::putText(image,
                     std::to_string(counter),
-                    frame->_preFrame._features[feature->_preFeature]._positionImage,
+                    frame->_preFrame->_features[feature->_preFeature]._positionImage,
                     cv::FONT_HERSHEY_PLAIN,
                     5,
                     cv::Scalar(255, 255, 0));
@@ -71,7 +71,7 @@ void VisualisationUtils::drawCorrespondences(const Frame &oldestFrame, const Fra
   newestFrame._lock.unlock();
   //Check Depth
   {
-    Frame *frame = &newestFrame;
+    const Frame *frame = &newestFrame;
     while (frame != &oldestFrame) {
       frame = frame->_preFrame;
       //Lock Prefame;
@@ -83,9 +83,10 @@ void VisualisationUtils::drawCorrespondences(const Frame &oldestFrame, const Fra
 
 void VisualisationUtils::drawMovementDebug(const Frame &frame, const cv::Scalar &color, cv::Mat &image, unsigned int index) {
   frame._lock.lock();
+  auto baseLine = SlidingWindow::getBaseLineToPrevious(frame);
   double norm = cv::norm(baseLine);
   auto baseLineNorm = cv::normalize(baseLine);
-  frame._lock.unlock()
+  frame._lock.unlock();
 
   int mitX = double(image.cols) / 2.0;
   int mitY = double(image.rows) / 2.0;
@@ -105,16 +106,16 @@ void VisualisationUtils::drawFeaturesUnrotated(const Frame &frame, cv::Mat &imag
   for(auto feature = frame._features.begin(); feature != frame._features.end(); feature++){
     if(feature->_preFeature >= 0){ //Only if it has a Prefeature
       //Prefeature
-      auto &  = frame._preFrame._features[feature._preFeature]._positionImage;
+      auto preFeature = frame._preFrame->_features[feature->_preFeature]._positionImage;
       //Feature normal
-      auto & feature = feature._positionImage;
+      auto FeatureImg = feature->_positionImage;
       //Feature unrotated
-      auto & featureE = feature._positionEuclidian;
+      auto & featureE = feature->_positionEuclidian;
       auto featureEUnrotated = rDiff * featureE;
       auto featureUnrotated = frame._cameraModel.project3dToPixel(featureEUnrotated);
       //Draw
       cv::circle(image, cv::Point(preFeature), 10, cv::Scalar(255,0,0), -10);
-      cv::circle(image, cv::Point(feature), 10, cv::Scalar(0,255,0), -10);
+      cv::circle(image, cv::Point(FeatureImg), 10, cv::Scalar(0,255,0), -10);
       cv::circle(image, cv::Point(featureUnrotated), 10, cv::Scalar(0,0,255), -10);
     }
   }

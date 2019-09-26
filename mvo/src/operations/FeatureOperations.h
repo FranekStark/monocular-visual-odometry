@@ -10,6 +10,12 @@
 
 class FeatureOperations {
  public:
+  /**
+   * Calculates the procentualdiparity between twoVectors of Featres. The Features are matched by Index.
+   * @param first first features
+   * @param second second features
+   * @return the Disparity between 0 and 1
+   */
   static double calcDisparity(const std::vector<cv::Vec3d> &first, const std::vector<cv::Vec3d> &second);
   /**
    * Project camera-pixel-coordinate Feature into camera-projected Feature

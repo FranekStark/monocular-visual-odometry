@@ -6,6 +6,7 @@ CornerTracking::CornerTracking() : _blockSize(3), _minDifPercent(0.02), _quality
 }
 
 CornerTracking::~CornerTracking() {
+
 }
 
 void CornerTracking::detectFeatures(std::vector<cv::Point2f> &corner, const cv::Mat &image, int numberToDetect,

@@ -19,6 +19,7 @@ double FeatureOperations::calcDisparity(const std::vector<cv::Vec3d> &first, con
   return diff;
 }
 
+
 void FeatureOperations::euclidNormFeatures(const std::vector<cv::Point2f> &features,
                                            std::vector<cv::Vec3d> &featuresE,
                                            const image_geometry::PinholeCameraModel &cameraModel) {
@@ -30,8 +31,6 @@ void FeatureOperations::euclidNormFeatures(const std::vector<cv::Point2f> &featu
   for (auto feature = features.begin(); feature != features.end(); feature++) {
     featuresE.push_back(cameraModel.projectPixelTo3dRay(*feature));
   }
-}
-
 }
 
 void FeatureOperations::euclidUnNormFeatures(const std::vector<cv::Vec3d> &featuresE,

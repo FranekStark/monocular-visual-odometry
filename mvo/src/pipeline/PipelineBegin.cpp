@@ -4,6 +4,7 @@
 
 #include "PipelineBegin.hpp"
 Frame *PipelineBegin::stage(Frame *newFrame) {
+  (void)(newFrame);
   ROS_ERROR("Pipeline Begin is not itself a Thread!");
   return nullptr;
 }

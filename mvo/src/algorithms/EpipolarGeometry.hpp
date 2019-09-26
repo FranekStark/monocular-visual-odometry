@@ -1,3 +1,6 @@
+#ifndef EPIPOLAR_GEOMETRY_HPP
+#define EPIPOLAR_GEOMETRY_HPP
+
 #include <opencv2/core.hpp>
 #include <opencv2/imgproc.hpp>
 
@@ -30,3 +33,5 @@ class EpipolarGeometry {
   cv::Vec3d estimateBaseLine(const std::vector<cv::Vec3d> &mhi, const std::vector<cv::Vec3d> &mt,
                              std::vector<unsigned int> &inlierIndexes);
 };
+
+#endif //EPIPOLAR_GEOMETRY_HPP

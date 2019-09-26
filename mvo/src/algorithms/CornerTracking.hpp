@@ -1,3 +1,6 @@
+#ifndef CORNER_TRACKING_HPP
+#define CORNER_TRACKING_HPP
+
 #include <opencv2/core.hpp>
 #include <opencv2/imgproc/imgproc.hpp>
 #include <opencv2/video/tracking.hpp>
@@ -39,3 +42,5 @@ class CornerTracking {
   cv::Mat createPyramide(cv::Mat image) const;
 
 };
+
+#endif //CORNER_TRACKING_HPP

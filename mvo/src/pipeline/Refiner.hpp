@@ -9,9 +9,10 @@
 #include "../algorithms/IterativeRefinement.hpp"
 #include "../nils_lib/Ringbuffer.hpp"
 #include "../operations/VisualisationUtils.hpp"
-#include "../mvo.hpp"
 
-class Refiner: PipelineStage {
+
+
+class Refiner: public PipelineStage {
  private:
 
   IterativeRefinement & _iterativeRefinement;
@@ -24,7 +25,7 @@ class Refiner: PipelineStage {
           IterativeRefinement &iterativeRefinement, unsigned int numberToRefine);
   ~Refiner();
 
-  Channel _baseLine;
+  Channel<cv::Vec3d> _baseLine;
 
 
 };

@@ -10,8 +10,8 @@ MVO::MVO(std::function<void(cv::Point3d)> estimatedPositionCallback,
     _refinedPosition(0, 0, 0),
     _estimatedCallbackFunction(estimatedPositionCallback),
     _refinedCallbackFunction(refinedPositionCallback),
-    _trackerDetector(this, 10, _cornerTracking, 60),
-    _merger(&_trackerDetector, 10, 0.001, 0.4),
+    _trackerDetector(*this, 10, _cornerTracking, 60),
+    _merger(_trackerDetector, 10, 0.001, 0.4),
     _baseLineEstimator(_merger, 100, _epipolarGeometry),
     _refiner(_baseLineEstimator, 4, _iterativeRefinement, 3),
     _end(&_refiner),
@@ -36,12 +36,8 @@ MVO::MVO(std::function<void(cv::Point3d)> estimatedPositionCallback,
     })
 
 {
-}
-
-MVO::~MVO() {
 
 }
-
 void MVO::newImage(const cv::Mat image, const image_geometry::PinholeCameraModel &cameraModel, const cv::Matx33d &R) {
   auto pyramideImage = _cornerTracking.createPyramide(image);
   //Creates Frame:
@@ -53,14 +49,7 @@ void MVO::newImage(const cv::Mat image, const image_geometry::PinholeCameraModel
   pipeIn(frame);
 }
 
-cv::Rect2d MVO::getShipMask(cv::Size imageSize) {
-  /* Mask, where Ship is In Image*/
-  cv::Rect2d shipMask((imageSize.width / 2) - (1.6 / 16.0) * imageSize.width,
-                      imageSize.height - (6.5 / 16.0) * imageSize.height, (3.2 / 16.0) * imageSize.width,
-                      (6.5 / 16.0) * imageSize.width);
-  return shipMask;
-}
-MVO::~MVO() = 0;
+
 
 
 

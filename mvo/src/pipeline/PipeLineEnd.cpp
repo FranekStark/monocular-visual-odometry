@@ -10,7 +10,9 @@ Frame *PipeLineEnd::stage(Frame *newFrame) {
   delete _lastFrame;
   //Keep the new One, cause the preStages could need the Data
   _lastFrame = newFrame;
+  return nullptr;
 }
+
 PipeLineEnd::~PipeLineEnd() {
 
 }

@@ -50,7 +50,7 @@ void SlidingWindow::addFeaturesToFrame(Frame &frame,
     featureEIT++;
     featureIT++;
   }
-  frame._lock.unlock()
+  frame._lock.unlock();
 }
 
 const cv::Mat &SlidingWindow::getImage(Frame &frame) {
