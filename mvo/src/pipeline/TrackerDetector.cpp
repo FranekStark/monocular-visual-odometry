@@ -4,23 +4,34 @@
 
 #include "TrackerDetector.hpp"
 
-TrackerDetector::TrackerDetector(SlidingWindow &slidingWindow,
-                                 PipelineStage &precursor,
+TrackerDetector::TrackerDetector(PipelineStage &precursor,
                                  unsigned int outGoingChannelSize,
                                  CornerTracking &cornerTracking,
                                  unsigned int number) :
-                                 PipelineStage(slidingWindow, precursor, outGoingChannelSize),
-                                 _cornerTracking(cornerTracking),
-                                 _numberToDetect(number)
-                                 {}
-Frame* TrackerDetector::stage(Frame *newFrame) {
+    PipelineStage(precursor, outGoingChannelSize),
+    _cornerTracking(cornerTracking),
+    _numberToDetect(number) {
+#ifdef DEBUGIMAGES
+  cv::namedWindow("TrackerImage", cv::WINDOW_NORMAL);
+#endif
+
+}
+
+
+
+Frame *TrackerDetector::stage(Frame *newFrame) {
   //In Case the previous Frame is null only detect new Features
-  if(_prevFrame == nullptr){
+  if (_prevFrame == nullptr) {
     detect(*newFrame, _numberToDetect);
-  }else { //Else track and then detect
+  } else { //Else track and then detect
     track(*newFrame);
     int numberToDetect = _numberToDetect - SlidingWindow::getNumberOfKnownFeatures(*newFrame);
     detect(*newFrame, numberToDetect);
+#ifdef DEBUGIMAGES
+  cv::Mat image = SlidingWindow::getImage(*newFrame).clone();
+  VisualisationUtils::drawFeatures(*newFrame, image);
+  cv::imshow("TrackerImage", image);
+#endif
   }
   //Pass through the new Frame
   _prevFrame = newFrame;
@@ -65,15 +76,18 @@ void TrackerDetector::detect(Frame &newFrame, unsigned int number) {
   SlidingWindow::getFeatures(newFrame, existingFeatures); //get Current Existing Features
   auto shipMask = MVO::getShipMask(cv::Size());
   _cornerTracking.detectFeatures(newFeatures,
-                                std::vector<cv::Mat>(SlidingWindow::getImagePyramid(newFrame))[0],
-                                number,
-                                existingFeatures,
-                                shipMask,
-                                false);
+                                 std::vector<cv::Mat>(SlidingWindow::getImagePyramid(newFrame))[0],
+                                 number,
+                                 existingFeatures,
+                                 shipMask,
+                                 false);
   /*Convert them and Put them back*/
   std::vector<cv::Vec3d> newFeaturesE;
   FeatureOperations::euclidNormFeatures(newFeatures, newFeaturesE, SlidingWindow::getCameraModel(newFrame));
   SlidingWindow::addFeaturesToFrame(newFrame, newFeatures, newFeaturesE);
+}
+TrackerDetector::~TrackerDetector() {
+  cv::destroyWindow("TrackerImage");
 }
 
 

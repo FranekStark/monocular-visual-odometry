@@ -5,20 +5,19 @@
 #ifndef MVO_SRC_PIPELINESTAGE_H_
 #define MVO_SRC_PIPELINESTAGE_H_
 
-#include "sliding_window/SlidingWindow.hpp"
-#include "pareigis_lib/Channel.hpp"
+#include "../sliding_window/SlidingWindow.hpp"
+#include "../pareigis_lib/Channel.hpp"
 #include <ros/ros.h>
 
 class PipelineStage {
  protected:
-  SlidingWindow & _slidingWindow;
-  PipelineStage & _precursorStage;
+  PipelineStage * _precursorStage;
   Channel<Frame *> _outGoingChannel;
 
  public:
-  PipelineStage(SlidingWindow &slidingWindow,
-                PipelineStage &precursor,
-                unsigned int outGoingChannelSize);
+  PipelineStage(
+      PipelineStage *precursor,
+      unsigned int outGoingChannelSize);
   virtual ~PipelineStage();
 
   void operator()();

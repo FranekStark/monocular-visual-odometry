@@ -6,22 +6,20 @@
 #define MVO_SRC_BASELINEESTIMATOR_HPP_
 
 #include "PipelineStage.h"
-#include "EpipolarGeometry.hpp"
-#include "FeatureOperations.h"
+#include "../algorithms/EpipolarGeometry.hpp"
+#include "../operations/FeatureOperations.h"
 
 class BaselineEstimator: PipelineStage {
  private:
   Frame * _prevFrame;
   EpipolarGeometry & _epipolarGeometry;
  public:
-  BaselineEstimator(SlidingWindow &sliding_window,
-                    PipelineStage &precursor,
+  BaselineEstimator(PipelineStage &precursor,
                     unsigned int out_going_channel_size,
                     EpipolarGeometry &epipolarGeometry);
   ~BaselineEstimator();
-
- private:
   Frame *stage(Frame *newFrame) override;
+  Channel<cv::Vec3d> _baseLine;
 
 };
 

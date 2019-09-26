@@ -6,7 +6,9 @@
 #define MVO_SRC_MERGER_H_
 
 #include "PipelineStage.h"
-#include "FeatureOperations.h"
+#include "../operations/FeatureOperations.h"
+#include "../operations/VisualisationUtils.hpp"
+#include "../mvo.hpp"
 
 class Merger : PipelineStage {
  private:
@@ -16,11 +18,8 @@ class Merger : PipelineStage {
   double _sameDisparityThreshold;
   double _movementDisparityThreshold;
 
-
-
  public:
-  Merger(SlidingWindow &slidingWindow,
-         PipelineStage &precursor,
+  Merger(PipelineStage &precursor,
          unsigned int outGoingChannelSize,
          double sameThreshold,
          double movementThreshold);

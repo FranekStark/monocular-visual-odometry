@@ -4,14 +4,17 @@
 
 #include "Merger.h"
 
-Merger::Merger(SlidingWindow &slidingWindow,
-               PipelineStage &precursor,
+Merger::Merger(PipelineStage &precursor,
                unsigned int outGoingChannelSize,
                double sameThreshold,
                double movementThreshold) :
-    PipelineStage(slidingWindow, precursor, outGoingChannelSize),
+    PipelineStage( precursor, outGoingChannelSize),
     _sameDisparityThreshold(sameThreshold),
-    _movementDisparityThreshold(movementThreshold) {}
+    _movementDisparityThreshold(movementThreshold) {
+#ifdef DEBUGIMAGES
+  cv::namedWindow("MergerImage", cv::WINDOW_NORMAL);
+#endif
+}
 
 Frame *Merger::stage(Frame *newFrame) {
   if (_preFrame == nullptr) { //In Case its the first Frame -> FastPipe
@@ -29,6 +32,12 @@ Frame *Merger::stage(Frame *newFrame) {
   auto diffRotation = preRotation.t() * nowRotation;
   FeatureOperations::unrotateFeatures(newCorrespondingFeatures, newCorrespondingFeaturesUnrotated, diffRotation);
   auto disparity = FeatureOperations::calcDisparity(preCorrespondingFeatures, newCorrespondingFeaturesUnrotated);
+#ifdef DEBUGIMAGES
+  if (newFrame->_preFrame != nullptr) {
+    cv::Mat image = SlidingWindow::getImage(*newFrame).clone();
+    VisualisationUtils::drawFeaturesUnrotated(*newFrame, image);
+  }
+#endif
   //Casedifferntation based on amount of the difference
   if (disparity <= _sameDisparityThreshold) { //Threat the new Frame as if where on the SAME position as preFrame
     //Merge the new Frame onto the preFrame
@@ -57,5 +66,12 @@ Frame *Merger::stage(Frame *newFrame) {
     _keepFrame = nullptr; //Wait here for a maybe new Frame
     return newFrame;
   }
+
+}
+
+Merger::~Merger() {
+#ifdef DEBUGIMAGES
+  cv::destroyWindow("MergerImage");
+#endif
 }
 

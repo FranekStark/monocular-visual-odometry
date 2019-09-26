@@ -33,7 +33,7 @@ include_directories(${CERES_INCLUDE_DIRS})
 find_package (Eigen3 3.3 REQUIRED NO_MODULE)
 
 
-add_executable(mvo_node src/mvo_node.cpp src/sliding_window/SlidingWindow.cpp src/mvo.cpp src/IterativeRefinement.cpp src/CornerTracking.cpp src/EpipolarGeometry.cpp src/PipelineStage.cpp src/PipelineStage.h src/Merger.cpp src/Merger.h src/FeatureOperations.cpp src/FeatureOperations.h src/TrackerDetector.cpp src/TrackerDetector.hpp src/BaselineEstimator.cpp src/BaselineEstimator.hpp src/Refiner.cpp src/Refiner.hpp src/nils_lib/Ringbuffer.hpp)
+add_executable(mvo_node src/mvo_node.cpp src/sliding_window/SlidingWindow.cpp src/mvo.cpp src/algorithms/IterativeRefinement.cpp src/algorithms/CornerTracking.cpp src/algorithms/EpipolarGeometry.cpp src/pipeline/PipelineStage.cpp src/pipeline/PipelineStage.h src/pipeline/Merger.cpp src/pipeline/Merger.h src/operations/FeatureOperations.cpp src/operations/FeatureOperations.h src/pipeline/TrackerDetector.cpp src/pipeline/TrackerDetector.hpp src/pipeline/BaselineEstimator.cpp src/pipeline/BaselineEstimator.hpp src/pipeline/Refiner.cpp src/pipeline/Refiner.hpp src/nils_lib/Ringbuffer.hpp src/operations/VisualisationUtils.cpp src/operations/VisualisationUtils.cpp src/pipeline/PipelineBegin.cpp src/pipeline/PipelineBegin.cpp src/pipeline/PipeLineEnd.cpp src/pipeline/PipeLineEnd.hpp)
 target_link_libraries(mvo_node ${catkin_LIBRARIES})
 target_link_libraries(mvo_node ${CERES_LIBRARIES})
 target_link_libraries (mvo_node Eigen3::Eigen)

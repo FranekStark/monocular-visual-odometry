@@ -11,73 +11,82 @@
 #include <list>
 
 #include "sliding_window/SlidingWindow.hpp"
-#include "IterativeRefinement.hpp"
-#include "CornerTracking.hpp"
-#include "EpipolarGeometry.hpp"
-#include "OdomData.hpp"
+#include "algorithms/IterativeRefinement.hpp"
+#include "algorithms/CornerTracking.hpp"
+#include "algorithms/EpipolarGeometry.hpp"
+
+#include "pipeline/TrackerDetector.hpp"
+#include "pipeline/Merger.h"
+#include "pipeline/BaselineEstimator.hpp"
+#include "pipeline/Refiner.hpp"
+#include "pipeline/PipelineBegin.hpp"
+#include "pipeline/PipeLineEnd.cpp"
 
 #include <eigen3/Eigen/Dense>
 #include <eigen3/Eigen/SVD>
+#include <functional>
+#include <thread>
+
 
 #define PI 3.14159265
 
 #define DEBUGIMAGES
 #define MEASURETIME
 
-class MVO {
+class MVO : PipelineBegin {
  private:
-  void reconstructDepth(std::vector<double> &depth, const std::vector<cv::Vec3d> &m2L,
-                        const std::vector<cv::Vec3d> &m1L, const cv::Matx33d &r,
-                        const cv::Vec3d &b);
+  /**
+   * Positions
+   */
+  cv::Point3d _estimatedPosition;
+  cv::Point3d _refinedPosition;
 
-  void euclidNormFeatures(const std::vector<cv::Point2f> &features, std::vector<cv::Vec3d> &featuresE,
-                          const image_geometry::PinholeCameraModel &cameraModel) const;
+  /**
+   * Callbackfunction
+   */
+  std::function<void(cv::Point3d)> _estimatedCallbackFunction;
+  std::function<void(cv::Point3d)> _refinedCallbackFunction;
 
-  void euclidUnNormFeatures(const std::vector<cv::Vec3d> &featuresE, std::vector<cv::Point2f> &features,
-                            const image_geometry::PinholeCameraModel &cameraModel) const;
+  /**
+   * Algorithms
+   */
+  CornerTracking _cornerTracking;
+  EpipolarGeometry _epipolarGeometry;
+  IterativeRefinement _iterativeRefinement;
 
-  void drawDebugPoints(const std::vector<cv::Point2f> &points, const cv::Scalar &color, cv::Mat &image) const;
+  /**
+   * Pipelinestages
+   */
+  TrackerDetector _trackerDetector;
+  Merger _merger;
+  BaselineEstimator _baseLineEstimator;
+  Refiner _refiner;
+  PipeLineEnd _end;
 
-  void drawDebugImage(const cv::Vec3d &baseLine, cv::Mat &image, const cv::Scalar &color, unsigned int index) const;
+  /**
+   * Pipelinethreads
+   */
+   std::thread _trackerThread;
+   std::thread _mergerThread;
+   std::thread _estimatorThread;
+   std::thread _refinerThread;
+   std::thread _endThread;
 
-  void drawDebugScale(cv::Mat image, double scaleBefore, double scaleAfter) const;
+  /**
+   *Callbackthreads
+   */
+   std::thread _estimatedCallbackThread;
+   std::thread _refinedCallbackThread;
 
-  /*Fields */
-  unsigned int _numberOfFeatures;
-
-  SlidingWindow _slidingWindow;
-
-  unsigned int _frameCounter;
-
-  double _disparityThreshold;
-
-
-
-  void unrotateFeatures(const std::vector<cv::Vec3d> &features, std::vector<cv::Vec3d> &unrotatedFeatures,
-                        const cv::Matx33d &R);
+  Frame * _prevFrame;
+  Frame * _lastFrame;
 
  public:
-  CornerTracking _cornerTracker;
-  IterativeRefinement _iterativeRefinement;
-  EpipolarGeometry _epipolarGeometry;
-
-  MVO();
+  MVO(std::function<void(cv::Point3d)> estimatedPositionCallback,
+      std::function<void(cv::Point3d)> refinedPositionCallback);
   ~MVO();
 
-  static cv::Rect2d getShipMask(cv::Size imageSize) const;
-
+  static cv::Rect2d getShipMask(cv::Size imageSize);
   void newImage(const cv::Mat image, const image_geometry::PinholeCameraModel &cameraModel, const cv::Matx33d &R);
-  void estimateBaseLine(int firstFrame, int secondFrame);
-  void refine(int firstFrame, int secondFrame);
-  void trackFeatures();
-  void detectFeatures();
 
-
-
-  void setParameters(unsigned int numberOfFeatures, double disparityThreshold);
-
-  cv::Mat _debugImage;
-  cv::Mat _debugImage2;
-  cv::Mat _debugImage3;
-  cv::Mat _debugImage4;
 };

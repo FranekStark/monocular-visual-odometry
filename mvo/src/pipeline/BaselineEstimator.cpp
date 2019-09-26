@@ -3,13 +3,13 @@
 //
 
 #include "BaselineEstimator.hpp"
-BaselineEstimator::BaselineEstimator(SlidingWindow &sliding_window,
-                                     PipelineStage &precursor,
+BaselineEstimator::BaselineEstimator(PipelineStage &precursor,
                                      unsigned int out_going_channel_size,
-                                     EpipolarGeometry &epipolarGeometry) : PipelineStage(sliding_window,
-                                                                                         precursor,
+                                     EpipolarGeometry &epipolarGeometry) : PipelineStage(precursor,
                                                                                          out_going_channel_size),
-                                                                           _epipolarGeometry(epipolarGeometry){ }
+                                                                           _epipolarGeometry(epipolarGeometry),
+                                                                           _baseLine(1)
+                                                                           { }
 Frame *BaselineEstimator::stage(Frame *newFrame) {
   if(_prevFrame == nullptr){ //If it is the first Frame
     SlidingWindow::setBaseLineToPrevious(*newFrame, cv::Vec3d(0,0,0));
@@ -43,7 +43,7 @@ Frame *BaselineEstimator::stage(Frame *newFrame) {
       }
     }
     /*Remove Outlier*/
-    SlidingWindow::removeFeaturesFromFrame(outlier, *newFrame); //TODO: don't remove, but delete the connections
+    SlidingWindow::disbandFeatureConnection(outlier, *newFrame); //TODO: don't remove, but delete the connections
     /* Vote for the sign of the Baseline, which generates the feweset negative Gradients */
     std::vector<double> depths, depthsNegate;
     auto bnegate = -1.0 * baseLine;
@@ -78,6 +78,10 @@ Frame *BaselineEstimator::stage(Frame *newFrame) {
   }
   //Pass through
   _prevFrame = newFrame;
+  _baseLine.enqueue(SlidingWindow::getBaseLineToPrevious(*newFrame));
   return newFrame;
+}
+BaselineEstimator::~BaselineEstimator() {
+
 }
 

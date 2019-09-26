@@ -4,7 +4,8 @@
 #include <opencv2/core.hpp>
 #include <vector>
 #include <image_geometry/pinhole_camera_model.h>
-#include "../Feature.hpp"
+#include "Feature.hpp"
+#include <mutex>
 
 enum FrameType {
   TEMP, PERSIST
@@ -16,12 +17,10 @@ struct Frame {
   image_geometry::PinholeCameraModel _cameraModel;
 
   cv::Vec3d _baseLine;
-  cv::Vec3d _position;
   cv::Matx33d _rotation;
 
   Frame *_preFrame;
-
-  FrameType _type;
+  mutable std::mutex _lock;
 };
 
 #endif //FRAME_HPP

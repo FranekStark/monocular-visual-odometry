@@ -3,18 +3,20 @@
 //
 
 #include "Refiner.hpp"
-Refiner::Refiner(SlidingWindow &sliding_window,
-                 PipelineStage &precursor,
+Refiner::Refiner(PipelineStage &precursor,
                  unsigned int out_going_channel_size,
                  IterativeRefinement &iterativeRefinement,
                  unsigned int numberToRefine)
-    : PipelineStage(sliding_window, precursor, out_going_channel_size),
+    : PipelineStage(precursor, out_going_channel_size),
       _iterativeRefinement(iterativeRefinement),
-      _ringBuffer(numberToRefine - 1)
+      _ringBuffer(numberToRefine - 1),
+      _baseLine(1)
       {
         assert(numberToRefine == 3);
         //Currently only 3 available
-
+#ifdef DEBUGIMAGES
+cv::namedWindow("RefinerImage", cv::WINDOW_NORMAL);
+#endif
       }
 
 Frame *Refiner::stage(Frame *newFrame) {
@@ -55,6 +57,15 @@ Frame *Refiner::stage(Frame *newFrame) {
   //Pass the frames through
   _ringBuffer.pop();
   _ringBuffer.push(newFrame);
+  if(_ringBuffer[0] != nullptr){
+    _baseLine.enqueue(SlidingWindow::getBaseLineToPrevious(_ringBuffer[0]));
+  }
   //Pass the _preFrame (now _prepreFrame, cause the old _prepreFrame is not part of Refinementwrite and only hold to get the values and Features)
   return _ringBuffer[0];
+}
+
+Refiner::~Refiner() {
+#ifdef DEBUGIMAGES
+cv::destroyWindow("RefinerImage");
+#endif
 }

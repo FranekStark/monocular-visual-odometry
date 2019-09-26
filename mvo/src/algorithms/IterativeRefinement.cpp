@@ -6,7 +6,7 @@
 #include <limits>
 
 
-IterativeRefinement::IterativeRefinement(SlidingWindow &slidingWindow) : _slidingWindow(slidingWindow) {
+IterativeRefinement::IterativeRefinement()  {
 }
 
 IterativeRefinement::~IterativeRefinement() {

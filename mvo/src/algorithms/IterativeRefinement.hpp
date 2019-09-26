@@ -1,5 +1,5 @@
 #include <opencv2/core.hpp>
-#include "sliding_window/SlidingWindow.hpp"
+#include "../sliding_window/SlidingWindow.hpp"
 //#include <opencv2/core/eigen.hpp>
 #include <eigen3/Eigen/Dense>
 #include <opencv2/core/eigen.hpp>
@@ -7,7 +7,6 @@
 
 class IterativeRefinement {
  private:
-  SlidingWindow &_slidingWindow;
 
   double THRESHOLD = 0.0001;
 
@@ -99,7 +98,7 @@ class IterativeRefinement {
     cv::Vec3d vec1;
   };
 
-  IterativeRefinement(SlidingWindow &slidingWindow);
+  IterativeRefinement();
 
   ~IterativeRefinement();
 

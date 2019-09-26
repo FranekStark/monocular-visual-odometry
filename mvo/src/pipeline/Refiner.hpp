@@ -6,23 +6,26 @@
 #define MVO_SRC_REFINER_HPP_
 
 #include "PipelineStage.h"
-#include "IterativeRefinement.hpp"
-#include "nils_lib/Ringbuffer.hpp"
+#include "../algorithms/IterativeRefinement.hpp"
+#include "../nils_lib/Ringbuffer.hpp"
+#include "../operations/VisualisationUtils.hpp"
+#include "../mvo.hpp"
 
 class Refiner: PipelineStage {
  private:
 
   IterativeRefinement & _iterativeRefinement;
   RingBuffer<Frame *> _ringBuffer;
+  Frame *stage(Frame *newFrame) override;
 
  public:
-  Refiner(SlidingWindow &sliding_window,
-          PipelineStage &precursor,
+  Refiner(PipelineStage &precursor,
           unsigned int out_going_channel_size,
           IterativeRefinement &iterativeRefinement, unsigned int numberToRefine);
   ~Refiner();
- private:
-  Frame *stage(Frame *newFrame) override;
+
+  Channel _baseLine;
+
 
 };
 

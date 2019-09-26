@@ -6,9 +6,10 @@
 #define MVO_SRC_TRACKERDETECTOR_HPP_
 
 #include "PipelineStage.h"
-#include "sliding_window/SlidingWindow.hpp"
-#include "FeatureOperations.h"
-#include "mvo.hpp"
+#include "../sliding_window/SlidingWindow.hpp"
+#include "../operations/FeatureOperations.h"
+#include "../mvo.hpp"
+#include "../operations/VisualisationUtils.hpp"
 
 class TrackerDetector : PipelineStage{
  private:
@@ -23,8 +24,7 @@ class TrackerDetector : PipelineStage{
   void detect(Frame & newFrame, unsigned int number);
 
  public:
-  TrackerDetector(SlidingWindow &slidingWindow,
-                  PipelineStage &precursor,
+  TrackerDetector(PipelineStage &precursor,
                   unsigned int outGoingChannelSize,
                   CornerTracking &cornerTracking,
                   unsigned int number);

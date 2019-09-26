@@ -18,7 +18,8 @@ MVO_node::MVO_node(ros::NodeHandle nh, ros::NodeHandle pnh)
       _cameraInfoSubscriber(_nodeHandle, "/camera_ueye/camera_info", 10),
       _imuSubscriber(_nodeHandle, "/imu/data", 100),
       _synchronizer(SyncPolicie(200), _imageSubscriber, _cameraInfoSubscriber, _imuSubscriber),
-      _transformWorldToCamera(0, 0, 1, -1, 0, 0, 0, -1, 0) {
+      _transformWorldToCamera(0, 0, 1, -1, 0, 0, 0, -1, 0),
+      _mvo(std::function<(void) cv::Point3d>(), 0, std::function<(void) cv::Point3d>()) {
 
   this->init();
 }
