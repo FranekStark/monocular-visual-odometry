@@ -39,7 +39,7 @@ MVO::MVO(std::function<void(cv::Point3d, cv::Matx33d)> estimatedPositionCallback
   // Set Threadnames:
   Utils::SetThreadName(&_trackerThread, "TrackerDetector");
   Utils::SetThreadName(&_mergerThread,"Merger");
-  Utils::SetThreadName(&_estimatorThread, "BaselineEstimator");
+  Utils::SetThreadName(&_estimatorThread, "Estimator");
   Utils::SetThreadName(&_refinerThread,"Refiner");
   Utils::SetThreadName(&_endThread,"Endthread");
   Utils::SetThreadName(&_estimatedCallbackThread, "CallbackEstimator");

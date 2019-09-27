@@ -9,7 +9,11 @@ BaselineEstimator::BaselineEstimator(PipelineStage &precursor,
                                                                                          out_going_channel_size),
                                                                            _prevFrame(nullptr),
                                                                            _epipolarGeometry(epipolarGeometry),
-                                                                           _baseLine(1) {}
+                                                                           _baseLine(1) {
+#ifdef DEBUGIMAGES
+  cv::namedWindow("EstimatorImage");
+#endif
+}
 Frame *BaselineEstimator::stage(Frame *newFrame) {
   if (_prevFrame == nullptr) { //If it is the first Frame
     SlidingWindow::setBaseLineToPrevious(*newFrame, cv::Vec3d(0, 0, 0));
@@ -81,6 +85,13 @@ Frame *BaselineEstimator::stage(Frame *newFrame) {
     baseLine = beforeRotaton * baseLine;
     /* Save Movement */
     SlidingWindow::setBaseLineToPrevious(*newFrame, baseLine);
+#ifdef DEBUGIMAGES
+    cv::Mat image(SlidingWindow::getImage(*newFrame).size(), CV_8UC3);
+    VisualisationUtils::drawCorrespondences(*_prevFrame, *newFrame, image);
+    VisualisationUtils::drawMovementDebug(*newFrame, cv::Scalar(0,0,255), image,0);
+    cv::imshow("EstimatorImage", image);
+    cv::waitKey(10);
+#endif
   }
   //Pass through
   _prevFrame = newFrame;
@@ -88,6 +99,8 @@ Frame *BaselineEstimator::stage(Frame *newFrame) {
   return newFrame;
 }
 BaselineEstimator::~BaselineEstimator() {
-
+#ifdef DEBUGIMAGES
+  cv::destroyWindow("EstimatorImage");
+#endif
 }
 

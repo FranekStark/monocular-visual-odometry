@@ -9,6 +9,7 @@
 #include "../algorithms/EpipolarGeometry.hpp"
 #include "../operations/FeatureOperations.h"
 #include "OdomData.hpp"
+#include "../operations/VisualisationUtils.hpp"
 
 class BaselineEstimator: public PipelineStage {
  private:
