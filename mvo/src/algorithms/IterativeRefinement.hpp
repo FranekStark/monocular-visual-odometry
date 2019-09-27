@@ -101,9 +101,9 @@ class IterativeRefinement {
     cv::Vec3d vec1;
   };
 
-  IterativeRefinement();
+  IterativeRefinement() = default;
 
-  ~IterativeRefinement();
+  ~IterativeRefinement() = default;
 
   void refine(RefinementDataCV &refinementData);
 

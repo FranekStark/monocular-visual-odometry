@@ -6,14 +6,13 @@
 #define MVO_SRC_PIPELINE_PIPELINEEND_HPP_
 #include "PipelineStage.h"
 
-class PipeLineEnd : PipelineStage{
+class PipeLineEnd : public PipelineStage{
  private:
   Frame * _lastFrame;
   Frame *stage(Frame *newFrame) override;
  public:
-  virtual ~PipeLineEnd();
-  PipeLineEnd(PipelineStage *precursor);
-
+  ~PipeLineEnd() override = default;
+  PipeLineEnd(PipelineStage &precursor);
 
 };
 

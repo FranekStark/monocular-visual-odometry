@@ -9,7 +9,7 @@
 #include "../algorithms/IterativeRefinement.hpp"
 #include "../nils_lib/Ringbuffer.hpp"
 #include "../operations/VisualisationUtils.hpp"
-
+#include "OdomData.hpp"
 
 
 class Refiner: public PipelineStage {
@@ -25,7 +25,7 @@ class Refiner: public PipelineStage {
           IterativeRefinement &iterativeRefinement, unsigned int numberToRefine);
   ~Refiner();
 
-  Channel<cv::Vec3d> _baseLine;
+  Channel<OdomData> _baseLine;
 
 
 };

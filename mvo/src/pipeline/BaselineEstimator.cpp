@@ -7,16 +7,18 @@ BaselineEstimator::BaselineEstimator(PipelineStage &precursor,
                                      unsigned int out_going_channel_size,
                                      EpipolarGeometry &epipolarGeometry) : PipelineStage(&precursor,
                                                                                          out_going_channel_size),
+                                                                           _prevFrame(nullptr),
                                                                            _epipolarGeometry(epipolarGeometry),
-                                                                           _baseLine(1)
-                                                                           { }
+                                                                           _baseLine(1) {}
 Frame *BaselineEstimator::stage(Frame *newFrame) {
-  if(_prevFrame == nullptr){ //If it is the first Frame
-    SlidingWindow::setBaseLineToPrevious(*newFrame, cv::Vec3d(0,0,0));
-  }else {
+  if (_prevFrame == nullptr) { //If it is the first Frame
+    SlidingWindow::setBaseLineToPrevious(*newFrame, cv::Vec3d(0, 0, 0));
+  } else {
     /* Get CorrespondingFeatures */
     std::vector<cv::Vec3d> beforeCorespFeaturesE, thisCorespFeaturesUnrotatedE, thisCorespFeaturesE;
-    SlidingWindow::getCorrespondingFeatures<cv::Vec3d>(*_prevFrame, *newFrame, {&beforeCorespFeaturesE, &thisCorespFeaturesE});
+    SlidingWindow::getCorrespondingFeatures<cv::Vec3d>(*_prevFrame,
+                                                       *newFrame,
+                                                       {&beforeCorespFeaturesE, &thisCorespFeaturesE});
     /* Unroate the Features */
     auto beforeRotaton = SlidingWindow::getRotation(*_prevFrame);
     auto thisRotation = SlidingWindow::getRotation(*newFrame);
@@ -48,7 +50,11 @@ Frame *BaselineEstimator::stage(Frame *newFrame) {
     std::vector<double> depths, depthsNegate;
     auto bnegate = -1.0 * baseLine;
     FeatureOperations::reconstructDepth(depths, thisCorespFeaturesE, beforeCorespFeaturesE, diffRotation, baseLine);
-   FeatureOperations::reconstructDepth(depthsNegate, thisCorespFeaturesE, beforeCorespFeaturesE, diffRotation, bnegate);
+    FeatureOperations::reconstructDepth(depthsNegate,
+                                        thisCorespFeaturesE,
+                                        beforeCorespFeaturesE,
+                                        diffRotation,
+                                        bnegate);
     unsigned int negCountb = 0;
     unsigned int negCountbnegate = 0;
     assert(depths.size() == depthsNegate.size());
@@ -78,7 +84,7 @@ Frame *BaselineEstimator::stage(Frame *newFrame) {
   }
   //Pass through
   _prevFrame = newFrame;
-  _baseLine.enqueue(SlidingWindow::getBaseLineToPrevious(*newFrame));
+  _baseLine.enqueue({SlidingWindow::getBaseLineToPrevious(*newFrame), SlidingWindow::getRotation(*newFrame)});
   return newFrame;
 }
 BaselineEstimator::~BaselineEstimator() {

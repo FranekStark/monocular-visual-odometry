@@ -28,7 +28,7 @@ class EpipolarGeometry {
  public:
   EpipolarGeometry();
 
-  ~EpipolarGeometry();
+  ~EpipolarGeometry() = default;
 
   cv::Vec3d estimateBaseLine(const std::vector<cv::Vec3d> &mhi, const std::vector<cv::Vec3d> &mt,
                              std::vector<unsigned int> &inlierIndexes);

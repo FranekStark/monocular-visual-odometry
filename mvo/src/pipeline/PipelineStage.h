@@ -8,6 +8,7 @@
 #include "../sliding_window/SlidingWindow.hpp"
 #include "../pareigis_lib/Channel.hpp"
 #include <ros/ros.h>
+#include "../Utils.hpp"
 
 class PipelineStage {
  protected:

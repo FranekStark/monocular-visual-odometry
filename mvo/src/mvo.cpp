@@ -4,8 +4,8 @@
 #include <map>
 #include <random>
 
-MVO::MVO(std::function<void(cv::Point3d)> estimatedPositionCallback,
-         std::function<void(cv::Point3d)> refinedPositionCallback) :
+MVO::MVO(std::function<void(cv::Point3d, cv::Matx33d)> estimatedPositionCallback,
+         std::function<void(cv::Point3d, cv::Matx33d)> refinedPositionCallback) :
     _estimatedPosition(0, 0, 0),
     _refinedPosition(0, 0, 0),
     _estimatedCallbackFunction(estimatedPositionCallback),
@@ -14,43 +14,56 @@ MVO::MVO(std::function<void(cv::Point3d)> estimatedPositionCallback,
     _merger(_trackerDetector, 10, 0.001, 0.4),
     _baseLineEstimator(_merger, 100, _epipolarGeometry),
     _refiner(_baseLineEstimator, 4, _iterativeRefinement, 3),
-    _end(&_refiner),
-    _trackerThread(&_trackerDetector),
-    _mergerThread(&_merger),
-    _estimatorThread(&_baseLineEstimator),
-    _refinerThread(&_refiner),
-    _endThread(&_end),
+    _end(_refiner),
+    _trackerThread(std::ref(_trackerDetector)),
+    _mergerThread(std::ref(_merger)),
+    _estimatorThread(std::ref(_baseLineEstimator)),
+    _refinerThread(std::ref(_refiner)),
+    _endThread(std::ref(_end)),
     _estimatedCallbackThread([this](){
       do {
         auto baseLine = _baseLineEstimator._baseLine.dequeue();
-        _estimatedPosition = _estimatedPosition + cv::Point3d(baseLine);
-        _estimatedCallbackFunction(_estimatedPosition);
+        _estimatedPosition = _estimatedPosition + cv::Point3d(baseLine.position);
+        _estimatedCallbackFunction(_estimatedPosition, baseLine.orientation);
       }while(ros::ok());
     }),
     _refinedCallbackThread([this](){
       do {
         auto baseLine = _refiner._baseLine.dequeue();
-        _refinedPosition = _refinedPosition + cv::Point3d(baseLine);
-        _refinedCallbackFunction(_refinedPosition);
+        _refinedPosition = _refinedPosition + cv::Point3d(baseLine.position);
+        _refinedCallbackFunction(_refinedPosition, baseLine.orientation);
       }while(ros::ok());
     })
 
 {
-
+  // Set Threadnames:
+  Utils::SetThreadName(&_trackerThread, "TrackerDetector");
+  Utils::SetThreadName(&_mergerThread,"Merger");
+  Utils::SetThreadName(&_estimatorThread, "BaselineEstimator");
+  Utils::SetThreadName(&_refinerThread,"Refiner");
+  Utils::SetThreadName(&_endThread,"Endthread");
+  Utils::SetThreadName(&_estimatedCallbackThread, "CallbackEstimator");
+  Utils::SetThreadName(&_refinedCallbackThread,"CallbackRefiner");
 }
-void MVO::newImage(const cv::Mat image, const image_geometry::PinholeCameraModel &cameraModel, const cv::Matx33d &R) {
+
+
+void MVO::newImage(const cv::Mat &image, const image_geometry::PinholeCameraModel &cameraModel, const cv::Matx33d &R) {
   auto pyramideImage = _cornerTracking.createPyramide(image);
   //Creates Frame:
-  Frame *frame = new Frame;
+  auto *frame = new Frame;
   frame->_preFrame = _prevFrame;
-  frame->_image = pyramideImage;
+  frame->_imagePyramide = pyramideImage;
   frame->_rotation = R;
   frame->_cameraModel = cameraModel;
+  _prevFrame = frame;
   pipeIn(frame);
+  LOG_DEBUG("New Frame Created and Piped in: " << frame);
 }
 
 
+MVO::~MVO() {
 
+}
 
 
 

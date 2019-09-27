@@ -22,7 +22,7 @@ class Merger : public PipelineStage {
          unsigned int outGoingChannelSize,
          double sameThreshold,
          double movementThreshold);
-  ~Merger();
+  ~Merger() override;
   Frame* stage(Frame * newFrame) override;
 };
 

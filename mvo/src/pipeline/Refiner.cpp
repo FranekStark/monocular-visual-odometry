@@ -58,7 +58,7 @@ Frame *Refiner::stage(Frame *newFrame) {
   _ringBuffer.pop();
   _ringBuffer.push(newFrame);
   if(_ringBuffer[0] != nullptr){
-    _baseLine.enqueue(SlidingWindow::getBaseLineToPrevious(*_ringBuffer[0]));
+    _baseLine.enqueue({SlidingWindow::getBaseLineToPrevious(*_ringBuffer[0]), SlidingWindow::getRotation(*_ringBuffer[0])});
   }
   //Pass the _preFrame (now _prepreFrame, cause the old _prepreFrame is not part of Refinementwrite and only hold to get the values and Features)
   return _ringBuffer[0];

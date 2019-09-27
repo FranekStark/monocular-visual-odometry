@@ -19,7 +19,12 @@ MVO_node::MVO_node(ros::NodeHandle nh, ros::NodeHandle pnh)
       _imuSubscriber(_nodeHandle, "/imu/data", 100),
       _synchronizer(SyncPolicie(200), _imageSubscriber, _cameraInfoSubscriber, _imuSubscriber),
       _transformWorldToCamera(0, 0, 1, -1, 0, 0, 0, -1, 0),
-      _mvo(std::function<(void) cv::Point3d>(), 0, std::function<(void) cv::Point3d>()) {
+      _mvo([this](cv::Point3d position, cv::Matx33d orientation){
+          this->publishEstimatedPosition(position, orientation);
+        },
+            [this](cv::Point3d position, cv::Matx33d orientation){
+        this->publishRefinedPosition(position, orientation);
+      }) {
 
   this->init();
 }
@@ -28,19 +33,29 @@ MVO_node::~MVO_node() {
 }
 
 void MVO_node::init() {
+  //Set Log-Level:
+  if( ros::console::set_logger_level(ROSCONSOLE_DEFAULT_NAME, ros::console::levels::Debug) ) {
+    ros::console::notifyLoggerLevelsChanged();
+  }
+
   _dynamicConfigCallBackType = boost::bind(&MVO_node::dynamicConfigCallback, this, _1, _2);
   _dynamicConfigServer.setCallback(_dynamicConfigCallBackType);
-  _odomPublisher = _nodeHandle.advertise<nav_msgs::Odometry>("odom", 10, true);
-  _debugImagePublisher = _imageTransport.advertise("debug/image", 3, true);
+  _estimatedOdomPublisher = _nodeHandle.advertise<nav_msgs::Odometry>("odom_estimated", 10, true);
+  _refinedOdomPublisher = _nodeHandle.advertise<nav_msgs::Odometry>("odom_refined", 10, true);
+  /*_debugImagePublisher = _imageTransport.advertise("debug/image", 3, true);
   _debugImage2Publisher = _imageTransport.advertise("debug/image2", 3, true);
   _debugImage3Publisher = _imageTransport.advertise("debug/image3", 3, true);
-  _debugImage4Publisher = _imageTransport.advertise("debug/image4", 3, true);
+  _debugImage4Publisher = _imageTransport.advertise("debug/image4", 3, true);*/
   _synchronizer.registerCallback(boost::bind(&MVO_node::imageCallback, this, _1, _2, _3));
+
+  //Callbacks
 
 }
 
 void MVO_node::imageCallback(const sensor_msgs::ImageConstPtr &image, const sensor_msgs::CameraInfoConstPtr &camInfo,
                              const sensor_msgs::ImuConstPtr &imu) {
+
+ LOG_DEBUG("Image Callback");
   /**
    * Convert the Image and the CameraInfo
    **/
@@ -65,70 +80,11 @@ void MVO_node::imageCallback(const sensor_msgs::ImageConstPtr &image, const sens
   /**
    * Call the Algorithm
    **/
-  //auto od = _mvo.handleImage(bridgeImage->image, model, orientationMatCV);
+  _mvo.newImage(bridgeImage->image, model, orientationMatCV);
 
-  /**
-   * Reproject TO World Coordinates
-   */
-  od.b = _transformWorldToCamera * od.b;
-  od.s = _transformWorldToCamera * od.s;
-  orientationMatCV = _transformWorldToCamera * od.o * _transformWorldToCamera.t();
-
-
-  /**
-   * Reconvert
-   **/
-  orientationMat[0][0] = orientationMatCV(0, 0);
-  orientationMat[0][1] = orientationMatCV(0, 1);
-  orientationMat[0][2] = orientationMatCV(0, 2);
-  orientationMat[1][0] = orientationMatCV(1, 0);
-  orientationMat[1][1] = orientationMatCV(1, 1);
-  orientationMat[1][2] = orientationMatCV(1, 2);
-  orientationMat[2][0] = orientationMatCV(2, 0);
-  orientationMat[2][1] = orientationMatCV(2, 1);
-  orientationMat[2][2] = orientationMatCV(2, 2);
-  orientationMat.getRotation(orientationQuat);
-
-
-
-  /**
-   * Pack Message and Publish
-   **/
-  nav_msgs::Odometry odomMsg;
-  odomMsg.header.stamp = ros::Time::now();
-  odomMsg.header.frame_id = "odom";
-  odomMsg.child_frame_id = "base_footprint";
-  odomMsg.pose.pose.position.x = od.s(0);
-  odomMsg.pose.pose.position.y = od.s(1);
-  odomMsg.pose.pose.position.z = od.s(2);
-  odomMsg.pose.pose.orientation.w = orientationQuat.getW();
-  odomMsg.pose.pose.orientation.x = orientationQuat.getX();
-  odomMsg.pose.pose.orientation.y = orientationQuat.getY();
-  odomMsg.pose.pose.orientation.z = orientationQuat.getZ();
-  odomMsg.twist.twist.linear.x = od.b(0);
-  odomMsg.twist.twist.linear.y = od.b(1);
-  odomMsg.twist.twist.linear.z = od.b(2);
-  _odomPublisher.publish(odomMsg);
-
-  /**
-   * Pack Tranform and Publish
-   **/
-  geometry_msgs::TransformStamped transformMsg;
-  transformMsg.header.stamp = ros::Time::now();
-  transformMsg.header.frame_id = "odom";
-  transformMsg.child_frame_id = "base_footprint";
-  transformMsg.transform.translation.x = od.s(0);
-  transformMsg.transform.translation.y = od.s(1);
-  transformMsg.transform.translation.z = od.s(2);
-  transformMsg.transform.rotation.w = orientationQuat.getW();
-  transformMsg.transform.rotation.x = orientationQuat.getX();
-  transformMsg.transform.rotation.y = orientationQuat.getY();
-  transformMsg.transform.rotation.z = orientationQuat.getZ();
-  _odomTfBroadcaster.sendTransform(transformMsg);
-
-  /**
+/*  *//**
    * Pack DebugImages and Publish
-   */
+   *//*
   std_msgs::Header header;
   header.stamp = ros::Time::now();
   header.frame_id = "camera_link";
@@ -139,12 +95,67 @@ void MVO_node::imageCallback(const sensor_msgs::ImageConstPtr &image, const sens
   cv_bridge::CvImage debugImage3(header, "rgb8", _mvo._debugImage3);
   _debugImage3Publisher.publish(debugImage3.toImageMsg());
   cv_bridge::CvImage debugImage4(header, "rgb8", _mvo._debugImage4);
-  _debugImage4Publisher.publish(debugImage4.toImageMsg());
+  _debugImage4Publisher.publish(debugImage4.toImageMsg());*/
 }
 
 void MVO_node::dynamicConfigCallback(mvo::mvoConfig &config, uint32_t level) {
   (void) (level);  // TODO: unused
-  _mvo._cornerTracker.setCornerDetectorParams(config.block_size, config.minDifPercent, config.qualityLevel,
-                                              config.trackerWindowSize, config.maxPyramideLevel);
-  _mvo.setParameters(config.numberOfFeatures, config.disparityThreshold);
+  (void) (config);
+  ROS_ERROR("Not implemented!");
+}
+
+void MVO_node::publishEstimatedPosition(cv::Point3d position, cv::Matx33d orientation) {
+  //Pack Message
+  nav_msgs::Odometry odomMsg;
+  odomMsg.header.stamp = ros::Time::now(); //TODO: Time of Image?
+  odomMsg.header.frame_id = "odom";
+  odomMsg.child_frame_id = "base_footprint";
+  odomMsg.pose.pose = worldPoseFromCameraPosition(position, orientation);
+  //Publish
+  _estimatedOdomPublisher.publish(odomMsg);
+}
+void MVO_node::publishRefinedPosition(cv::Point3d position, cv::Matx33d orientation) {
+  //Pack Message
+  nav_msgs::Odometry odomMsg;
+  odomMsg.header.stamp = ros::Time::now(); //TODO: Time of Image?
+  odomMsg.header.frame_id = "odom";
+  odomMsg.child_frame_id = "base_footprint";
+  odomMsg.pose.pose = worldPoseFromCameraPosition(position, orientation);
+  //Publish
+  _refinedOdomPublisher.publish(odomMsg);
+}
+geometry_msgs::Pose MVO_node::worldPoseFromCameraPosition(const cv::Point3d &position, const cv::Matx33d &orientation) {
+  /**
+   * Reproject TO World Coordinates
+   */
+  auto positionWorld = _transformWorldToCamera * position;
+  auto orientationWorldCV = _transformWorldToCamera * orientation * _transformWorldToCamera.t();
+  tf2::Matrix3x3 orientationMat;
+  /**
+   * Reconvert
+   **/
+  orientationMat[0][0] = orientationWorldCV(0, 0);
+  orientationMat[0][1] = orientationWorldCV(0, 1);
+  orientationMat[0][2] = orientationWorldCV(0, 2);
+  orientationMat[1][0] = orientationWorldCV(1, 0);
+  orientationMat[1][1] = orientationWorldCV(1, 1);
+  orientationMat[1][2] = orientationWorldCV(1, 2);
+  orientationMat[2][0] = orientationWorldCV(2, 0);
+  orientationMat[2][1] = orientationWorldCV(2, 1);
+  orientationMat[2][2] = orientationWorldCV(2, 2);
+  tf2::Quaternion orientationQuat;
+  orientationMat.getRotation(orientationQuat);
+  /**
+   * Pack
+   **/
+  geometry_msgs::Pose pose;
+  pose.position.x = positionWorld.x;
+  pose.position.y = positionWorld.y;
+  pose.position.z = positionWorld.z;
+  pose.orientation.y = orientationQuat.getY();
+  pose.orientation.w = orientationQuat.getW();
+  pose.orientation.z = orientationQuat.getZ();
+  pose.orientation.x = orientationQuat.getX();
+  //Return Position
+  return pose;
 }

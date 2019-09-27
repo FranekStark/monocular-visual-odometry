@@ -1,3 +1,6 @@
+#ifndef MVO_SRC_MVO_NODE_HPP_
+#define MVO_SRC_MVO_NODE_HPP_
+
 #include <ros/ros.h>
 #include <image_transport/image_transport.h>
 #include <image_transport/subscriber_filter.h>
@@ -18,6 +21,7 @@
 #include <message_filters/subscriber.h>
 #include <message_filters/sync_policies/approximate_time.h>
 #include "mvo.hpp"
+#include "Utils.hpp"
 
 class MVO_node {
  private:
@@ -31,22 +35,25 @@ class MVO_node {
   message_filters::Subscriber<sensor_msgs::CameraInfo> _cameraInfoSubscriber;
   message_filters::Subscriber<sensor_msgs::Imu> _imuSubscriber;
   message_filters::Synchronizer<SyncPolicie> _synchronizer;
-  tf2_ros::TransformBroadcaster _odomTfBroadcaster;
-  ros::Publisher _odomPublisher;
-
+  //tf2_ros::TransformBroadcaster _odomTfBroadcaster;
+  ros::Publisher _estimatedOdomPublisher;
+  ros::Publisher _refinedOdomPublisher;
   dynamic_reconfigure::Server<mvo::mvoConfig> _dynamicConfigServer;
   dynamic_reconfigure::Server<mvo::mvoConfig>::CallbackType _dynamicConfigCallBackType;
 
-  image_transport::Publisher _debugImagePublisher;
+  /*image_transport::Publisher _debugImagePublisher;
   image_transport::Publisher _debugImage2Publisher;
   image_transport::Publisher _debugImage3Publisher;
-  image_transport::Publisher _debugImage4Publisher;
-
-  MVO _mvo;
+  image_transport::Publisher _debugImage4Publisher;*/
 
   cv::Matx33d _transformWorldToCamera;
 
+  MVO _mvo;
+
   void init();
+
+  geometry_msgs::Pose worldPoseFromCameraPosition(const cv::Point3d & position, const cv::Matx33d & orientation);
+
 
  public:
   MVO_node(ros::NodeHandle nh, ros::NodeHandle pnh);
@@ -57,4 +64,10 @@ class MVO_node {
                      const sensor_msgs::ImuConstPtr &);
 
   void dynamicConfigCallback(mvo::mvoConfig &config, uint32_t level);
+
+  void publishEstimatedPosition(cv::Point3d position, cv::Matx33d orientation);
+  void publishRefinedPosition(cv::Point3d position, cv::Matx33d orientation);
+
+
 };
+#endif //MVO_SRC_MVO_NODE_HPP_

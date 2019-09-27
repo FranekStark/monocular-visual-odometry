@@ -9,6 +9,8 @@ Merger::Merger(PipelineStage &precursor,
                double sameThreshold,
                double movementThreshold) :
     PipelineStage(&precursor, outGoingChannelSize),
+    _preFrame(nullptr),
+    _keepFrame(nullptr),
     _sameDisparityThreshold(sameThreshold),
     _movementDisparityThreshold(movementThreshold) {
 #ifdef DEBUGIMAGES
@@ -17,16 +19,24 @@ Merger::Merger(PipelineStage &precursor,
 }
 
 Frame *Merger::stage(Frame *newFrame) {
-  if (_preFrame == nullptr) { //In Case its the first Frame -> FastPipe
+if (_preFrame == nullptr) { //In Case its the first Frame -> FastPipe
     _preFrame = newFrame;
     return _preFrame;
+  }else if(_keepFrame == nullptr){
+    _keepFrame = newFrame;
+  }else{
+    //In every 'disparity-Case' we do the Update to the _keeptFrame, cause we need new Locations
+    SlidingWindow::updateFrame(*_keepFrame, *newFrame);
+    _keepFrame = newFrame; //_keepFrame is deleted through Update-Function
   }
 
-  //Calculate Disparity between preFrame and the new Frame
-  std::vector<cv::Vec3d> preCorrespondingFeatures, newCorrespondingFeatures, newCorrespondingFeaturesUnrotated;
-  SlidingWindow::getCorrespondingFeatures<cv::Vec3d>(*_preFrame,
-                                                     *newFrame,
-                                                     {&preCorrespondingFeatures, &newCorrespondingFeatures});
+  //Calculate Disparity between keepFrame and preFrame
+  std::vector<cv::Vec3d> preCorrespondingFeatures, newCorrespondingFeatures,
+      newCorrespondingFeaturesUnrotated;
+
+  SlidingWindow::getCorrespondingFeatures(*_preFrame, *_keepFrame, preCorrespondingFeatures, newCorrespondingFeatures);
+
+  //Rotate Features to previousframe to only measure the difference caused by movement not rotation
   auto preRotation = SlidingWindow::getRotation(*_preFrame);
   auto nowRotation = SlidingWindow::getRotation(*newFrame);
   auto diffRotation = preRotation.t() * nowRotation;
@@ -34,31 +44,32 @@ Frame *Merger::stage(Frame *newFrame) {
   auto disparity = FeatureOperations::calcDisparity(preCorrespondingFeatures, newCorrespondingFeaturesUnrotated);
 #ifdef DEBUGIMAGES
   if (newFrame->_preFrame != nullptr) {
-    cv::Mat image = SlidingWindow::getImage(*newFrame).clone();
-    VisualisationUtils::drawFeaturesUnrotated(*newFrame, image);
+    std::vector<cv::Point2f> preCorespF, nowCorespF, nowCorespFU;
+    FeatureOperations::euclidUnNormFeatures(preCorrespondingFeatures,
+                                            preCorespF,
+                                            SlidingWindow::getCameraModel(*_preFrame));
+    FeatureOperations::euclidUnNormFeatures(newCorrespondingFeatures,
+                                            nowCorespF,
+                                            SlidingWindow::getCameraModel(*newFrame));
+    FeatureOperations::euclidUnNormFeatures(newCorrespondingFeaturesUnrotated,
+                                            nowCorespFU,
+                                            SlidingWindow::getCameraModel(*newFrame));
+
+    cv::Mat image;
+    cv::cvtColor(SlidingWindow::getImage(*newFrame), image, cv::COLOR_GRAY2BGR);
+    VisualisationUtils::drawFeaturesUnrotated(image, preCorespF, nowCorespF, nowCorespFU);
+    cv::imshow("MergerImage", image);
+    cv::waitKey(10);
   }
 #endif
   //Casedifferntation based on amount of the difference
   if (disparity <= _sameDisparityThreshold) { //Threat the new Frame as if where on the SAME position as preFrame
     //Merge the new Frame onto the preFrame
     SlidingWindow::mergeFrame(*_preFrame, *newFrame);
-    //That will automaticly delete the Frame between, so:
-    ///keep_preFrame = _preFrame;
-    _keepFrame = newFrame;
     return nullptr; //Hold PipeLine
   } else if (disparity <= _movementDisparityThreshold) { //Not enough disparity, HOLD Pipeline
-    //Update the keep Frame with the new Frame, if there is one
-    if (_keepFrame != nullptr) {
-      SlidingWindow::updateFrame(*_keepFrame, *newFrame);
-    }
-    //Above deletes the _keepFrame or maybe there was no _keepFrame so:
-    _keepFrame = newFrame;
     return nullptr; //Hold PipeLine
   } else { //Enough Disparity
-    //Update the keept, if there is one:
-    if (_keepFrame != nullptr) {
-      SlidingWindow::updateFrame(*_keepFrame, *newFrame);
-    }
     //Calculate the correct prefeaturecounter:
     SlidingWindow::calculateFeaturePreCounter(*newFrame);
     //Pipethrough

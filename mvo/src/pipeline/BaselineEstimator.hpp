@@ -8,6 +8,7 @@
 #include "PipelineStage.h"
 #include "../algorithms/EpipolarGeometry.hpp"
 #include "../operations/FeatureOperations.h"
+#include "OdomData.hpp"
 
 class BaselineEstimator: public PipelineStage {
  private:
@@ -17,9 +18,9 @@ class BaselineEstimator: public PipelineStage {
   BaselineEstimator(PipelineStage &precursor,
                     unsigned int out_going_channel_size,
                     EpipolarGeometry &epipolarGeometry);
-  ~BaselineEstimator();
+  ~BaselineEstimator() override ;
   Frame *stage(Frame *newFrame) override;
-  Channel<cv::Vec3d> _baseLine;
+  Channel<OdomData> _baseLine;
 
 };
 

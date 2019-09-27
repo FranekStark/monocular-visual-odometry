@@ -10,11 +10,8 @@ EpipolarGeometry::EpipolarGeometry() :
 
 }
 
-EpipolarGeometry::~EpipolarGeometry() {
-}
-
 unsigned int EpipolarGeometry::estimateNumberOfIteration(unsigned int N, double inlierProbability, unsigned int s) {
-  unsigned int nInlier = N * inlierProbability;  // Anzahl der Inlier im Datensatz für die inlierProbability
+  unsigned int nInlier = int(N * inlierProbability);  // Anzahl der Inlier im Datensatz für die inlierProbability
   unsigned int m = boost::math::binomial_coefficient<double>(nInlier, s);  // n über k -> 3 aus N -> Alle
   // Möglichkeiten 3 aus Inlier zu nehmen
   unsigned int n = boost::math::binomial_coefficient<double>(N, s);        // Alle Möglichkeiten 3 aus allen

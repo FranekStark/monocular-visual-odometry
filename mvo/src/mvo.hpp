@@ -1,3 +1,7 @@
+
+#ifndef MVO_SRC_MVO_HPP_
+#define MVO_SRC_MVO_HPP_
+
 #include <opencv2/core/core.hpp>
 #include <opencv2/highgui/highgui.hpp>
 #include <opencv2/imgproc/imgproc.hpp>
@@ -7,7 +11,7 @@
 
 #include <image_geometry/pinhole_camera_model.h>
 
-#include <stdio.h>
+#include <cstdio>
 #include <list>
 
 #include "sliding_window/SlidingWindow.hpp"
@@ -20,18 +24,19 @@
 #include "pipeline/BaselineEstimator.hpp"
 #include "pipeline/Refiner.hpp"
 #include "pipeline/PipelineBegin.hpp"
-#include "pipeline/PipeLineEnd.cpp"
+#include "pipeline/PipeLineEnd.hpp"
 
 #include <eigen3/Eigen/Dense>
 #include <eigen3/Eigen/SVD>
 #include <functional>
 #include <thread>
-
+#include "Utils.hpp"
 
 #define PI 3.14159265
 
 #define DEBUGIMAGES
 #define MEASURETIME
+
 
 class MVO : public PipelineBegin {
  private:
@@ -44,8 +49,8 @@ class MVO : public PipelineBegin {
   /**
    * Callbackfunction
    */
-  std::function<void(cv::Point3d)> _estimatedCallbackFunction;
-  std::function<void(cv::Point3d)> _refinedCallbackFunction;
+  std::function<void(cv::Point3d, cv::Matx33d)> _estimatedCallbackFunction;
+  std::function<void(cv::Point3d, cv::Matx33d)> _refinedCallbackFunction;
 
   /**
    * Algorithms
@@ -82,10 +87,12 @@ class MVO : public PipelineBegin {
   Frame * _lastFrame;
 
  public:
-  MVO(std::function<void(cv::Point3d)> estimatedPositionCallback,
-      std::function<void(cv::Point3d)> refinedPositionCallback);
-  ~MVO();
+  MVO(std::function<void(cv::Point3d, cv::Matx33d)> estimatedPositionCallback,
+      std::function<void(cv::Point3d, cv::Matx33d)> refinedPositionCallback);
+  ~MVO() override;
 
-  void newImage(const cv::Mat image, const image_geometry::PinholeCameraModel &cameraModel, const cv::Matx33d &R);
+  void newImage(const cv::Mat &image, const image_geometry::PinholeCameraModel &cameraModel, const cv::Matx33d &R);
 
 };
+
+#endif //MVO_SRC_MVO_HPP_

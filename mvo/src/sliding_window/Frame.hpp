@@ -6,6 +6,7 @@
 #include <image_geometry/pinhole_camera_model.h>
 #include "Feature.hpp"
 #include <mutex>
+#include "../Utils.hpp"
 
 enum FrameType {
   TEMP, PERSIST
@@ -13,7 +14,7 @@ enum FrameType {
 
 struct Frame {
   std::vector<Feature> _features;
-  cv::Mat _image;
+  std::vector<cv::Mat> _imagePyramide;
   image_geometry::PinholeCameraModel _cameraModel;
 
   cv::Vec3d _baseLine;
@@ -21,6 +22,9 @@ struct Frame {
 
   Frame *_preFrame;
   mutable std::mutex _lock;
+
+  void lock() const;
+  void unlock() const;
 };
 
 #endif //FRAME_HPP

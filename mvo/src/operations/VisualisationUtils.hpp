@@ -5,8 +5,11 @@
 #ifndef MVO_SRC_VISULISATIONUTILS_HPP_
 #define MVO_SRC_VISULISATIONUTILS_HPP_
 
+#define DEBUGIMAGES
+
 #include <image_geometry/pinhole_camera_model.h>
 #include "../sliding_window/Frame.hpp"
+#include <opencv2/highgui.hpp>
 
 class VisualisationUtils {
  public:
@@ -46,10 +49,13 @@ class VisualisationUtils {
    * Draws the Features of the predecessor frame and this frame. the FEatures of this frame will pe drawed two Times.
    * First as they are and second unrotated to the predecessor. (As if the Camera i only moved but not Rotated)
    *
-   * @param frame this Frame
-   * @param image the image to draw to
+   * @param featuresBefore this Frame
+   * @param featuresNew the image to draw to
    */
-  static void drawFeaturesUnrotated(const Frame & frame, cv::Mat & image);
+  static void drawFeaturesUnrotated(cv::Mat &image,
+                                    const std::vector<cv::Point2f> &featuresBefore,
+                                    const std::vector<cv::Point2f> &featuresNew,
+                                    const std::vector<cv::Point2f> &featuresNewUnrotated);
 
 };
 

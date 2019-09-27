@@ -5,13 +5,6 @@
 
 #include <limits>
 
-
-IterativeRefinement::IterativeRefinement()  {
-}
-
-IterativeRefinement::~IterativeRefinement() {
-}
-
 void IterativeRefinement::refine(RefinementDataCV &refinementData) {
 
   RefinementDataEIG dataEIG;
@@ -58,9 +51,9 @@ void IterativeRefinement::refine(RefinementDataCV &refinementData) {
     // ceres::LossFunction *loss_function20 = new ceres::CauchyLoss(0.5);
     // ceres::LossFunction *loss_function21 = new ceres::CauchyLoss(0.5);
     // ceres::LossFunction *loss_function10 = new ceres::CauchyLoss(0.5);
-    ceres_problem.AddResidualBlock(cost_functiom20, NULL, vec0, vec1, scale0, scale1);
-    ceres_problem.AddResidualBlock(cost_functiom21, NULL, vec1);
-    ceres_problem.AddResidualBlock(cost_functiom10, NULL, vec0);
+    ceres_problem.AddResidualBlock(cost_functiom20, nullptr, vec0, vec1, scale0, scale1);
+    ceres_problem.AddResidualBlock(cost_functiom21, nullptr, vec1);
+    ceres_problem.AddResidualBlock(cost_functiom10, nullptr, vec0);
   }
 
   ceres::LocalParameterization
@@ -83,8 +76,8 @@ void IterativeRefinement::refine(RefinementDataCV &refinementData) {
 
   ROS_INFO_STREAM(ceres_summary.FullReport() << std::endl);
 
-  double n0 = scaleTemplated<double>(scale0[0]);  // T0
-  double n1 = scaleTemplated<double>(scale1[0]);  // T1
+  auto n0 = scaleTemplated<double>(scale0[0]);  // T0
+  auto n1 = scaleTemplated<double>(scale1[0]);  // T1
 
   cv::Vec3d u0 = cvt_eigen_cv(Eigen::Vector3d(vec0[0], vec0[1], vec0[2]));
   cv::Vec3d u1 = cvt_eigen_cv(Eigen::Vector3d(vec1[0], vec1[1], vec1[2]));

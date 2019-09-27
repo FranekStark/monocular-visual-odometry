@@ -9,9 +9,7 @@
 class CornerTracking {
  private:
   int _blockSize;
-  int _apertureSize;
   double _k;
-  int _thresh;
   double _minDifPercent;
   double _qualityLevel;
   cv::Size _windowSize;
@@ -20,13 +18,13 @@ class CornerTracking {
  public:
   CornerTracking();
 
-  ~CornerTracking();
+  ~CornerTracking() = default;
 
   void detectFeatures(std::vector<cv::Point2f> &corner, const cv::Mat &image, int numberToDetect,
                       const std::vector<cv::Point2f> &existingFeatures, cv::Rect2d &mask, bool forceDetection);
 
-  void trackFeatures(const cv::Mat &currentPyramide,
-                     const cv::Mat &previousPyramide,
+  void trackFeatures(const std::vector<cv::Mat> &currentPyramide,
+                     const std::vector<cv::Mat> &previousPyramide,
                      const std::vector<cv::Point2f> &prevFeatures,
                      std::vector<cv::Point2f> &trackedFeatures,
                      std::vector<unsigned char> &found,
@@ -39,7 +37,7 @@ class CornerTracking {
    * @param image the image from which the pyramide will be constrcuted (maybe reused in pyramide)
    * @return the pyramide
    */
-  cv::Mat createPyramide(cv::Mat image) const;
+  std::vector<cv::Mat> createPyramide(cv::Mat image) const;
 
 };
 

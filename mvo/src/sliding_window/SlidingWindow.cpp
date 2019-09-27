@@ -10,7 +10,7 @@ void SlidingWindow::addTrackedFeatures(const std::vector<cv::Point2f> &trackedFe
                                        const std::vector<cv::Vec3d> &trackedFeaturesNowE,
                                        const std::vector<unsigned char> &found,
                                        Frame &frame) {
-  frame._lock.lock();
+  frame.lock();
   assert(frame._preFrame != nullptr);
   assert(trackedFeaturesNow.size() == trackedFeaturesNowE.size());
   assert(found.size() == trackedFeaturesNowE.size());
@@ -34,14 +34,14 @@ void SlidingWindow::addTrackedFeatures(const std::vector<cv::Point2f> &trackedFe
     trackedFeatureE++;
     featureFound++;
   }
-  frame._lock.unlock();
+  frame.unlock();
 }
 
 void SlidingWindow::addFeaturesToFrame(Frame &frame,
                                        const std::vector<cv::Point2f> &features,
                                        const std::vector<cv::Vec3d> &featuresE) {
   assert(features.size() == featuresE.size());
-  frame._lock.lock();
+  frame.lock();
   frame._features.reserve(features.size());
   auto featureIT = features.begin();
   auto featureEIT = featuresE.begin();
@@ -50,78 +50,14 @@ void SlidingWindow::addFeaturesToFrame(Frame &frame,
     featureEIT++;
     featureIT++;
   }
-  frame._lock.unlock();
+  frame.unlock();
 }
 
 const cv::Mat &SlidingWindow::getImage(Frame &frame) {
-  return std::vector<cv::Mat>(frame._image)[0]; //TODO: Sync-Problems?
+  return (frame._imagePyramide)[0]; //TODO: Sync-Problems?
 }
 
-template<typename T>
-void SlidingWindow::getFeatures(const Frame &frame, std::vector<T> &features) {
-  frame._lock.lock();
-  //Check wether the Vector is empty
-  assert(features.size() == 0);
-  //Reserve needed memory
-  features.reserve(frame._features.size());
-  //Pushback all Features
-  for (auto feature = frame._features.begin(); feature != frame._features.end(); feature++) {
-    features.push_back(getFeatureLocation<T>(feature));
-  }
-  frame._lock.unlock();
-}
 
-template<typename T>
-void SlidingWindow::getCorrespondingFeatures(const Frame &oldestFrame,
-                                             const Frame &newestFrame,
-                                             std::vector<std::vector<T> *> features) {
-
-/*Calculate Depth and maximum Number Of Features  and check wether the params are okay*/
-  //Lock Ingoing Frame:
-  newestFrame._lock.lock();
-  unsigned int depth = 0;
-  const Frame *frame = &newestFrame;
-  auto outFeatures = features.begin();
-  while (frame != &oldestFrame) {
-    //Lock the Frames:
-    depth++;
-    assert(*outFeatures != nullptr);
-    assert((*outFeatures)->size() == 0);
-    (*outFeatures)->reserve(frame->_features.size());
-    frame = frame->_preFrame;
-    frame->_lock.lock();
-    assert(frame != nullptr);
-  }
-  assert(depth > 0);
-
-/*Iterate through the Features and check wether are enough preFeatures and than get them*/
-
-  for (auto newestFeature = newestFrame._features.begin(); newestFeature != newestFrame._features.end();
-       newestFeature++) {
-    if (newestFeature->_preFeatureCounter >= (depth)) {
-      frame = &newestFrame;
-      const Feature *feature = &(*newestFeature);
-      unsigned int i = 0;
-      do {
-        outFeatures[i]->push_back(*feature);
-        i++;
-        frame = frame->_preFrame;
-        feature = &frame->_features[feature->_preFeature];
-      } while (i < depth);
-      outFeatures[i]->push_back(*feature);
-    }
-  }
-
-  //Unlock Frames;
-  newestFrame._lock.unlock();
-  frame = &newestFrame;
-  while (frame != &oldestFrame) {
-    //Lock the Frames:
-    frame = frame->_preFrame;
-    frame->_lock.unlock();
-  }
-
-}
 
 const cv::Matx33d &SlidingWindow::getRotation(const Frame &frame) {
   return frame._rotation; //TODO:: Lockproblem?
@@ -131,63 +67,58 @@ const image_geometry::PinholeCameraModel &SlidingWindow::getCameraModel(const Fr
   return frame._cameraModel; //TODO: Lockproblem
 }
 
-template<>
-const cv::Point2f &SlidingWindow::getFeatureLocation(const Feature &f) {
-  return f._positionImage;
-}
 
-template<>
-const cv::Vec3d &SlidingWindow::getFeatureLocation(const Feature &f) {
-  return f._positionEuclidian;
-}
 
 unsigned int SlidingWindow::getNumberOfKnownFeatures(Frame &frame) {
-  frame._lock.lock();
-  return frame._features.size();
-  frame._lock.unlock();
+  frame.lock();
+  unsigned int size = frame._features.size();
+  frame.unlock();
+  return size;
 }
 
 void SlidingWindow::disbandFeatureConnection(const std::vector<unsigned int> &indices, Frame &frame) {
-  frame._lock.lock();
+  frame.lock();
   for (auto index : indices) {
     frame._features[index]._preFeature = -1;
     frame._features[index]._preFeatureCounter = 0;
   }
-  frame._lock.unlock();
+  frame.unlock();
 }
 
 void SlidingWindow::updateFrame(Frame &targetFrame, Frame &sourceFrame) {
-  targetFrame._lock.lock();
-  sourceFrame._lock.lock();
+  targetFrame.lock();
+  sourceFrame.lock();
   assert(&targetFrame == sourceFrame._preFrame);
   //Update the preIndexes and preCounter
   for (auto sourceFeature = sourceFrame._features.begin(); sourceFeature != sourceFrame._features.end();
        sourceFeature++) {
     int &index = sourceFeature->_preFeature;
     if (index != -1) {
-      index = targetFrame._features[index]._preFeature;
+      targetFrame._features[index]._positionEuclidian = sourceFeature->_positionEuclidian;
+      targetFrame._features[index]._positionImage = sourceFeature->_positionImage;
     }
   }
   //Update the PreFrame
   sourceFrame._preFrame = targetFrame._preFrame;
   //Delte the leftover Frame
-  targetFrame._lock.unlock();
-  sourceFrame._lock.unlock();
+  targetFrame.unlock();
+  sourceFrame.unlock();
+  LOG_DEBUG("deleted Frame: "<< &targetFrame);
   delete &targetFrame;
 }
 
 void SlidingWindow::mergeFrame(Frame &targetFrame, Frame &sourceFrame) {
   //Lock Frames
-  sourceFrame._lock.lock();
-  targetFrame._lock.lock();
+  sourceFrame.lock();
+  targetFrame.lock();
   //Calculate the difference
-  unsigned int difference = targetFrame._features.size() - sourceFrame._features.size();
+  int difference =  sourceFrame._features.size() - targetFrame._features.size();
   if (difference > 0) { //Only if there are further features run the algorithm
     //Iterate through the 'new' Features and add them to before Frame
     targetFrame._features.reserve(difference);
     for (auto feature = sourceFrame._features.begin(); feature != sourceFrame._features.end(); feature++) {
       if (feature->_preFeature == -1) { //If there is no precessor, it is a new Feature
-        targetFrame._features.push_back(*feature);
+        targetFrame._features.push_back(Feature(feature->_positionImage, feature->_positionEuclidian, -1, 0));
         //Set the connection right
         feature->_preFeature = (targetFrame._features.size() - 1); //The las Index
       }
@@ -199,42 +130,59 @@ void SlidingWindow::mergeFrame(Frame &targetFrame, Frame &sourceFrame) {
     Frame *deleteFrame = frame->_preFrame;
     //Connect the pre correct
     frame->_preFrame = deleteFrame->_preFrame;
+    LOG_DEBUG("deleted Frame: "<< deleteFrame);
     delete deleteFrame;
   }
-  targetFrame._lock.unlock();
-  sourceFrame._lock.unlock();
+  targetFrame.unlock();
+  sourceFrame.unlock();
 }
 
 void SlidingWindow::calculateFeaturePreCounter(Frame &frame) {
-  frame._lock.lock();
+  frame.lock();
   assert(frame._preFrame != nullptr);
-  frame._preFrame->_lock.lock();
+  frame._preFrame->lock();
   Frame &preFrame = *(frame._preFrame);
   for (auto feature = frame._features.begin(); feature != frame._features.end(); feature++) {
     if (feature->_preFeature >= 0) {
       feature->_preFeatureCounter = preFrame._features[feature->_preFeature]._preFeatureCounter + 1;
     }
   }
-  frame._preFrame->_lock.unlock();
-  frame._lock.unlock();
+  frame._preFrame->unlock();
+  frame.unlock();
 }
 
 cv::Vec3d SlidingWindow::getBaseLineToPrevious(const Frame &frame) {
-  frame._lock.lock();
+  frame.lock();
   auto baseLine = frame._baseLine;
-  frame._lock.unlock();
+  frame.unlock();
   return baseLine;
 }
 
-const cv::Mat &SlidingWindow::getImagePyramid(Frame &frame) {
-  return frame._image;
+const std::vector<cv::Mat> & SlidingWindow::getImagePyramid(Frame &frame) {
+  return frame._imagePyramide;
 }
 
 void SlidingWindow::setBaseLineToPrevious(Frame &frame, const cv::Vec3d &baseLine) {
-  frame._lock.lock();
+  frame.lock();
   frame._baseLine = baseLine;
-  frame._lock.lock();
+  frame.unlock();
 }
+
+
+
+template<>
+const cv::Point2f &SlidingWindow::getFeatureLocation(const Feature &f) {
+  return f._positionImage;
+}
+
+template<>
+const cv::Vec3d &SlidingWindow::getFeatureLocation(const Feature &f) {
+  return f._positionEuclidian;
+}
+
+
+
+
 
 /*
   void SlidingWindow::exportMatlabData() {

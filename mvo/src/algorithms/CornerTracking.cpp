@@ -1,12 +1,8 @@
 #include "CornerTracking.hpp"
 #include  <ros/ros.h>
 
-CornerTracking::CornerTracking() : _blockSize(3), _minDifPercent(0.02), _qualityLevel(0.4), _windowSize(21, 21),
+CornerTracking::CornerTracking() : _blockSize(3), _k(0.04),_minDifPercent(0.01), _qualityLevel(0.2), _windowSize(21, 21),
                                    _maxPyramideLevel(3) {
-}
-
-CornerTracking::~CornerTracking() {
-
 }
 
 void CornerTracking::detectFeatures(std::vector<cv::Point2f> &corner, const cv::Mat &image, int numberToDetect,
@@ -20,8 +16,8 @@ void CornerTracking::detectFeatures(std::vector<cv::Point2f> &corner, const cv::
   maskImage = cv::Scalar(255); //First use all Pixels
   double imageDiag = sqrt(image.rows * image.rows + image.cols * image.cols);
   double mindistance = _minDifPercent * imageDiag;
-  for (auto existingFeature : existingFeatures) {
-    cv::circle(maskImage, existingFeature, mindistance, cv::Scalar(0),
+  for (const auto & existingFeature : existingFeatures) {
+    cv::circle(maskImage, existingFeature, (int)mindistance, cv::Scalar(0),
                -1); //Here no Feature Detection! //TODO: param
   }
   cv::rectangle(maskImage, mask, cv::Scalar(0), cv::FILLED);
@@ -35,7 +31,7 @@ void CornerTracking::detectFeatures(std::vector<cv::Point2f> &corner, const cv::
                           _k);  // Corners berechnen TODO: More params -> especially the detection Quality
 
   // Subpixel-genau:
-  if (corner.size() > 0) {
+  if (!corner.empty()) {
     cv::Size winSize = cv::Size(5, 5);
     cv::Size zeroZone = cv::Size(-1, -1);
     cv::TermCriteria criteria =
@@ -44,8 +40,8 @@ void CornerTracking::detectFeatures(std::vector<cv::Point2f> &corner, const cv::
   }
 }
 
-void CornerTracking::trackFeatures(const cv::Mat &currentPyramide,
-                                   const cv::Mat &previousPyramide,
+void CornerTracking::trackFeatures(const std::vector<cv::Mat> &currentPyramide,
+                                   const std::vector<cv::Mat> &previousPyramide,
                                    const std::vector<cv::Point2f> &prevFeatures,
                                    std::vector<cv::Point2f> &trackedFeatures,
                                    std::vector<unsigned char> &found,
@@ -105,8 +101,8 @@ void CornerTracking::trackFeatures(const cv::Mat &currentPyramide,
 
 }
 
-cv::Mat CornerTracking::createPyramide(cv::Mat image) const {
-  cv::Mat result;
+std::vector<cv::Mat> CornerTracking::createPyramide(cv::Mat image) const {
+  std::vector<cv::Mat> result;
   cv::buildOpticalFlowPyramid(image, result, _windowSize, _maxPyramideLevel);
   return result;
 }

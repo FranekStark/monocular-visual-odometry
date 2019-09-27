@@ -11,8 +11,6 @@ Frame *PipelineBegin::stage(Frame *newFrame) {
 
 PipelineBegin::PipelineBegin() : PipelineStage(nullptr,
                                                1) {}
-PipelineBegin::~PipelineBegin() {
-}
 
 void PipelineBegin::pipeIn(Frame *frame) {
   _outGoingChannel.enqueue(frame);

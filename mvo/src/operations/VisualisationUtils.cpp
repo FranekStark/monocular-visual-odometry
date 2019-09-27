@@ -6,7 +6,7 @@
 #include "../sliding_window/SlidingWindow.hpp"
 
 void VisualisationUtils::drawFeatures(const Frame &frame, cv::Mat &image) {
-  frame._lock.lock();
+  frame.lock();
   for (auto feature = frame._features.begin(); feature != frame._features.end(); feature++) {
     cv::Scalar color;
     if (feature->_preFeature < 0) { //Blue, if ne prefeatures
@@ -16,12 +16,12 @@ void VisualisationUtils::drawFeatures(const Frame &frame, cv::Mat &image) {
     }
     cv::circle(image, cv::Point(feature->_positionImage), 10, color, -10);
   }
-  frame._lock.unlock();
+  frame.unlock();
 }
 
 void VisualisationUtils::drawCorrespondences(const Frame &oldestFrame, const Frame &newestFrame, cv::Mat &image) {
   //Lock newest Frame
-  newestFrame._lock.lock();
+  newestFrame.lock();
   //Check Depth
   unsigned int depth = 0;
   {
@@ -29,7 +29,7 @@ void VisualisationUtils::drawCorrespondences(const Frame &oldestFrame, const Fra
     while (frame != &oldestFrame) {
       frame = frame->_preFrame;
       //Lock Prefame;
-      frame->_lock.lock();
+      frame->lock();
       depth++;
     }
   }
@@ -37,7 +37,7 @@ void VisualisationUtils::drawCorrespondences(const Frame &oldestFrame, const Fra
   for (auto feature = newestFrame._features.begin(); feature != newestFrame._features.end(); feature++) {
     if (feature->_preFeatureCounter >= depth) {
       const Frame *frame = &newestFrame;
-      unsigned  int counter = 0;
+      unsigned int counter = 0;
       cv::circle(image, feature->_positionImage, 5, cv::Scalar(0, 0, 255), -1);
       cv::putText(image,
                   std::to_string(counter),
@@ -68,25 +68,28 @@ void VisualisationUtils::drawCorrespondences(const Frame &oldestFrame, const Fra
 
   //Unlock:
   //Lock newest Frame
-  newestFrame._lock.unlock();
+  newestFrame.unlock();
   //Check Depth
   {
     const Frame *frame = &newestFrame;
     while (frame != &oldestFrame) {
       frame = frame->_preFrame;
       //Lock Prefame;
-      frame->_lock.unlock();
+      frame->unlock();
     }
   }
 
 }
 
-void VisualisationUtils::drawMovementDebug(const Frame &frame, const cv::Scalar &color, cv::Mat &image, unsigned int index) {
-  frame._lock.lock();
+void VisualisationUtils::drawMovementDebug(const Frame &frame,
+                                           const cv::Scalar &color,
+                                           cv::Mat &image,
+                                           unsigned int index) {
+  frame.lock();
   auto baseLine = SlidingWindow::getBaseLineToPrevious(frame);
   double norm = cv::norm(baseLine);
   auto baseLineNorm = cv::normalize(baseLine);
-  frame._lock.unlock();
+  frame.unlock();
 
   int mitX = double(image.cols) / 2.0;
   int mitY = double(image.rows) / 2.0;
@@ -99,25 +102,21 @@ void VisualisationUtils::drawMovementDebug(const Frame &frame, const cv::Scalar 
   cv::circle(image, cv::Point2d(mitX, mitY), scaleMin * norm, color, 10);
 }
 
-void VisualisationUtils::drawFeaturesUnrotated(const Frame &frame, cv::Mat &image) {
-  frame._lock.lock();
-  assert(frame._preFrame != nullptr);
-  auto rDiff = frame._preFrame->_rotation.t() * frame._rotation;
-  for(auto feature = frame._features.begin(); feature != frame._features.end(); feature++){
-    if(feature->_preFeature >= 0){ //Only if it has a Prefeature
-      //Prefeature
-      auto preFeature = frame._preFrame->_features[feature->_preFeature]._positionImage;
-      //Feature normal
-      auto FeatureImg = feature->_positionImage;
-      //Feature unrotated
-      auto & featureE = feature->_positionEuclidian;
-      auto featureEUnrotated = rDiff * featureE;
-      auto featureUnrotated = frame._cameraModel.project3dToPixel(featureEUnrotated);
-      //Draw
-      cv::circle(image, cv::Point(preFeature), 10, cv::Scalar(255,0,0), -10);
-      cv::circle(image, cv::Point(FeatureImg), 10, cv::Scalar(0,255,0), -10);
-      cv::circle(image, cv::Point(featureUnrotated), 10, cv::Scalar(0,0,255), -10);
-    }
+void VisualisationUtils::drawFeaturesUnrotated(cv::Mat &image,
+                                               const std::vector<cv::Point2f> &featuresBefore,
+                                               const std::vector<cv::Point2f> &featuresNew,
+                                               const std::vector<cv::Point2f> &featuresNewUnrotated) {
+  assert(featuresBefore.size() == featuresNew.size());
+  assert(featuresNew.size() == featuresNewUnrotated.size());
+  auto featureBefore = featuresBefore.begin();
+  auto featureNew = featuresNew.begin();
+  auto featureNewUnrotaed = featuresNewUnrotated.begin();
+  while (featureBefore != featuresBefore.end()) {
+    cv::circle(image, cv::Point(*featureBefore), 10, cv::Scalar(255, 0, 0), -10);
+    cv::circle(image, cv::Point(*featureNew), 10, cv::Scalar(0, 255, 0), -10);
+    cv::circle(image, cv::Point(*featureNewUnrotaed), 10, cv::Scalar(0, 0, 255), -10);
+    featureBefore++;
+    featureNew++;
+    featureNewUnrotaed++;
   }
-  frame._lock.unlock();
 }

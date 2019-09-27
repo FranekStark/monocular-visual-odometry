@@ -37,7 +37,7 @@ void FeatureOperations::euclidUnNormFeatures(const std::vector<cv::Vec3d> &featu
                                              std::vector<cv::Point2f> &features,
                                              const image_geometry::PinholeCameraModel &cameraModel) {
   //Check size of target vector
-  assert(features.size() == 0);
+  assert(features.empty());
   //Reserve memory
   features.reserve(featuresE.size());
   //Unproject Feature and push_back
@@ -50,7 +50,7 @@ void FeatureOperations::unrotateFeatures(const std::vector<cv::Vec3d> &features,
                                          std::vector<cv::Vec3d> &unrotatedFeatures,
                                          const cv::Matx33d &R) {
   //Check size of target vector
-  assert(unrotatedFeatures.size() == 0);
+  assert(unrotatedFeatures.empty());
   //Save Memory on target vector
   unrotatedFeatures.reserve(features.size());
   //Unrotate Feature and push_back into target
