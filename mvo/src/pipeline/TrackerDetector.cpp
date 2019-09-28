@@ -14,6 +14,7 @@ TrackerDetector::TrackerDetector(PipelineStage &precursor,
     _numberToDetect(number) {
 #ifdef DEBUGIMAGES
   cv::namedWindow("TrackerImage", cv::WINDOW_NORMAL);
+  cv::startWindowThread();
 #endif
 
 }

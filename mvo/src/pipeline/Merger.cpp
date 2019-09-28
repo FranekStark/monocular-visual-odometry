@@ -15,6 +15,7 @@ Merger::Merger(PipelineStage &precursor,
     _movementDisparityThreshold(movementThreshold) {
 #ifdef DEBUGIMAGES
   cv::namedWindow("MergerImage", cv::WINDOW_NORMAL);
+  cv::startWindowThread();
 #endif
 }
 
@@ -54,10 +55,13 @@ if (_preFrame == nullptr) { //In Case its the first Frame -> FastPipe
     FeatureOperations::euclidUnNormFeatures(newCorrespondingFeaturesUnrotated,
                                             nowCorespFU,
                                             SlidingWindow::getCameraModel(*newFrame));
-
     cv::Mat image;
     cv::cvtColor(SlidingWindow::getImage(*newFrame), image, cv::COLOR_GRAY2BGR);
+    if(disparity > _movementDisparityThreshold) {
+      image = cv::Scalar(255,255,255);
+    }
     VisualisationUtils::drawFeaturesUnrotated(image, preCorespF, nowCorespF, nowCorespFU);
+    cv::putText(image, "Disparity: " + std::to_string(disparity),  cv::Point(10,40),cv::FONT_HERSHEY_PLAIN, 4, cv::Scalar(0,255,255));
     cv::imshow("MergerImage", image);
     cv::waitKey(10);
   }
@@ -66,6 +70,7 @@ if (_preFrame == nullptr) { //In Case its the first Frame -> FastPipe
   if (disparity <= _sameDisparityThreshold) { //Threat the new Frame as if where on the SAME position as preFrame
     //Merge the new Frame onto the preFrame
     SlidingWindow::mergeFrame(*_preFrame, *newFrame);
+    LOG_DEBUG("Merged " << newFrame << " into " << _preFrame);
     return nullptr; //Hold PipeLine
   } else if (disparity <= _movementDisparityThreshold) { //Not enough disparity, HOLD Pipeline
     return nullptr; //Hold PipeLine

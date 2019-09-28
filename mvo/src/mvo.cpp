@@ -11,7 +11,7 @@ MVO::MVO(std::function<void(cv::Point3d, cv::Matx33d)> estimatedPositionCallback
     _estimatedCallbackFunction(estimatedPositionCallback),
     _refinedCallbackFunction(refinedPositionCallback),
     _trackerDetector(*this, 10, _cornerTracking, 60),
-    _merger(_trackerDetector, 10, 0.001, 0.4),
+    _merger(_trackerDetector, 10, 0.0001, 0.05),
     _baseLineEstimator(_merger, 100, _epipolarGeometry),
     _refiner(_baseLineEstimator, 4, _iterativeRefinement, 3),
     _end(_refiner),
@@ -44,6 +44,10 @@ MVO::MVO(std::function<void(cv::Point3d, cv::Matx33d)> estimatedPositionCallback
   Utils::SetThreadName(&_endThread,"Endthread");
   Utils::SetThreadName(&_estimatedCallbackThread, "CallbackEstimator");
   Utils::SetThreadName(&_refinedCallbackThread,"CallbackRefiner");
+
+#ifdef DEBUGIMAGES
+  cv::startWindowThread();
+#endif
 }
 
 

@@ -86,7 +86,10 @@ void VisualisationUtils::drawMovementDebug(const Frame &frame,
                                            cv::Mat &image,
                                            unsigned int index) {
   frame.lock();
-  auto baseLine = SlidingWindow::getBaseLineToPrevious(frame);
+  auto baseLine = frame._baseLine;
+  auto rotation = frame._rotation;
+  //BaseLine into Frame-CameraCorrdinates
+  baseLine = rotation.t() * baseLine;
   double norm = cv::norm(baseLine);
   auto baseLineNorm = cv::normalize(baseLine);
   frame.unlock();

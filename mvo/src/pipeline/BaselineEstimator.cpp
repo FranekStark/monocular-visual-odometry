@@ -11,7 +11,8 @@ BaselineEstimator::BaselineEstimator(PipelineStage &precursor,
                                                                            _epipolarGeometry(epipolarGeometry),
                                                                            _baseLine(1) {
 #ifdef DEBUGIMAGES
-  cv::namedWindow("EstimatorImage");
+  cv::namedWindow("EstimatorImage", cv::WINDOW_NORMAL);
+  cv::startWindowThread();
 #endif
 }
 Frame *BaselineEstimator::stage(Frame *newFrame) {
@@ -22,7 +23,7 @@ Frame *BaselineEstimator::stage(Frame *newFrame) {
     std::vector<cv::Vec3d> beforeCorespFeaturesE, thisCorespFeaturesUnrotatedE, thisCorespFeaturesE;
     SlidingWindow::getCorrespondingFeatures<cv::Vec3d>(*_prevFrame,
                                                        *newFrame,
-                                                       {&beforeCorespFeaturesE, &thisCorespFeaturesE});
+                                                       beforeCorespFeaturesE, thisCorespFeaturesE);
     /* Unroate the Features */
     auto beforeRotaton = SlidingWindow::getRotation(*_prevFrame);
     auto thisRotation = SlidingWindow::getRotation(*newFrame);
@@ -86,7 +87,7 @@ Frame *BaselineEstimator::stage(Frame *newFrame) {
     /* Save Movement */
     SlidingWindow::setBaseLineToPrevious(*newFrame, baseLine);
 #ifdef DEBUGIMAGES
-    cv::Mat image(SlidingWindow::getImage(*newFrame).size(), CV_8UC3);
+    cv::Mat image(SlidingWindow::getImage(*newFrame).size(), CV_8UC3, cv::Scalar(100,100,100));
     VisualisationUtils::drawCorrespondences(*_prevFrame, *newFrame, image);
     VisualisationUtils::drawMovementDebug(*newFrame, cv::Scalar(0,0,255), image,0);
     cv::imshow("EstimatorImage", image);

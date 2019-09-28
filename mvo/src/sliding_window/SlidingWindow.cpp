@@ -89,13 +89,12 @@ void SlidingWindow::updateFrame(Frame &targetFrame, Frame &sourceFrame) {
   targetFrame.lock();
   sourceFrame.lock();
   assert(&targetFrame == sourceFrame._preFrame);
-  //Update the preIndexes and preCounter
+  //Update the preIndexes
   for (auto sourceFeature = sourceFrame._features.begin(); sourceFeature != sourceFrame._features.end();
        sourceFeature++) {
     int &index = sourceFeature->_preFeature;
-    if (index != -1) {
-      targetFrame._features[index]._positionEuclidian = sourceFeature->_positionEuclidian;
-      targetFrame._features[index]._positionImage = sourceFeature->_positionImage;
+    if (index >= 0) {
+      index = targetFrame._features[index]._preFeature;
     }
   }
   //Update the PreFrame
@@ -120,7 +119,7 @@ void SlidingWindow::mergeFrame(Frame &targetFrame, Frame &sourceFrame) {
       if (feature->_preFeature == -1) { //If there is no precessor, it is a new Feature
         targetFrame._features.push_back(Feature(feature->_positionImage, feature->_positionEuclidian, -1, 0));
         //Set the connection right
-        feature->_preFeature = (targetFrame._features.size() - 1); //The las Index
+        feature->_preFeature = (targetFrame._features.size() - 1); //The last Index
       }
     }
   }
