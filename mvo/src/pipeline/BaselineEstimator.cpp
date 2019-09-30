@@ -12,6 +12,8 @@ BaselineEstimator::BaselineEstimator(PipelineStage &precursor,
                                                                            _baseLine(1) {
 #ifdef DEBUGIMAGES
   cv::namedWindow("EstimatorImage", cv::WINDOW_NORMAL);
+  cv::moveWindow("EstimatorImage", 1200,28);
+  cv::resizeWindow("EstimatorImage", 1200,1892);
   cv::startWindowThread();
 #endif
 }
@@ -88,7 +90,7 @@ Frame *BaselineEstimator::stage(Frame *newFrame) {
     SlidingWindow::setBaseLineToPrevious(*newFrame, baseLine);
 #ifdef DEBUGIMAGES
     cv::Mat image(SlidingWindow::getImage(*newFrame).size(), CV_8UC3, cv::Scalar(100,100,100));
-    VisualisationUtils::drawCorrespondences(*_prevFrame, *newFrame, image);
+    VisualisationUtils::drawCorrespondences({&thisCorespFeaturesE, &beforeCorespFeaturesE}, SlidingWindow::getCameraModel(*newFrame), image);
     VisualisationUtils::drawMovementDebug(*newFrame, cv::Scalar(0,0,255), image,0);
     cv::imshow("EstimatorImage", image);
     cv::waitKey(10);

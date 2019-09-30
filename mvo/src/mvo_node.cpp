@@ -13,9 +13,9 @@ MVO_node::MVO_node(ros::NodeHandle nh, ros::NodeHandle pnh)
     : _nodeHandle(nh),
       _privateNodeHandle(pnh),
       _imageTransport(nh),
-      _imageSubscriberTopic("/camera_ueye/image_rect"),
-      _imageSubscriber(_imageTransport, "/camera_ueye/image_rect", 10),
-      _cameraInfoSubscriber(_nodeHandle, "/camera_ueye/camera_info", 10),
+      _imageSubscriberTopic("/pylon_camera_node/image_rect"),
+      _imageSubscriber(_imageTransport, "/pylon_camera_node/image_rect", 10),
+      _cameraInfoSubscriber(_nodeHandle, "/pylon_camera_node/camera_info", 10),
       _imuSubscriber(_nodeHandle, "/imu/data", 100),
       _synchronizer(SyncPolicie(200), _imageSubscriber, _cameraInfoSubscriber, _imuSubscriber),
       _transformWorldToCamera(0, 0, 1, -1, 0, 0, 0, -1, 0),
@@ -42,10 +42,6 @@ void MVO_node::init() {
   _dynamicConfigServer.setCallback(_dynamicConfigCallBackType);
   _estimatedOdomPublisher = _nodeHandle.advertise<nav_msgs::Odometry>("odom_estimated", 10, true);
   _refinedOdomPublisher = _nodeHandle.advertise<nav_msgs::Odometry>("odom_refined", 10, true);
-  /*_debugImagePublisher = _imageTransport.advertise("debug/image", 3, true);
-  _debugImage2Publisher = _imageTransport.advertise("debug/image2", 3, true);
-  _debugImage3Publisher = _imageTransport.advertise("debug/image3", 3, true);
-  _debugImage4Publisher = _imageTransport.advertise("debug/image4", 3, true);*/
   _synchronizer.registerCallback(boost::bind(&MVO_node::imageCallback, this, _1, _2, _3));
 
   //Callbacks

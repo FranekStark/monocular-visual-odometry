@@ -20,12 +20,15 @@ void IterativeRefinement::refine(RefinementDataCV &refinementData) {
   double scale0[1] = {reverseScale(dataEIG.vec0.norm())};
   double scale1[1] = {reverseScale(dataEIG.vec1.norm())};
 
+  dataEIG.vec0.normalize();
+  dataEIG.vec1.normalize();
+
   double vec0[3] = {dataEIG.vec0(0), dataEIG.vec0(1), dataEIG.vec0(2)};
   double vec1[3] = {dataEIG.vec1(0), dataEIG.vec1(1), dataEIG.vec1(2)};
 
-  ROS_INFO_STREAM("Before: " << std::endl);
-  ROS_INFO_STREAM("n0 * u0: " << scale0 << " * " << dataEIG.vec0 << std::endl);
-  ROS_INFO_STREAM("n1 * u1: " << scale1 << " * " << dataEIG.vec1 << std::endl);
+  ROS_INFO_STREAM("Before: ");
+  ROS_INFO_STREAM("n0 * u0: " << scale0[0] << " * [" << vec0[0] << "," << vec0[1] << "," << vec0[2] << "]");
+  ROS_INFO_STREAM("n1 * u1: " << scale1[0] << " * [" << vec1[0] << "," << vec1[1] << "," << vec1[2] << "]");
 
   ceres::Problem ceres_problem;
   ceres::Solver::Options ceres_solver_options;
@@ -74,20 +77,22 @@ void IterativeRefinement::refine(RefinementDataCV &refinementData) {
   ceres::Solver::Summary ceres_summary;
   ceres::Solve(ceres_solver_options, &ceres_problem, &ceres_summary);
 
-  ROS_INFO_STREAM(ceres_summary.FullReport() << std::endl);
+
 
   auto n0 = scaleTemplated<double>(scale0[0]);  // T0
   auto n1 = scaleTemplated<double>(scale1[0]);  // T1
 
+  ROS_INFO_STREAM("After: ");
+  ROS_INFO_STREAM("n0 * u0: " << scale0[0] << " * [" << vec0[0] << "," << vec0[1] << "," << vec0[2] << "]");
+  ROS_INFO_STREAM("n1 * u1: " << scale1[0] << " * [" << vec1[0] << "," << vec1[1] << "," << vec1[2] << "]");
+
+  ROS_INFO_STREAM(ceres_summary.FullReport());
+
   cv::Vec3d u0 = cvt_eigen_cv(Eigen::Vector3d(vec0[0], vec0[1], vec0[2]));
   cv::Vec3d u1 = cvt_eigen_cv(Eigen::Vector3d(vec1[0], vec1[1], vec1[2]));
 
-  ROS_INFO_STREAM("After: " << std::endl);
-  ROS_INFO_STREAM("n0 * u0: " << n0 << " * " << u0 << std::endl);
-  ROS_INFO_STREAM("n1 * u1: " << n1 << " * " << u1 << std::endl);
-
-  refinementData.vec0 = u0;
-  refinementData.vec1 = u1;
+  refinementData.vec0 = n0 * u0;
+  refinementData.vec1 = n1 * u1;
 }
 
 IterativeRefinement::CostFunctionScaled::CostFunctionScaled(const Eigen::Vector3d &m2,

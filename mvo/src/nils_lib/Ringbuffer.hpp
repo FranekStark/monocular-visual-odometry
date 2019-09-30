@@ -14,9 +14,11 @@ template<typename T>
 class RingBuffer {
   std::vector<T> buffer;
   int size_;
+  int cnt_;
  public:
   int writePos;
   int readPos;
+
 
  public:
 
@@ -25,16 +27,8 @@ class RingBuffer {
    * @param size - size of the buffer
    **/
   RingBuffer(int size)
-      : buffer(size), size_(size), writePos(0), readPos(0) {
+      : buffer(size), size_(size), cnt_(0), writePos(0), readPos(0) {
 
-  }
-
-/**
- * @brief returns wether the buffer is 'full'
- * @return true if full, false if not
- */
-  bool full() {
-    return (size() == size_);
   }
 
   /**

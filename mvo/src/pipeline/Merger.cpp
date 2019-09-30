@@ -15,6 +15,8 @@ Merger::Merger(PipelineStage &precursor,
     _movementDisparityThreshold(movementThreshold) {
 #ifdef DEBUGIMAGES
   cv::namedWindow("MergerImage", cv::WINDOW_NORMAL);
+  cv::moveWindow("MergerImage", 2400,895);
+  cv::resizeWindow("MergerImage", 960,988);
   cv::startWindowThread();
 #endif
 }

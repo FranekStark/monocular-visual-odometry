@@ -16,7 +16,8 @@ class Refiner: public PipelineStage {
  private:
 
   IterativeRefinement & _iterativeRefinement;
-  RingBuffer<Frame *> _ringBuffer;
+  Frame * _preFrame;
+  Frame * _prePreFrame;
   Frame *stage(Frame *newFrame) override;
 
  public:

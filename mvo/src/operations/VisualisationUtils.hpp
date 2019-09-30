@@ -35,6 +35,9 @@ class VisualisationUtils {
   static void drawCorrespondences(const Frame & oldestFrame, const Frame & newestFrame, cv::Mat & image);
 
 
+  static void drawCorrespondences(const std::vector<std::vector<cv::Vec3d>*> vectors, const image_geometry::PinholeCameraModel & camera, cv::Mat & image);
+
+
   /**
    * Draws the Movement as an visualisation to an image.
    *
