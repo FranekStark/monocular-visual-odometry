@@ -36,7 +36,6 @@ find_package(Eigen3 3.3 REQUIRED NO_MODULE)
 add_executable(mvo_node
         src/mvo_node.cpp
         src/mvo.cpp
-        src/sliding_window/SlidingWindow.cpp
         src/algorithms/IterativeRefinement.cpp
         src/algorithms/CornerTracking.cpp
         src/algorithms/EpipolarGeometry.cpp

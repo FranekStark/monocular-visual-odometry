@@ -3,6 +3,7 @@
 //
 
 #include "TrackerDetector.hpp"
+#include "../sliding_window/Frame.hpp"
 
 TrackerDetector::TrackerDetector(PipelineStage &precursor,
                                  unsigned int outGoingChannelSize,
@@ -27,12 +28,12 @@ Frame *TrackerDetector::stage(Frame *newFrame) {
     detect(*newFrame, _numberToDetect);
   } else { //Else track and then detect
     track(*newFrame);
-    int numberToDetect = _numberToDetect - SlidingWindow::getNumberOfKnownFeatures(*newFrame);
+    int numberToDetect = _numberToDetect - newFrame->getNumberOfKnownFeatures();
     detect(*newFrame, numberToDetect);
   }
 #ifdef DEBUGIMAGES
   cv::Mat image;
-  cv::cvtColor(SlidingWindow::getImage(*newFrame), image, cv::COLOR_GRAY2BGR);
+  cv::cvtColor(newFrame->getImage(), image, cv::COLOR_GRAY2BGR);
   VisualisationUtils::drawFeatures(*newFrame, image);
   cv::imshow("TrackerImage", image);
   cv::waitKey(10);
@@ -45,52 +46,52 @@ Frame *TrackerDetector::stage(Frame *newFrame) {
 void TrackerDetector::track(Frame &newFrame) {
   std::vector<cv::Point2f> prevFeatures, trackedFeatures;
   /*Get previous Features*/
-  SlidingWindow::getFeatures(*_prevFrame, prevFeatures);
+  _prevFrame->getFeatures(prevFeatures);
   /*Calculate Difference rotation*/
-  auto prevRotation = SlidingWindow::getRotation(*_prevFrame);
-  auto nowRotation = SlidingWindow::getRotation(newFrame);
+  auto prevRotation = _prevFrame->getRotation();
+  auto nowRotation = newFrame.getRotation();
   auto diffRotation = prevRotation.t() * nowRotation;
   /*Estimate new location regarding to rotation*/
   std::vector<cv::Vec3d> prevFeaturesE, prevFeaturesERotated;
   //Project the Features to Rotate them
-  FeatureOperations::euclidNormFeatures(prevFeatures, prevFeaturesE, SlidingWindow::getCameraModel(*_prevFrame));
+  FeatureOperations::euclidNormFeatures(prevFeatures, prevFeaturesE, _prevFrame->getCameraModel());
   //Rotate them onto new Position
   FeatureOperations::unrotateFeatures(prevFeaturesE, prevFeaturesERotated, diffRotation.t());
   //Reproject the rotated Features
-  FeatureOperations::euclidUnNormFeatures(prevFeaturesERotated, trackedFeatures, SlidingWindow::getCameraModel(newFrame));
+  FeatureOperations::euclidUnNormFeatures(prevFeaturesERotated, trackedFeatures, newFrame.getCameraModel());
   /*Track the Features (with guess from Rotation)*/
   std::vector<unsigned char> found;
-  auto camInfo = SlidingWindow::getCameraModel(newFrame);
+  auto camInfo = newFrame.getCameraModel();
   auto shipMask = getShipMask(cv::Size2d(camInfo.rectifiedRoi().size()));
-  _cornerTracking.trackFeatures(SlidingWindow::getImagePyramid(newFrame),
-                                SlidingWindow::getImagePyramid(*_prevFrame),
+  _cornerTracking.trackFeatures(newFrame.getImagePyramid(),
+                               _prevFrame->getImagePyramid(),
                                 prevFeatures,
                                 trackedFeatures,
                                 found,
                                 shipMask);
   /*Project them to Euclidean*/
   std::vector<cv::Vec3d> trackedFeaturesE;
-  FeatureOperations::euclidNormFeatures(trackedFeatures, trackedFeaturesE, SlidingWindow::getCameraModel(newFrame));
+  FeatureOperations::euclidNormFeatures(trackedFeatures, trackedFeaturesE, newFrame.getCameraModel());
   /*Add them to the Frame*/
-  SlidingWindow::addTrackedFeatures(trackedFeatures, trackedFeaturesE, found, newFrame);
+  newFrame.addTrackedFeatures(trackedFeatures, trackedFeaturesE, found);
 }
 
 void TrackerDetector::detect(Frame &newFrame, unsigned int number) {
   /*Detect new Features*/
   std::vector<cv::Point2f> existingFeatures, newFeatures;
-  SlidingWindow::getFeatures(newFrame, existingFeatures); //get Current Existing Features
-  auto camInfo = SlidingWindow::getCameraModel(newFrame);
+  newFrame.getFeatures(existingFeatures); //get Current Existing Features
+  auto camInfo = newFrame.getCameraModel();
   auto shipMask = getShipMask(cv::Size(camInfo.rectifiedRoi().size()));
   _cornerTracking.detectFeatures(newFeatures,
-                                 std::vector<cv::Mat>(SlidingWindow::getImagePyramid(newFrame))[0],
+                                 std::vector<cv::Mat>(newFrame.getImagePyramid())[0],
                                  number,
                                  existingFeatures,
                                  shipMask,
                                  false);
   /*Convert them and Put them back*/
   std::vector<cv::Vec3d> newFeaturesE;
-  FeatureOperations::euclidNormFeatures(newFeatures, newFeaturesE, SlidingWindow::getCameraModel(newFrame));
-  SlidingWindow::addFeaturesToFrame(newFrame, newFeatures, newFeaturesE);
+  FeatureOperations::euclidNormFeatures(newFeatures, newFeaturesE, newFrame.getCameraModel());
+  newFrame.addFeaturesToFrame(newFeatures, newFeaturesE);
 }
 TrackerDetector::~TrackerDetector() {
   cv::destroyWindow("TrackerImage");

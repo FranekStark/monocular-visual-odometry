@@ -3,6 +3,8 @@
 //
 
 #include "BaselineEstimator.hpp"
+#include "../sliding_window/Frame.hpp"
+
 BaselineEstimator::BaselineEstimator(PipelineStage &precursor,
                                      unsigned int out_going_channel_size,
                                      EpipolarGeometry &epipolarGeometry) : PipelineStage(&precursor,
@@ -19,16 +21,16 @@ BaselineEstimator::BaselineEstimator(PipelineStage &precursor,
 }
 Frame *BaselineEstimator::stage(Frame *newFrame) {
   if (_prevFrame == nullptr) { //If it is the first Frame
-    SlidingWindow::setBaseLineToPrevious(*newFrame, cv::Vec3d(0, 0, 0));
+    newFrame->setBaseLineToPrevious(cv::Vec3d(0, 0, 0));
   } else {
     /* Get CorrespondingFeatures */
     std::vector<cv::Vec3d> beforeCorespFeaturesE, thisCorespFeaturesUnrotatedE, thisCorespFeaturesE;
-    SlidingWindow::getCorrespondingFeatures<cv::Vec3d>(*_prevFrame,
-                                                       *newFrame,
-                                                       beforeCorespFeaturesE, thisCorespFeaturesE);
+    Frame::getCorrespondingFeatures<cv::Vec3d>(*_prevFrame,
+                                               *newFrame,
+                                               beforeCorespFeaturesE, thisCorespFeaturesE);
     /* Unroate the Features */
-    auto beforeRotaton = SlidingWindow::getRotation(*_prevFrame);
-    auto thisRotation = SlidingWindow::getRotation(*newFrame);
+    auto beforeRotaton = _prevFrame->getRotation();
+    auto thisRotation = newFrame->getRotation();
     auto diffRotation = beforeRotaton.t() * thisRotation;
     FeatureOperations::unrotateFeatures(thisCorespFeaturesE, thisCorespFeaturesUnrotatedE, diffRotation);
     /* First Guess of the Direction-BaseLine */
@@ -52,7 +54,7 @@ Frame *BaselineEstimator::stage(Frame *newFrame) {
       }
     }
     /*Remove Outlier*/
-    SlidingWindow::disbandFeatureConnection(outlier, *newFrame); //TODO: don't remove, but delete the connections
+    newFrame->disbandFeatureConnection(outlier); //TODO: don't remove, but delete the connections
     /* Vote for the sign of the Baseline, which generates the feweset negative Gradients */
     std::vector<double> depths, depthsNegate;
     auto bnegate = -1.0 * baseLine;
@@ -87,10 +89,11 @@ Frame *BaselineEstimator::stage(Frame *newFrame) {
     /* Transform the relative BaseLine into WorldCoordinates */
     baseLine = beforeRotaton * baseLine;
     /* Save Movement */
-    SlidingWindow::setBaseLineToPrevious(*newFrame, baseLine);
+    newFrame->setBaseLineToPrevious(baseLine);
 #ifdef DEBUGIMAGES
-    cv::Mat image(SlidingWindow::getImage(*newFrame).size(), CV_8UC3, cv::Scalar(100,100,100));
-    VisualisationUtils::drawCorrespondences({&thisCorespFeaturesE, &beforeCorespFeaturesE}, SlidingWindow::getCameraModel(*newFrame), image);
+    cv::Mat image(newFrame->getImage().size(), CV_8UC3, cv::Scalar(100, 100, 100));
+    VisualisationUtils::drawCorrespondences({&thisCorespFeaturesE, &beforeCorespFeaturesE},
+                                            newFrame->getCameraModel(), image);
     VisualisationUtils::drawMovementDebug(*newFrame, cv::Scalar(0,0,255), image,0);
     cv::imshow("EstimatorImage", image);
     cv::waitKey(10);
@@ -98,7 +101,7 @@ Frame *BaselineEstimator::stage(Frame *newFrame) {
   }
   //Pass through
   _prevFrame = newFrame;
-  _baseLine.enqueue({SlidingWindow::getBaseLineToPrevious(*newFrame), SlidingWindow::getRotation(*newFrame)});
+  _baseLine.enqueue({newFrame->getBaseLineToPrevious(), newFrame->getRotation()});
   return newFrame;
 }
 BaselineEstimator::~BaselineEstimator() {

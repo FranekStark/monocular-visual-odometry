@@ -8,7 +8,7 @@
 #include <opencv2/highgui.hpp>
 
 #include "PipelineStage.h"
-#include "../sliding_window/SlidingWindow.hpp"
+#include "../sliding_window/Frame.hpp"
 #include "../operations/FeatureOperations.h"
 #include "../operations/VisualisationUtils.hpp"
 #include "../algorithms/CornerTracking.hpp"

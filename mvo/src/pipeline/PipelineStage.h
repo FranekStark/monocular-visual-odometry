@@ -5,10 +5,11 @@
 #ifndef MVO_SRC_PIPELINESTAGE_H_
 #define MVO_SRC_PIPELINESTAGE_H_
 
-#include "../sliding_window/SlidingWindow.hpp"
+
 #include "../pareigis_lib/Channel.hpp"
 #include <ros/ros.h>
 #include "../Utils.hpp"
+#include "../sliding_window/Frame.hpp"
 
 class PipelineStage {
  protected:

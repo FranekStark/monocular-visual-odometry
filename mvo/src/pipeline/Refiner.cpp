@@ -4,6 +4,7 @@
 
 #include "Refiner.hpp"
 #include "../operations/FeatureOperations.h"
+#include "../sliding_window/Frame.hpp"
 Refiner::Refiner(PipelineStage &precursor,
                  unsigned int out_going_channel_size,
                  IterativeRefinement &iterativeRefinement,
@@ -33,20 +34,20 @@ Frame *Refiner::stage(Frame *newFrame) {
   if (_prePreFrame != nullptr) { //Only if enough Frames
     IterativeRefinement::RefinementDataCV data;
 
-    data.vec0 = SlidingWindow::getBaseLineToPrevious(*newFrame);
-    data.vec1 = SlidingWindow::getBaseLineToPrevious(*_preFrame);
+    data.vec0 = newFrame->getBaseLineToPrevious();
+    data.vec1 = _preFrame->getBaseLineToPrevious();
 
     ROS_INFO_STREAM("BEFORE: " << std::endl
                                << "vec0: " << data.vec0 << std::endl
                                << "vec1: " << data.vec1 << std::endl);
 
-    data.R0 = SlidingWindow::getRotation(*newFrame);
-    data.R1 = SlidingWindow::getRotation(*_preFrame);
-    data.R2 = SlidingWindow::getRotation(*_prePreFrame);
+    data.R0 = newFrame->getRotation();
+    data.R1 = _preFrame->getRotation();
+    data.R2 = _prePreFrame->getRotation();
 
     std::vector<std::vector<cv::Vec3d> *> vectors{&(data.m0), &(data.m1), &(data.m2)};
 
-    SlidingWindow::getCorrespondingFeatures(*_prePreFrame, *newFrame, vectors);
+    Frame::getCorrespondingFeatures(*_prePreFrame, *newFrame, vectors);
 
     _iterativeRefinement.refine(data);
 
@@ -54,17 +55,17 @@ Frame *Refiner::stage(Frame *newFrame) {
                               << "vec0: " << data.vec0 << std::endl
                               << "vec1: " << data.vec1 << std::endl);
 
-    SlidingWindow::setBaseLineToPrevious(*newFrame, data.vec0);
-    SlidingWindow::setBaseLineToPrevious(*_preFrame, data.vec1);
+    newFrame->setBaseLineToPrevious(data.vec0);
+    _preFrame->setBaseLineToPrevious(data.vec1);
 
 #ifdef DEBUGIMAGES
-    cv::Mat image(SlidingWindow::getImage(*newFrame).size(), CV_8UC3, cv::Scalar(100, 100, 100));
+    cv::Mat image(newFrame->getImage().size(), CV_8UC3, cv::Scalar(100, 100, 100));
 
-    VisualisationUtils::drawCorrespondences({&data.m0, &data.m1, &data.m2}, SlidingWindow::getCameraModel(*newFrame), image);
+    VisualisationUtils::drawCorrespondences({&data.m0, &data.m1, &data.m2}, newFrame->getCameraModel(), image);
     cv::imshow("RefinerImageBOTH", image);
 
-    cv::Mat image0(SlidingWindow::getImage(*newFrame).size(), CV_8UC3, cv::Scalar(100, 100, 100));
-    cv::Mat image1(SlidingWindow::getImage(*newFrame).size(), CV_8UC3, cv::Scalar(100, 100, 100));
+    cv::Mat image0(newFrame->getImage().size(), CV_8UC3, cv::Scalar(100, 100, 100));
+    cv::Mat image1(newFrame->getImage().size(), CV_8UC3, cv::Scalar(100, 100, 100));
     //Image0
     VisualisationUtils::drawMovementDebug(*_preFrame, cv::Scalar(0, 255, 255), image1, 0);
     //Image1
@@ -82,8 +83,8 @@ Frame *Refiner::stage(Frame *newFrame) {
   _prePreFrame = _preFrame;
   _preFrame = newFrame;
   if (_prePreFrame != nullptr) {
-    _baseLine.enqueue({SlidingWindow::getBaseLineToPrevious(*_prePreFrame),
-                       SlidingWindow::getRotation(*_prePreFrame)});
+    _baseLine.enqueue({_prePreFrame->getBaseLineToPrevious(),
+                       _prePreFrame->getRotation()});
   }
   return _prePreFrame;
 }

@@ -3,7 +3,6 @@
 //
 
 #include "VisualisationUtils.hpp"
-#include "../sliding_window/SlidingWindow.hpp"
 
 void VisualisationUtils::drawFeatures(const Frame &frame, cv::Mat &image) {
   frame.lock();

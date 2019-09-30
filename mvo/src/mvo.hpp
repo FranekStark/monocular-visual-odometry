@@ -14,7 +14,6 @@
 #include <cstdio>
 #include <list>
 
-#include "sliding_window/SlidingWindow.hpp"
 #include "algorithms/IterativeRefinement.hpp"
 #include "algorithms/CornerTracking.hpp"
 #include "algorithms/EpipolarGeometry.hpp"

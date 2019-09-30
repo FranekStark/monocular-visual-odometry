@@ -3,6 +3,7 @@
 //
 
 #include "Merger.h"
+#include "../sliding_window/Frame.hpp"
 
 Merger::Merger(PipelineStage &precursor,
                unsigned int outGoingChannelSize,
@@ -29,7 +30,7 @@ if (_preFrame == nullptr) { //In Case its the first Frame -> FastPipe
     _keepFrame = newFrame;
   }else{
     //In every 'disparity-Case' we do the Update to the _keeptFrame, cause we need new Locations
-    SlidingWindow::updateFrame(*_keepFrame, *newFrame);
+    Frame::updateFrame(*_keepFrame, *newFrame);
     _keepFrame = newFrame; //_keepFrame is deleted through Update-Function
   }
 
@@ -37,28 +38,28 @@ if (_preFrame == nullptr) { //In Case its the first Frame -> FastPipe
   std::vector<cv::Vec3d> preCorrespondingFeatures, newCorrespondingFeatures,
       newCorrespondingFeaturesUnrotated;
 
-  SlidingWindow::getCorrespondingFeatures(*_preFrame, *_keepFrame, preCorrespondingFeatures, newCorrespondingFeatures);
+  Frame::getCorrespondingFeatures(*_preFrame, *_keepFrame, preCorrespondingFeatures, newCorrespondingFeatures);
 
   //Rotate Features to previousframe to only measure the difference caused by movement not rotation
-  auto preRotation = SlidingWindow::getRotation(*_preFrame);
-  auto nowRotation = SlidingWindow::getRotation(*newFrame);
+  auto preRotation = _preFrame->getRotation();
+  auto nowRotation = newFrame->getRotation();
   auto diffRotation = preRotation.t() * nowRotation;
   FeatureOperations::unrotateFeatures(newCorrespondingFeatures, newCorrespondingFeaturesUnrotated, diffRotation);
   auto disparity = FeatureOperations::calcDisparity(preCorrespondingFeatures, newCorrespondingFeaturesUnrotated);
 #ifdef DEBUGIMAGES
-  if (newFrame->_preFrame != nullptr) {
+  if (!(newFrame->isFirstFrame())) {
     std::vector<cv::Point2f> preCorespF, nowCorespF, nowCorespFU;
     FeatureOperations::euclidUnNormFeatures(preCorrespondingFeatures,
                                             preCorespF,
-                                            SlidingWindow::getCameraModel(*_preFrame));
+                                            _preFrame->getCameraModel());
     FeatureOperations::euclidUnNormFeatures(newCorrespondingFeatures,
                                             nowCorespF,
-                                            SlidingWindow::getCameraModel(*newFrame));
+                                            newFrame->getCameraModel());
     FeatureOperations::euclidUnNormFeatures(newCorrespondingFeaturesUnrotated,
                                             nowCorespFU,
-                                            SlidingWindow::getCameraModel(*newFrame));
+                                            newFrame->getCameraModel());
     cv::Mat image;
-    cv::cvtColor(SlidingWindow::getImage(*newFrame), image, cv::COLOR_GRAY2BGR);
+    cv::cvtColor(newFrame->getImage(), image, cv::COLOR_GRAY2BGR);
     if(disparity > _movementDisparityThreshold) {
       image = cv::Scalar(255,255,255);
     }
@@ -71,14 +72,14 @@ if (_preFrame == nullptr) { //In Case its the first Frame -> FastPipe
   //Casedifferntation based on amount of the difference
   if (disparity <= _sameDisparityThreshold) { //Threat the new Frame as if where on the SAME position as preFrame
     //Merge the new Frame onto the preFrame
-    SlidingWindow::mergeFrame(*_preFrame, *newFrame);
+    Frame::mergeFrame(*_preFrame, *newFrame);
     LOG_DEBUG("Merged " << newFrame << " into " << _preFrame);
     return nullptr; //Hold PipeLine
   } else if (disparity <= _movementDisparityThreshold) { //Not enough disparity, HOLD Pipeline
     return nullptr; //Hold PipeLine
   } else { //Enough Disparity
     //Calculate the correct prefeaturecounter:
-    SlidingWindow::calculateFeaturePreCounter(*newFrame);
+    newFrame->calculateFeaturePreCounter();
     //Pipethrough
     _preFrame = newFrame;
     _keepFrame = nullptr; //Wait here for a maybe new Frame

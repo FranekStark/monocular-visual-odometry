@@ -54,11 +54,7 @@ MVO::MVO(std::function<void(cv::Point3d, cv::Matx33d)> estimatedPositionCallback
 void MVO::newImage(const cv::Mat &image, const image_geometry::PinholeCameraModel &cameraModel, const cv::Matx33d &R) {
   auto pyramideImage = _cornerTracking.createPyramide(image);
   //Creates Frame:
-  auto *frame = new Frame;
-  frame->_preFrame = _prevFrame;
-  frame->_imagePyramide = pyramideImage;
-  frame->_rotation = R;
-  frame->_cameraModel = cameraModel;
+  auto *frame = new Frame(pyramideImage, cameraModel, R, _prevFrame);
   _prevFrame = frame;
   pipeIn(frame);
   LOG_DEBUG("New Frame Created and Piped in: " << frame);

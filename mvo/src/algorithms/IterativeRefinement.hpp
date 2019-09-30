@@ -2,8 +2,6 @@
 #define ITERATIVE_REFINEMENT_HPP
 
 #include <opencv2/core.hpp>
-#include "../sliding_window/SlidingWindow.hpp"
-//#include <opencv2/core/eigen.hpp>
 #include <eigen3/Eigen/Dense>
 #include <opencv2/core/eigen.hpp>
 #include <ceres/ceres.h>
