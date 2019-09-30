@@ -1,5 +1,4 @@
 #include "CornerTracking.hpp"
-#include  <ros/ros.h>
 
 CornerTracking::CornerTracking() : _blockSize(3), _k(0.04),_minDifPercent(0.01), _qualityLevel(0.2), _windowSize(21, 21),
                                    _maxPyramideLevel(3) {

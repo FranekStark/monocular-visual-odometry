@@ -26,7 +26,7 @@ class RingBuffer {
    * @brief Constructor
    * @param size - size of the buffer
    **/
-  RingBuffer(int size)
+  explicit RingBuffer(int size)
       : buffer(size), size_(size), cnt_(0), writePos(0), readPos(0) {
 
   }

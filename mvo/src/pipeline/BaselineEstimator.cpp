@@ -3,7 +3,6 @@
 //
 
 #include "BaselineEstimator.hpp"
-#include "../sliding_window/Frame.hpp"
 
 BaselineEstimator::BaselineEstimator(PipelineStage &precursor,
                                      unsigned int out_going_channel_size,

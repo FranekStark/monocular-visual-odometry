@@ -4,7 +4,6 @@
 
 #include "Refiner.hpp"
 #include "../operations/FeatureOperations.h"
-#include "../sliding_window/Frame.hpp"
 Refiner::Refiner(PipelineStage &precursor,
                  unsigned int out_going_channel_size,
                  IterativeRefinement &iterativeRefinement,

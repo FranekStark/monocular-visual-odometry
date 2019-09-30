@@ -3,7 +3,6 @@
 //
 
 #include "TrackerDetector.hpp"
-#include "../sliding_window/Frame.hpp"
 
 TrackerDetector::TrackerDetector(PipelineStage &precursor,
                                  unsigned int outGoingChannelSize,
@@ -96,7 +95,7 @@ void TrackerDetector::detect(Frame &newFrame, unsigned int number) {
 TrackerDetector::~TrackerDetector() {
   cv::destroyWindow("TrackerImage");
 }
-cv::Rect2d TrackerDetector::getShipMask(cv::Size imageSize) {
+cv::Rect2d TrackerDetector::getShipMask(const cv::Size& imageSize) {
 
   /* Mask, where Ship is In Image*/
   cv::Rect2d shipMask((imageSize.width / 2) - (1.6 / 16.0) * imageSize.width,

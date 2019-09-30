@@ -10,7 +10,7 @@
 class PipelineBegin : public PipelineStage{
  public:
   PipelineBegin();
-  virtual ~PipelineBegin() override = default;
+  ~PipelineBegin() override = default;
  protected:
   void pipeIn(Frame * frame);
  private:

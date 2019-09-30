@@ -6,14 +6,14 @@
 
 void VisualisationUtils::drawFeatures(const Frame &frame, cv::Mat &image) {
   frame.lock();
-  for (auto feature = frame._features.begin(); feature != frame._features.end(); feature++) {
+  for (const auto & _feature : frame._features) {
     cv::Scalar color;
-    if (feature->_preFeature < 0) { //Blue, if ne prefeatures
+    if (_feature._preFeature < 0) { //Blue, if ne prefeatures
       color = cv::Scalar(255, 0, 0); //BGR
     } else { //If tracked, than GREEN
       color = cv::Scalar(0, 255, 0);
     }
-    cv::circle(image, cv::Point(feature->_positionImage), 10, color, -10);
+    cv::circle(image, cv::Point(_feature._positionImage), 10, color, -10);
   }
   frame.unlock();
 }

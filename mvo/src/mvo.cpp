@@ -2,7 +2,7 @@
 
 #include <boost/math/special_functions/binomial.hpp>
 #include <map>
-#include <random>
+#include <utility>
 
 MVO::MVO(std::function<void(cv::Point3d, cv::Matx33d)> estimatedPositionCallback,
          std::function<void(cv::Point3d, cv::Matx33d)> refinedPositionCallback) :
@@ -33,7 +33,8 @@ MVO::MVO(std::function<void(cv::Point3d, cv::Matx33d)> estimatedPositionCallback
         _refinedPosition = _refinedPosition + cv::Point3d(baseLine.position);
         _refinedCallbackFunction(_refinedPosition, baseLine.orientation);
       }while(ros::ok());
-    })
+    }),
+    _prevFrame(nullptr)
 
 {
   // Set Threadnames:
@@ -61,9 +62,7 @@ void MVO::newImage(const cv::Mat &image, const image_geometry::PinholeCameraMode
 }
 
 
-MVO::~MVO() {
-
-}
+MVO::~MVO() = default;
 
 
 

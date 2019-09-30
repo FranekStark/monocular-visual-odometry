@@ -83,7 +83,6 @@ class MVO : public PipelineBegin {
    std::thread _refinedCallbackThread;
 
   Frame * _prevFrame;
-  Frame * _lastFrame;
 
  public:
   MVO(std::function<void(cv::Point3d, cv::Matx33d)> estimatedPositionCallback,

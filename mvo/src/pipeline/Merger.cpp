@@ -3,7 +3,6 @@
 //
 
 #include "Merger.h"
-#include "../sliding_window/Frame.hpp"
 
 Merger::Merger(PipelineStage &precursor,
                unsigned int outGoingChannelSize,

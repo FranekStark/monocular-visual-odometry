@@ -24,13 +24,13 @@ class IterativeRefinement {
     Eigen::Vector3d vec1;
   };
 
-  void cvt_cv_eigen(const std::vector<cv::Vec3d> &vecaCV, std::vector<Eigen::Vector3d> &vecaEIGEN);
+  static void cvt_cv_eigen(const std::vector<cv::Vec3d> &vecaCV, std::vector<Eigen::Vector3d> &vecaEIGEN);
 
-  void cvt_cv_eigen(const cv::Matx33d &matCV, Eigen::Matrix3d &matEIG);
+  static void cvt_cv_eigen(const cv::Matx33d &matCV, Eigen::Matrix3d &matEIG);
 
-  void cvt_cv_eigen(const cv::Vec3d &vecCV, Eigen::Vector3d &vecEIG);
+  static void cvt_cv_eigen(const cv::Vec3d &vecCV, Eigen::Vector3d &vecEIG);
 
-  cv::Vec3d cvt_eigen_cv(const Eigen::Vector3d &vecEIG);
+  static cv::Vec3d cvt_eigen_cv(const Eigen::Vector3d &vecEIG);
 
   struct CostFunctionScaled {
    private:
