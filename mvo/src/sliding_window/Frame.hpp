@@ -8,6 +8,7 @@
 #include <mutex>
 #include <algorithm>
 #include "../Utils.hpp"
+#include <mvo/mvoConfig.h>
 
 class Frame {
  private:
@@ -22,6 +23,8 @@ class Frame {
   Frame *_preFrame;
   mutable std::mutex _lock;
 
+  mvo::mvoConfig _parameters;
+
   void lock() const;
   void unlock() const;
  public:
@@ -32,7 +35,7 @@ class Frame {
    * @param rotation the rotation of the camera
    * @param preFrame pointer to the frame before
    */
-  Frame(std::vector<cv::Mat> imagePyramide, image_geometry::PinholeCameraModel camerModel, cv::Matx33d rotation, Frame * preFrame);
+  Frame(std::vector<cv::Mat> imagePyramide, image_geometry::PinholeCameraModel camerModel, cv::Matx33d rotation, Frame * preFrame,  mvo::mvoConfig params);
 
   virtual ~Frame() = default;
 /**
@@ -262,6 +265,12 @@ class Frame {
    * @return wether its the first
    */
   bool isFirstFrame();
+
+  /**
+   * Retrieves the Parameters which the algorithm needs
+   * @return reference to the parameter-set
+   */
+  const mvo::mvoConfig & getParameters();
 };
 
 #endif //FRAME_HPP

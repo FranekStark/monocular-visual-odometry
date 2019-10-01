@@ -48,7 +48,7 @@ Frame *Refiner::stage(Frame *newFrame) {
 
     Frame::getCorrespondingFeatures(*_prePreFrame, *newFrame, vectors);
 
-    _iterativeRefinement.refine(data);
+    _iterativeRefinement.refine(data, newFrame->getParameters().maxNumThreads, newFrame->getParameters().maxNumIterations, newFrame->getParameters().functionTolerance, newFrame->getParameters().useLossFunction);
 
     ROS_INFO_STREAM("After: " << std::endl
                               << "vec0: " << data.vec0 << std::endl

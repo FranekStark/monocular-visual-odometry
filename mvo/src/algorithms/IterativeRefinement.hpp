@@ -9,10 +9,6 @@
 class IterativeRefinement {
  private:
 
-  double THRESHOLD = 0.0001;
-
-
-
   struct RefinementDataEIG {
     std::vector<Eigen::Vector3d> m2;
     std::vector<Eigen::Vector3d> m1;
@@ -103,7 +99,7 @@ class IterativeRefinement {
 
   ~IterativeRefinement() = default;
 
-  void refine(RefinementDataCV &refinementData);
+  void refine(RefinementDataCV &refinementData, int maxNumthreads,int maxNumIterations, double functionTolerance, bool useLossFunction);
 
 };
 

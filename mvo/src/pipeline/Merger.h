@@ -14,14 +14,9 @@ class Merger : public PipelineStage {
   Frame* _preFrame;
   Frame* _keepFrame;
 
-  double _sameDisparityThreshold;
-  double _movementDisparityThreshold;
-
  public:
   Merger(PipelineStage &precursor,
-         unsigned int outGoingChannelSize,
-         double sameThreshold,
-         double movementThreshold);
+         unsigned int outGoingChannelSize);
   ~Merger() override;
   Frame* stage(Frame * newFrame) override;
 };

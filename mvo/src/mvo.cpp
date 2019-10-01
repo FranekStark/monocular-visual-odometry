@@ -10,8 +10,8 @@ MVO::MVO(std::function<void(cv::Point3d, cv::Matx33d)> estimatedPositionCallback
     _refinedPosition(0, 0, 0),
     _estimatedCallbackFunction(estimatedPositionCallback),
     _refinedCallbackFunction(refinedPositionCallback),
-    _trackerDetector(*this, 10, _cornerTracking, 60),
-    _merger(_trackerDetector, 10, 0.0001, 0.05),
+    _trackerDetector(*this, 10, _cornerTracking),
+    _merger(_trackerDetector, 10),
     _baseLineEstimator(_merger, 100, _epipolarGeometry),
     _refiner(_baseLineEstimator, 4, _iterativeRefinement, 3),
     _end(_refiner),
@@ -52,10 +52,13 @@ MVO::MVO(std::function<void(cv::Point3d, cv::Matx33d)> estimatedPositionCallback
 }
 
 
-void MVO::newImage(const cv::Mat &image, const image_geometry::PinholeCameraModel &cameraModel, const cv::Matx33d &R) {
-  auto pyramideImage = _cornerTracking.createPyramide(image);
+void MVO::newImage(const cv::Mat &image,
+                   const image_geometry::PinholeCameraModel &cameraModel,
+                   const cv::Matx33d &R,
+                   mvo::mvoConfig parameters) {
+  auto pyramideImage = _cornerTracking.createPyramide(image, cv::Size(parameters.windowSizeX, parameters.windowSizeY), parameters.pyramidDepth);
   //Creates Frame:
-  auto *frame = new Frame(pyramideImage, cameraModel, R, _prevFrame);
+  auto *frame = new Frame(pyramideImage, cameraModel, R, _prevFrame, parameters);
   _prevFrame = frame;
   pipeIn(frame);
   LOG_DEBUG("New Frame Created and Piped in: " << frame);

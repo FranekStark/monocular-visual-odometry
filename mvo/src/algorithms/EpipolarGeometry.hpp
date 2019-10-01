@@ -6,14 +6,13 @@
 
 #include <image_geometry/pinhole_camera_model.h>
 #include <boost/math/special_functions/binomial.hpp>
+#include <cmath>
 
 #include <random>
 
 class EpipolarGeometry {
  private:
   const double PI;
-  const double THRESHOLD; //Ab wann sind Punkte Outlier
-  const double Ps; //Gewünschte Wahrschenilchkeit für best Fit
 
   /*Random Values */
   std::random_device _randomDevice;
@@ -21,9 +20,9 @@ class EpipolarGeometry {
 
   cv::Vec3d calculateBaseLine(const std::vector<cv::Vec3d> &mhi, const std::vector<cv::Vec3d> &mt);
 
-  unsigned int estimateNumberOfIteration(unsigned int N, double inlierProbability, unsigned int s);
+  unsigned int estimateNumberOfIteration(unsigned int N, double inlierProbability, unsigned int s, double ps);
 
-  unsigned int reEstimateNumberOfIteration(unsigned int N, unsigned int nInlier, unsigned int s);
+  unsigned int reEstimateNumberOfIteration(unsigned int N, unsigned int nInlier, unsigned int s, double ps);
 
  public:
   EpipolarGeometry();
@@ -31,7 +30,7 @@ class EpipolarGeometry {
   ~EpipolarGeometry() = default;
 
   cv::Vec3d estimateBaseLine(const std::vector<cv::Vec3d> &mhi, const std::vector<cv::Vec3d> &mt,
-                             std::vector<unsigned int> &inlierIndexes);
+                             std::vector<unsigned int> &inlierIndexes, double ps, double threshold);
 };
 
 #endif //EPIPOLAR_GEOMETRY_HPP

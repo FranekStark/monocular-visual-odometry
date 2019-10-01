@@ -4,37 +4,35 @@
 
 EpipolarGeometry::EpipolarGeometry() :
     PI(3.14159265),
-    THRESHOLD(cos(3.0 * PI / 180.0)),
-    Ps(0.99),
     _randomGenerator(_randomDevice()) {
 
 }
 
-unsigned int EpipolarGeometry::estimateNumberOfIteration(unsigned int N, double inlierProbability, unsigned int s) {
+unsigned int EpipolarGeometry::estimateNumberOfIteration(unsigned int N, double inlierProbability, unsigned int s, double ps) {
   unsigned int nInlier = int(N * inlierProbability);  // Anzahl der Inlier im Datensatz für die inlierProbability
   unsigned int m = boost::math::binomial_coefficient<double>(nInlier, s);  // n über k -> 3 aus N -> Alle
   // Möglichkeiten 3 aus Inlier zu nehmen
   unsigned int n = boost::math::binomial_coefficient<double>(N, s);        // Alle Möglichkeiten 3 aus allen
   // Feature-Paaren zu Nehmen
   double p = double(m) / double(n);  // Wahrscheinlichkeit, dass in einem Sample de größe s (3), alles Inlier sind
-  unsigned int nIterations = ceil(log(1 - Ps) / log(1 - p));
+  unsigned int nIterations = ceil(log(1 - ps) / log(1 - p));
   //ROS_INFO_STREAM("Initial erwartete Anzahl von Iterationen: " << nIterations << std::endl);
   return nIterations;
 }
 
-unsigned int EpipolarGeometry::reEstimateNumberOfIteration(unsigned int N, unsigned int nInlier, unsigned int s) {
+unsigned int EpipolarGeometry::reEstimateNumberOfIteration(unsigned int N, unsigned int nInlier, unsigned int s, double ps) {
   unsigned int m = boost::math::binomial_coefficient<double>(nInlier, s);  // n über k -> 3 aus N ->
   // Alle Möglichkeiten 3
   // aus Inlier zu nehmen
   unsigned int n = boost::math::binomial_coefficient<double>(N, s);        // Alle Möglichkeiten 3 aus allen
   // Feature-Paaren zu Nehmen
   double p = double(m) / double(n);  // Wahrscheinlichkeit, dass in einem Sample de größe s (3), alles Inlier sind
-  unsigned int nIterations = ceil(log(1 - Ps) / log(1 - p));
+  unsigned int nIterations = ceil(log(1 - ps) / log(1 - p));
   return nIterations;
 }
 
 cv::Vec3d EpipolarGeometry::estimateBaseLine(const std::vector<cv::Vec3d> &mhi, const std::vector<cv::Vec3d> &mt,
-                                             std::vector<unsigned int> &inlierIndexes) {
+                                             std::vector<unsigned int> &inlierIndexes, double ps, double threshold) {
   assert(mhi.size() == mt.size());
 
   unsigned int N = mt.size();  // Anzahl aller Feature-Paare
@@ -43,7 +41,7 @@ cv::Vec3d EpipolarGeometry::estimateBaseLine(const std::vector<cv::Vec3d> &mhi, 
   double inlierProbability = 0.3;  // FIRST GUESS (für die Wahrscheinlichekit, dass ein Feature-Paar ein inlier ist),
   // der sehr schlecht ist! (Wird später im Algorithmus noch angepasst)
 
-  unsigned int nIterations = this->estimateNumberOfIteration(N, inlierProbability, s);
+  unsigned int nIterations = this->estimateNumberOfIteration(N, inlierProbability, s, ps);
 
   std::uniform_int_distribution<unsigned int> randomDist(0, N);
 
@@ -80,7 +78,7 @@ cv::Vec3d EpipolarGeometry::estimateBaseLine(const std::vector<cv::Vec3d> &mhi, 
               (sqrt(cv::norm(*m1, cv::NORM_L2SQR) - cv::pow((m1->t() * b)(0), 2)) *
                   sqrt(cv::norm(*m2, cv::NORM_L2SQR) - cv::pow((m2->t() * b)(0), 2)));
 
-      if (pInlier > THRESHOLD) {  // Juhu, there is an Inlier :)
+      if (pInlier > threshold) {  // Juhu, there is an Inlier :)
         nInlier++;
         nProbability += pInlier;
         inLierIndexes.push_back(std::distance(mhi.begin(), m1));
@@ -90,7 +88,7 @@ cv::Vec3d EpipolarGeometry::estimateBaseLine(const std::vector<cv::Vec3d> &mhi, 
     /*Update der Anzahl der benötigten Iterationen */
     if (double(nInlier) / double(N) > inlierProbability) {
       inlierProbability = double(nInlier) / double(N);
-      nIterations = this->reEstimateNumberOfIteration(N, nInlier, s);
+      nIterations = this->reEstimateNumberOfIteration(N, nInlier, s, ps);
       //ROS_INFO_STREAM("Iteration " << iteration << ": Neue erwartete Anzahl von Iterationen: " << nIterations
       //<< std::endl);
 

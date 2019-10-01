@@ -34,7 +34,10 @@ Frame *BaselineEstimator::stage(Frame *newFrame) {
     FeatureOperations::unrotateFeatures(thisCorespFeaturesE, thisCorespFeaturesUnrotatedE, diffRotation);
     /* First Guess of the Direction-BaseLine */
     std::vector<unsigned int> inlier, outlier;
-    auto baseLine = _epipolarGeometry.estimateBaseLine(beforeCorespFeaturesE, thisCorespFeaturesUnrotatedE, inlier);
+
+    //THRESHOLD(cos(3.0 * PI / 180.0)),
+    double threshold = std::cos(newFrame->getParameters().thresholdOutlier * M_PI / 180.0);
+    auto baseLine = _epipolarGeometry.estimateBaseLine(beforeCorespFeaturesE, thisCorespFeaturesUnrotatedE, inlier, newFrame->getParameters().bestFitProbability, threshold);
     /*Special Algorithm to get Outlier Indeces from Inlier*/
     std::sort(inlier.begin(), inlier.end());
     auto inlierIT = inlier.begin();

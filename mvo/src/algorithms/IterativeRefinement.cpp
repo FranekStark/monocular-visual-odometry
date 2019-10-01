@@ -5,7 +5,11 @@
 
 #include <limits>
 
-void IterativeRefinement::refine(RefinementDataCV &refinementData) {
+void IterativeRefinement::refine(RefinementDataCV &refinementData,
+                                 int maxNumthreads,
+                                 int maxNumIterations,
+                                 double functionTolerance,
+                                 bool useLossFunction) {
 
   RefinementDataEIG dataEIG;
   cvt_cv_eigen(refinementData.m0, dataEIG.m0);
@@ -34,9 +38,9 @@ void IterativeRefinement::refine(RefinementDataCV &refinementData) {
   ceres::Solver::Options ceres_solver_options;
   ceres_solver_options.trust_region_strategy_type = ceres::LEVENBERG_MARQUARDT;
   ceres_solver_options.linear_solver_type = ceres::DENSE_QR;
-  ceres_solver_options.max_num_iterations = 500;
-  ceres_solver_options.num_threads = 8;
-  ceres_solver_options.function_tolerance = 1e-10;
+  ceres_solver_options.max_num_iterations = maxNumIterations;
+  ceres_solver_options.num_threads = maxNumthreads;
+  ceres_solver_options.function_tolerance = functionTolerance;
   //ceres_solver_options.check_gradients = true; ///DEBUG!
 
 
@@ -51,12 +55,17 @@ void IterativeRefinement::refine(RefinementDataCV &refinementData) {
         new CostFunction(dataEIG.m1[i], dataEIG.m0[i], dataEIG.R1, dataEIG.R0)
     );
 
-    // ceres::LossFunction *loss_function20 = new ceres::CauchyLoss(0.5);
-    // ceres::LossFunction *loss_function21 = new ceres::CauchyLoss(0.5);
-    // ceres::LossFunction *loss_function10 = new ceres::CauchyLoss(0.5);
-    ceres_problem.AddResidualBlock(cost_functiom20, nullptr, vec0, vec1, scale0, scale1);
-    ceres_problem.AddResidualBlock(cost_functiom21, nullptr, vec1);
-    ceres_problem.AddResidualBlock(cost_functiom10, nullptr, vec0);
+    ceres::LossFunction *loss_function20 = nullptr;
+    ceres::LossFunction *loss_function21 = nullptr;
+    ceres::LossFunction *loss_function10 = nullptr;
+    if (useLossFunction) {
+      loss_function20 = new ceres::CauchyLoss(0.5);
+      loss_function21 = new ceres::CauchyLoss(0.5);
+      loss_function10 = new ceres::CauchyLoss(0.5);
+    }
+    ceres_problem.AddResidualBlock(cost_functiom20, loss_function20, vec0, vec1, scale0, scale1);
+    ceres_problem.AddResidualBlock(cost_functiom21, loss_function21, vec1);
+    ceres_problem.AddResidualBlock(cost_functiom10, loss_function10, vec0);
   }
 
   ceres::LocalParameterization
@@ -76,8 +85,6 @@ void IterativeRefinement::refine(RefinementDataCV &refinementData) {
 
   ceres::Solver::Summary ceres_summary;
   ceres::Solve(ceres_solver_options, &ceres_problem, &ceres_summary);
-
-
 
   auto n0 = scaleTemplated<double>(scale0[0]);  // T0
   auto n1 = scaleTemplated<double>(scale1[0]);  // T1

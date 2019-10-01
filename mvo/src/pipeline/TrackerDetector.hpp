@@ -20,7 +20,6 @@ class TrackerDetector : public PipelineStage{
    */
   Frame * _prevFrame;
   CornerTracking & _cornerTracking;
-  unsigned int _numberToDetect;
 
   void track(Frame & newFrame);
   void detect(Frame & newFrame, unsigned int number);
@@ -28,8 +27,7 @@ class TrackerDetector : public PipelineStage{
  public:
   TrackerDetector(PipelineStage &precursor,
                   unsigned int outGoingChannelSize,
-                  CornerTracking &cornerTracking,
-                  unsigned int number);
+                  CornerTracking &cornerTracking);
   ~TrackerDetector() override;
   Frame* stage(Frame * newFrame) override;
   static cv::Rect2d getShipMask(const cv::Size& imageSize);

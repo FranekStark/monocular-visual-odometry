@@ -166,15 +166,18 @@ bool Frame::isFirstFrame() {
 Frame::Frame(std::vector<cv::Mat> imagePyramide,
              image_geometry::PinholeCameraModel camerModel,
              cv::Matx33d rotation,
-             Frame *preFrame):
+             Frame *preFrame,
+             mvo::mvoConfig params):
              _imagePyramide(imagePyramide),
              _cameraModel(camerModel),
              _rotation(rotation),
-             _preFrame(preFrame)
+             _preFrame(preFrame),
+             _parameters(params)
              {
-
 }
-
+const mvo::mvoConfig &Frame::getParameters() {
+  return _parameters;
+}
 
 template<>
 const cv::Vec3d &Frame::getFeatureLocation(const Feature &f) {

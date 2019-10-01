@@ -152,3 +152,8 @@ void VisualisationUtils::drawCorrespondences(const std::vector<std::vector<cv::V
   }
 
 }
+void VisualisationUtils::drawRect(cv::Mat &image, const cv::Rect &rect) {
+  cv::Mat maskImage = image.clone();
+  cv::rectangle(maskImage, rect, cv::Scalar(0, 0, 255), -1);
+  cv::addWeighted(image, 0.5, maskImage, 0.5, 0.0, image);
+}

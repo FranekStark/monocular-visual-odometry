@@ -18,14 +18,15 @@ MVO_node::MVO_node(ros::NodeHandle nh, ros::NodeHandle pnh)
       _cameraInfoSubscriber(_nodeHandle, "/pylon_camera_node/camera_info", 10),
       _imuSubscriber(_nodeHandle, "/imu/data", 100),
       _synchronizer(SyncPolicie(200), _imageSubscriber, _cameraInfoSubscriber, _imuSubscriber),
+      _currentConfig(mvo::mvoConfig::__getDefault__()),
       _transformWorldToCamera(0, 0, 1, -1, 0, 0, 0, -1, 0),
       _mvo([this](cv::Point3d position, cv::Matx33d orientation){
           this->publishEstimatedPosition(position, orientation);
         },
             [this](cv::Point3d position, cv::Matx33d orientation){
         this->publishRefinedPosition(position, orientation);
-      }) {
-
+      })
+      {
   this->init();
 }
 
@@ -34,7 +35,7 @@ MVO_node::~MVO_node() {
 
 void MVO_node::init() {
   //Set Log-Level:
-  if( ros::console::set_logger_level(ROSCONSOLE_DEFAULT_NAME, ros::console::levels::Debug) ) {
+  if( ros::console::set_logger_level(ROSCONSOLE_DEFAULT_NAME, ros::console::levels::Info) ) {
     ros::console::notifyLoggerLevelsChanged();
   }
 
@@ -43,8 +44,6 @@ void MVO_node::init() {
   _estimatedOdomPublisher = _nodeHandle.advertise<nav_msgs::Odometry>("odom_estimated", 10, true);
   _refinedOdomPublisher = _nodeHandle.advertise<nav_msgs::Odometry>("odom_refined", 10, true);
   _synchronizer.registerCallback(boost::bind(&MVO_node::imageCallback, this, _1, _2, _3));
-
-  //Callbacks
 
 }
 
@@ -76,8 +75,9 @@ void MVO_node::imageCallback(const sensor_msgs::ImageConstPtr &image, const sens
   /**
    * Call the Algorithm
    **/
-  _mvo.newImage(bridgeImage->image, model, orientationMatCV);
-
+   _configLock.lock();
+  _mvo.newImage(bridgeImage->image, model, orientationMatCV, _currentConfig);
+  _configLock.unlock();
 /*  *//**
    * Pack DebugImages and Publish
    *//*
@@ -96,8 +96,10 @@ void MVO_node::imageCallback(const sensor_msgs::ImageConstPtr &image, const sens
 
 void MVO_node::dynamicConfigCallback(mvo::mvoConfig &config, uint32_t level) {
   (void) (level);  // TODO: unused
-  (void) (config);
-  ROS_ERROR("Not implemented!");
+  _configLock.lock();
+  _currentConfig = config;
+  _configLock.unlock();
+  ROS_INFO_STREAM("Parameter changed! ");
 }
 
 void MVO_node::publishEstimatedPosition(cv::Point3d position, cv::Matx33d orientation) {

@@ -40,11 +40,8 @@ class MVO_node {
   ros::Publisher _refinedOdomPublisher;
   dynamic_reconfigure::Server<mvo::mvoConfig> _dynamicConfigServer;
   dynamic_reconfigure::Server<mvo::mvoConfig>::CallbackType _dynamicConfigCallBackType;
-
-  /*image_transport::Publisher _debugImagePublisher;
-  image_transport::Publisher _debugImage2Publisher;
-  image_transport::Publisher _debugImage3Publisher;
-  image_transport::Publisher _debugImage4Publisher;*/
+  mvo::mvoConfig _currentConfig;
+  std::mutex _configLock;
 
   cv::Matx33d _transformWorldToCamera;
 

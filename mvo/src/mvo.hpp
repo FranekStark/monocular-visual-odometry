@@ -89,7 +89,10 @@ class MVO : public PipelineBegin {
       std::function<void(cv::Point3d, cv::Matx33d)> refinedPositionCallback);
   ~MVO() override;
 
-  void newImage(const cv::Mat &image, const image_geometry::PinholeCameraModel &cameraModel, const cv::Matx33d &R);
+  void newImage(const cv::Mat &image,
+                const image_geometry::PinholeCameraModel &cameraModel,
+                const cv::Matx33d &R,
+                mvo::mvoConfig parameters);
 
 };
 

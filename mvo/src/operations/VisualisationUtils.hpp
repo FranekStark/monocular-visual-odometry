@@ -60,6 +60,12 @@ class VisualisationUtils {
                                     const std::vector<cv::Point2f> &featuresNew,
                                     const std::vector<cv::Point2f> &featuresNewUnrotated);
 
+  /**
+   * draws a Rect to specified Image
+   * @param image the Imag eto draw to
+   * @param rect the rect to daw
+   */
+  static void drawRect(cv::Mat & image, const cv::Rect & rect);
 };
 
 
