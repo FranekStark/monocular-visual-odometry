@@ -1,0 +1,16 @@
+
+mvo/\.vscode/
+
+mvo/Ideas\.md
+
+mvo/vsCodeWS\.code-workspace
+
+testData/
+
+mvo/\.idea/codeStyles/
+
+mvo/\.idea/
+
+mvo/cmake-build-debug/atomic_configure/
+
+mvo/cmake-build-debug/
