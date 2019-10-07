@@ -76,7 +76,7 @@ void MVO_node::init() {
                                    _currentConfig.bestFitProbability);
   _privateNodeHandle.param<int>("maxNumThreads", _currentConfig.maxNumThreads, _currentConfig.maxNumThreads);
   _privateNodeHandle.param<int>("maxNumIterations", _currentConfig.maxNumIterations, _currentConfig.maxNumIterations);
-  _privateNodeHandle.param<double>("functionTolerance",
+  _privateNodeHandle.param<int>("functionTolerance",
                                    _currentConfig.functionTolerance,
                                    _currentConfig.functionTolerance);
   _privateNodeHandle.param<bool>("useLossFunction", _currentConfig.useLossFunction, _currentConfig.useLossFunction);

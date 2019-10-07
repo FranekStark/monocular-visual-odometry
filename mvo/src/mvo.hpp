@@ -33,9 +33,6 @@
 
 #define PI 3.14159265
 
-#define DEBUGIMAGES
-#define MEASURETIME
-
 class MVO : public PipelineBegin {
  private:
   /**
