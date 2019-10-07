@@ -27,8 +27,10 @@ void IterativeRefinement::refine(RefinementDataCV &refinementData,
   cvt_cv_eigen(refinementData.vec0, dataEIG.vec0);
   cvt_cv_eigen(refinementData.vec1, dataEIG.vec1);
 
-  double scale0[1] = {reverseScale(dataEIG.vec0.norm())};
-  double scale1[1] = {reverseScale(dataEIG.vec1.norm())};
+  auto norm0 = dataEIG.vec0.norm();
+  auto norm1 = dataEIG.vec1.norm();
+  double scale0[1] = {reverseScale(norm0)};
+  double scale1[1] = {reverseScale(norm1)};
 
   dataEIG.vec0.normalize();
   dataEIG.vec1.normalize();
@@ -37,8 +39,8 @@ void IterativeRefinement::refine(RefinementDataCV &refinementData,
   double vec1[3] = {dataEIG.vec1(0), dataEIG.vec1(1), dataEIG.vec1(2)};
 
   ROS_INFO_STREAM("Before: ");
-  ROS_INFO_STREAM("n0 * u0: " << scale0[0] << " * [" << vec0[0] << "," << vec0[1] << "," << vec0[2] << "]");
-  ROS_INFO_STREAM("n1 * u1: " << scale1[0] << " * [" << vec1[0] << "," << vec1[1] << "," << vec1[2] << "]");
+  ROS_INFO_STREAM("n0 * u0: " << norm0 << " * [" << vec0[0] << "," << vec0[1] << "," << vec0[2] << "]");
+  ROS_INFO_STREAM("n1 * u1: " << norm1 << " * [" << vec1[0] << "," << vec1[1] << "," << vec1[2] << "]");
 
   ceres::Problem ceres_problem;
   ceres::Solver::Options ceres_solver_options;
@@ -98,8 +100,8 @@ void IterativeRefinement::refine(RefinementDataCV &refinementData,
   auto n1 = scaleTemplated<double>(scale1[0]);  // T1
 
   ROS_INFO_STREAM("After: ");
-  ROS_INFO_STREAM("n0 * u0: " << scale0[0] << " * [" << vec0[0] << "," << vec0[1] << "," << vec0[2] << "]");
-  ROS_INFO_STREAM("n1 * u1: " << scale1[0] << " * [" << vec1[0] << "," << vec1[1] << "," << vec1[2] << "]");
+  ROS_INFO_STREAM("n0 * u0: " << n0 << " * [" << vec0[0] << "," << vec0[1] << "," << vec0[2] << "]");
+  ROS_INFO_STREAM("n1 * u1: " << n1 << " * [" << vec1[0] << "," << vec1[1] << "," << vec1[2] << "]");
 
   ROS_INFO_STREAM(ceres_summary.FullReport());
 
