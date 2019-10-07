@@ -5,11 +5,17 @@
 
 #include <limits>
 
+double IterativeRefinement::LOW_VALUE = 0.25;
+double IterativeRefinement::HIGH_VALUE = 2.0;
+
 void IterativeRefinement::refine(RefinementDataCV &refinementData,
                                  int maxNumthreads,
                                  int maxNumIterations,
                                  double functionTolerance,
-                                 bool useLossFunction) {
+                                 bool useLossFunction, double lowestLength, double highestLength) {
+
+  IterativeRefinement::LOW_VALUE = lowestLength;
+  IterativeRefinement::HIGH_VALUE = highestLength;
 
   RefinementDataEIG dataEIG;
   cvt_cv_eigen(refinementData.m0, dataEIG.m0);
@@ -36,12 +42,14 @@ void IterativeRefinement::refine(RefinementDataCV &refinementData,
 
   ceres::Problem ceres_problem;
   ceres::Solver::Options ceres_solver_options;
+  ceres_solver_options.minimizer_type = ceres::TRUST_REGION;
   ceres_solver_options.trust_region_strategy_type = ceres::LEVENBERG_MARQUARDT;
   ceres_solver_options.linear_solver_type = ceres::DENSE_QR;
   ceres_solver_options.max_num_iterations = maxNumIterations;
   ceres_solver_options.num_threads = maxNumthreads;
   ceres_solver_options.function_tolerance = functionTolerance;
   //ceres_solver_options.check_gradients = true; ///DEBUG!
+  //ceres_solver_options.minimizer_progress_to_stdout = true; ///DEBUG!
 
 
   for (unsigned int i = 0; i < refinementData.m0.size(); i++) {

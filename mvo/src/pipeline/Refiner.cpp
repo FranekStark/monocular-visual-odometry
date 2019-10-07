@@ -12,7 +12,8 @@ Refiner::Refiner(PipelineStage &precursor,
       _iterativeRefinement(iterativeRefinement),
       _preFrame(nullptr),
       _prePreFrame(nullptr),
-      _baseLine(1) {
+      _baseLine1(1),
+      _baseLine2(1){
   assert(numberToRefine == 3);
   //Currently only 3 available
 #ifdef DEBUGIMAGES
@@ -48,7 +49,7 @@ Frame *Refiner::stage(Frame *newFrame) {
 
     Frame::getCorrespondingFeatures(*_prePreFrame, *newFrame, vectors);
 
-    _iterativeRefinement.refine(data, newFrame->getParameters().maxNumThreads, newFrame->getParameters().maxNumIterations, newFrame->getParameters().functionTolerance, newFrame->getParameters().useLossFunction);
+    _iterativeRefinement.refine(data, newFrame->getParameters().maxNumThreads, newFrame->getParameters().maxNumIterations, newFrame->getParameters().functionTolerance, newFrame->getParameters().useLossFunction, newFrame->getParameters().lowestLength, newFrame->getParameters().highestLength);
 
     ROS_INFO_STREAM("After: " << std::endl
                               << "vec0: " << data.vec0 << std::endl
@@ -81,8 +82,12 @@ Frame *Refiner::stage(Frame *newFrame) {
   //Pass the frames through
   _prePreFrame = _preFrame;
   _preFrame = newFrame;
+  if(_preFrame != nullptr){
+    _baseLine1.enqueue({_preFrame->getBaseLineToPrevious(), _preFrame->getRotation()});
+  }
+
   if (_prePreFrame != nullptr) {
-    _baseLine.enqueue({_prePreFrame->getBaseLineToPrevious(),
+    _baseLine2.enqueue({_prePreFrame->getBaseLineToPrevious(),
                        _prePreFrame->getRotation()});
   }
   return _prePreFrame;

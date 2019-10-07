@@ -36,20 +36,21 @@
 #define DEBUGIMAGES
 #define MEASURETIME
 
-
 class MVO : public PipelineBegin {
  private:
   /**
    * Positions
    */
   cv::Point3d _estimatedPosition;
-  cv::Point3d _refinedPosition;
+  cv::Point3d _refined1Position;
+  cv::Point3d _refined2Position;
 
   /**
    * Callbackfunction
    */
   std::function<void(cv::Point3d, cv::Matx33d)> _estimatedCallbackFunction;
-  std::function<void(cv::Point3d, cv::Matx33d)> _refinedCallbackFunction;
+  std::function<void(cv::Point3d, cv::Matx33d)> _refined1CallbackFunction;
+  std::function<void(cv::Point3d, cv::Matx33d)> _refined2CallbackFunction;
 
   /**
    * Algorithms
@@ -70,23 +71,25 @@ class MVO : public PipelineBegin {
   /**
    * Pipelinethreads
    */
-   std::thread _trackerThread;
-   std::thread _mergerThread;
-   std::thread _estimatorThread;
-   std::thread _refinerThread;
-   std::thread _endThread;
+  std::thread _trackerThread;
+  std::thread _mergerThread;
+  std::thread _estimatorThread;
+  std::thread _refinerThread;
+  std::thread _endThread;
 
   /**
    *Callbackthreads
    */
-   std::thread _estimatedCallbackThread;
-   std::thread _refinedCallbackThread;
+  std::thread _estimatedCallbackThread;
+  std::thread _refined1CallbackThread;
+  std::thread _refined2CallbackThread;
 
-  Frame * _prevFrame;
+  Frame *_prevFrame;
 
  public:
   MVO(std::function<void(cv::Point3d, cv::Matx33d)> estimatedPositionCallback,
-      std::function<void(cv::Point3d, cv::Matx33d)> refinedPositionCallback);
+      std::function<void(cv::Point3d, cv::Matx33d)> refined1PositionCallback,
+      std::function<void(cv::Point3d, cv::Matx33d)> refined2PositionCallback);
   ~MVO() override;
 
   void newImage(const cv::Mat &image,

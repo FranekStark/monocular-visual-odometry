@@ -27,17 +27,17 @@ class MVO_node {
  private:
   typedef message_filters::sync_policies::ApproximateTime<sensor_msgs::Image, sensor_msgs::CameraInfo, sensor_msgs::Imu>
       SyncPolicie;
-  ros::NodeHandle _nodeHandle;
-  ros::NodeHandle _privateNodeHandle;
-  image_transport::ImageTransport _imageTransport;
-  std::string _imageSubscriberTopic;
-  image_transport::SubscriberFilter _imageSubscriber;
-  message_filters::Subscriber<sensor_msgs::CameraInfo> _cameraInfoSubscriber;
-  message_filters::Subscriber<sensor_msgs::Imu> _imuSubscriber;
-  message_filters::Synchronizer<SyncPolicie> _synchronizer;
-  //tf2_ros::TransformBroadcaster _odomTfBroadcaster;
+  ros::NodeHandle & _nodeHandle;
+  ros::NodeHandle & _privateNodeHandle;
+  image_transport::ImageTransport  _imageTransport;
+  image_transport::SubscriberFilter *  _imageSubscriber;
+  message_filters::Subscriber<sensor_msgs::CameraInfo>  * _cameraInfoSubscriber;
+  message_filters::Subscriber<sensor_msgs::Imu> * _imuSubscriber;
+  message_filters::Synchronizer<SyncPolicie> * _synchronizer;
+
   ros::Publisher _estimatedOdomPublisher;
-  ros::Publisher _refinedOdomPublisher;
+  ros::Publisher _refined1OdomPublisher;
+  ros::Publisher _refined2OdomPublisher;
   dynamic_reconfigure::Server<mvo::mvoConfig> _dynamicConfigServer;
   dynamic_reconfigure::Server<mvo::mvoConfig>::CallbackType _dynamicConfigCallBackType;
   mvo::mvoConfig _currentConfig;
@@ -53,7 +53,7 @@ class MVO_node {
 
 
  public:
-  MVO_node(ros::NodeHandle nh, ros::NodeHandle pnh);
+  MVO_node(ros::NodeHandle & nh, ros::NodeHandle & pnh);
 
   ~MVO_node();
 
@@ -63,7 +63,7 @@ class MVO_node {
   void dynamicConfigCallback(mvo::mvoConfig &config, uint32_t level);
 
   void publishEstimatedPosition(cv::Point3d position, cv::Matx33d orientation);
-  void publishRefinedPosition(cv::Point3d position, cv::Matx33d orientation);
+  void publishRefinedPosition(cv::Point3d position, cv::Matx33d orientation, int stage);
 
 
 };

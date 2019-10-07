@@ -66,8 +66,8 @@ class IterativeRefinement {
 
   };
 
-  static constexpr double LOW_VALUE = 0.25;
-  static constexpr double HIGH_VALUE = 2;
+  static double LOW_VALUE;
+  static double HIGH_VALUE;
 
   template<typename T>
   static Eigen::Matrix<T, 3, 1> baseLineTemplated(const Eigen::Matrix<T, 3, 1> &vec, const T a, const T b);
@@ -99,7 +99,7 @@ class IterativeRefinement {
 
   ~IterativeRefinement() = default;
 
-  void refine(RefinementDataCV &refinementData, int maxNumthreads,int maxNumIterations, double functionTolerance, bool useLossFunction);
+  void refine(RefinementDataCV &refinementData, int maxNumthreads,int maxNumIterations, double functionTolerance, bool useLossFunction, double lowestLength, double highestLength);
 
 };
 

@@ -26,7 +26,8 @@ class Refiner: public PipelineStage {
           IterativeRefinement &iterativeRefinement, unsigned int numberToRefine);
   ~Refiner() override;
 
-  Channel<OdomData> _baseLine;
+  Channel<OdomData> _baseLine1;
+  Channel<OdomData> _baseLine2;
 
 
 };
