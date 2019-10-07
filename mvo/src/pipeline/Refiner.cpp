@@ -48,7 +48,7 @@ Frame *Refiner::stage(Frame *newFrame) {
     std::vector<std::vector<cv::Vec3d> *> vectors{&(data.m0), &(data.m1), &(data.m2)};
 
     Frame::getCorrespondingFeatures(*_prePreFrame, *newFrame, vectors);
-    double tolerance = std::pow(1,-(newFrame->getParameters().functionTolerance));
+    auto tolerance = std::pow(10.0, -1 * (newFrame->getParameters().functionTolerance));
     _iterativeRefinement.refine(data, newFrame->getParameters().maxNumThreads, newFrame->getParameters().maxNumIterations, tolerance, newFrame->getParameters().useLossFunction, newFrame->getParameters().lowestLength, newFrame->getParameters().highestLength);
 
     ROS_INFO_STREAM("After: " << std::endl

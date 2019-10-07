@@ -5,7 +5,7 @@
 #ifndef MVO_SRC_VISULISATIONUTILS_HPP_
 #define MVO_SRC_VISULISATIONUTILS_HPP_
 
-//#define DEBUGIMAGES
+#define DEBUGIMAGES
 
 #include <image_geometry/pinhole_camera_model.h>
 #include "../sliding_window/Frame.hpp"
