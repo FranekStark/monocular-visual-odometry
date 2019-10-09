@@ -14,7 +14,7 @@ BaselineEstimator::BaselineEstimator(PipelineStage &precursor,
 #ifdef DEBUGIMAGES
   cv::namedWindow("EstimatorImage", cv::WINDOW_NORMAL);
   cv::moveWindow("EstimatorImage", 1200,28);
-  cv::resizeWindow("EstimatorImage", 1200,1892);
+  cv::resizeWindow("EstimatorImage", 1200,728);
   cv::startWindowThread();
 #endif
 }
@@ -92,6 +92,7 @@ Frame *BaselineEstimator::stage(Frame *newFrame) {
     baseLine = beforeRotaton * baseLine;
     /* Save Movement */
     newFrame->setBaseLineToPrevious(baseLine);
+    newFrame->setScaleToPrevious(1.0);
 #ifdef DEBUGIMAGES
     cv::Mat image(newFrame->getImage().size(), CV_8UC3, cv::Scalar(100, 100, 100));
     VisualisationUtils::drawCorrespondences({&thisCorespFeaturesE, &beforeCorespFeaturesE},
@@ -103,7 +104,7 @@ Frame *BaselineEstimator::stage(Frame *newFrame) {
   }
   //Pass through
   _prevFrame = newFrame;
-  _baseLine.enqueue({newFrame->getBaseLineToPrevious(), newFrame->getRotation()});
+  _baseLine.enqueue({newFrame->getBaseLineToPrevious(), newFrame->getRotation(), newFrame->getTimeStamp()});
   return newFrame;
 }
 BaselineEstimator::~BaselineEstimator() {

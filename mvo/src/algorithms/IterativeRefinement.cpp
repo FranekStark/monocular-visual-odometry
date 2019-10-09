@@ -5,17 +5,12 @@
 
 #include <limits>
 
-double IterativeRefinement::LOW_VALUE = 0.25;
-double IterativeRefinement::HIGH_VALUE = 2.0;
 
 void IterativeRefinement::refine(RefinementDataCV &refinementData,
                                  int maxNumthreads,
                                  int maxNumIterations,
                                  double functionTolerance,
                                  bool useLossFunction, double lowestLength, double highestLength) {
-
-  IterativeRefinement::LOW_VALUE = lowestLength;
-  IterativeRefinement::HIGH_VALUE = highestLength;
 
   RefinementDataEIG dataEIG;
   cvt_cv_eigen(refinementData.m0, dataEIG.m0);
@@ -27,20 +22,15 @@ void IterativeRefinement::refine(RefinementDataCV &refinementData,
   cvt_cv_eigen(refinementData.vec0, dataEIG.vec0);
   cvt_cv_eigen(refinementData.vec1, dataEIG.vec1);
 
-  auto norm0 = dataEIG.vec0.norm();
-  auto norm1 = dataEIG.vec1.norm();
-  double scale0[1] = {reverseScale(norm0)};
-  double scale1[1] = {reverseScale(norm1)};
-
-  dataEIG.vec0.normalize();
-  dataEIG.vec1.normalize();
+  double scale0[1] = {reverseScale(refinementData.scale0, highestLength, lowestLength)};
+  double scale1[1] = {reverseScale(refinementData.scale1, highestLength, lowestLength)};
 
   double vec0[3] = {dataEIG.vec0(0), dataEIG.vec0(1), dataEIG.vec0(2)};
   double vec1[3] = {dataEIG.vec1(0), dataEIG.vec1(1), dataEIG.vec1(2)};
 
   ROS_INFO_STREAM("Before: ");
-  ROS_INFO_STREAM("n0 * u0: " << norm0 << " * [" << vec0[0] << "," << vec0[1] << "," << vec0[2] << "]");
-  ROS_INFO_STREAM("n1 * u1: " << norm1 << " * [" << vec1[0] << "," << vec1[1] << "," << vec1[2] << "]");
+  ROS_INFO_STREAM("n0 * u0: " << refinementData.scale0 << " * [" << vec0[0] << "," << vec0[1] << "," << vec0[2] << "]");
+  ROS_INFO_STREAM("n1 * u1: " << refinementData.scale1 << " * [" << vec1[0] << "," << vec1[1] << "," << vec1[2] << "]");
 
   ceres::Problem ceres_problem;
   ceres::Solver::Options ceres_solver_options;
@@ -56,7 +46,7 @@ void IterativeRefinement::refine(RefinementDataCV &refinementData,
 
   for (unsigned int i = 0; i < refinementData.m0.size(); i++) {
     ceres::CostFunction *cost_functiom20 = new ceres::AutoDiffCostFunction<CostFunctionScaled, 1, 3, 3, 1, 1>(
-        new CostFunctionScaled(dataEIG.m2[i], dataEIG.m1[i], dataEIG.m0[i], dataEIG.R2, dataEIG.R1, dataEIG.R0)
+        new CostFunctionScaled(dataEIG.m2[i], dataEIG.m1[i], dataEIG.m0[i], dataEIG.R2, dataEIG.R1, dataEIG.R0, highestLength, lowestLength)
     );
     ceres::CostFunction *cost_functiom21 = new ceres::AutoDiffCostFunction<CostFunction, 1, 3>(
         new CostFunction(dataEIG.m2[i], dataEIG.m1[i], dataEIG.R2, dataEIG.R1)
@@ -79,9 +69,11 @@ void IterativeRefinement::refine(RefinementDataCV &refinementData,
   }
 
   ceres::LocalParameterization
-      *local_parametrization = new ceres::AutoDiffLocalParameterization<ParametrizedBaseLine, 3, 2>;
-  ceres_problem.SetParameterization(vec0, local_parametrization);
-  ceres_problem.SetParameterization(vec1, local_parametrization);
+      *local_parametrizationVec0 = new ceres::AutoDiffLocalParameterization<ParametrizedBaseLine, 3, 2>;
+  ceres::LocalParameterization
+      *local_parametrizationVec1 = new ceres::AutoDiffLocalParameterization<ParametrizedBaseLine, 3, 2>;
+  ceres_problem.SetParameterization(vec0, local_parametrizationVec0);
+  ceres_problem.SetParameterization(vec1, local_parametrizationVec1);
 
   //ceres_solver_options.minimizer_progress_to_stdout = true;
   //ceres_solver_options.check_gradients = true;
@@ -96,20 +88,28 @@ void IterativeRefinement::refine(RefinementDataCV &refinementData,
   ceres::Solver::Summary ceres_summary;
   ceres::Solve(ceres_solver_options, &ceres_problem, &ceres_summary);
 
-  auto n0 = scaleTemplated<double>(scale0[0]);  // T0
-  auto n1 = scaleTemplated<double>(scale1[0]);  // T1
+  auto n0 = scaleTemplated<double>(scale0[0], highestLength, lowestLength);  // T0
+  auto n1 = scaleTemplated<double>(scale1[0], highestLength, lowestLength);  // T1
 
   ROS_INFO_STREAM("After: ");
   ROS_INFO_STREAM("n0 * u0: " << n0 << " * [" << vec0[0] << "," << vec0[1] << "," << vec0[2] << "]");
   ROS_INFO_STREAM("n1 * u1: " << n1 << " * [" << vec1[0] << "," << vec1[1] << "," << vec1[2] << "]");
 
-  ROS_INFO_STREAM(ceres_summary.FullReport());
-
   cv::Vec3d u0 = cvt_eigen_cv(Eigen::Vector3d(vec0[0], vec0[1], vec0[2]));
   cv::Vec3d u1 = cvt_eigen_cv(Eigen::Vector3d(vec1[0], vec1[1], vec1[2]));
 
-  refinementData.vec0 = n0 * u0;
-  refinementData.vec1 = n1 * u1;
+  ROS_WARN_STREAM_COND((cv::norm(u0) != 1.0), "Vector0 isn't a unitvector, len: " << cv::norm(u0));
+  ROS_WARN_STREAM_COND((cv::norm(u1) != 1.0), "Vector1 isn't a unitvector, len:" << cv::norm(u1));
+
+  ROS_INFO_STREAM(ceres_summary.FullReport());
+
+
+
+
+  refinementData.vec0 = u0;
+  refinementData.vec1 = u1;
+  refinementData.scale0 = n0;
+  refinementData.scale1 = n1;
 }
 
 IterativeRefinement::CostFunctionScaled::CostFunctionScaled(const Eigen::Vector3d &m2,
@@ -117,19 +117,24 @@ IterativeRefinement::CostFunctionScaled::CostFunctionScaled(const Eigen::Vector3
                                                             const Eigen::Vector3d &m0,
                                                             const Eigen::Matrix3d &R2,
                                                             const Eigen::Matrix3d &R1,
-                                                            const Eigen::Matrix3d &R0) :
+                                                            const Eigen::Matrix3d &R0,
+                                                            double maxLength,
+                                                            double minLength) :
     _m2(m2),
     _m1(m1),
     _m0(m0),
     _R2(R2),
     _R1(R1),
-    _R0(R0) {}
+    _R0(R0),
+    _maxLength(maxLength),
+    _minlength(minLength)
+    {}
 
 template<typename T>
 bool IterativeRefinement::CostFunctionScaled::operator()(const T *vec0, const T *vec1, const T *scale0, const T *scale1,
                                                          T *residuals) const {
-  T n0 = scaleTemplated(scale0[0]);
-  T n1 = scaleTemplated(scale1[0]);
+  T n0 = scaleTemplated(scale0[0], _maxLength, _minlength);
+  T n1 = scaleTemplated(scale1[0], _maxLength, _minlength);
 
   Eigen::Matrix<T, 3, 1> u0;
   u0 << vec0[0], vec0[1], vec0[2];
@@ -179,13 +184,17 @@ Eigen::Matrix<T, 3, 1> IterativeRefinement::baseLineTemplated(const Eigen::Matri
       T(0), T(1), T(0),
       T(2.0) * b, T(0), T(1.0) - b * b;
 
-  return ((A * B) / ((1.0 + a * a) * (1.0 + b * b))) * vec.template cast<T>();
+  T scaleA = 1.0 / (1.0 + (a * a));
+  T scaleB = 1.0 / (1.0 + (b * b));
+
+
+  return scaleB * B * scaleA * A * vec.template cast<T>();
 
 }
 
 template<typename T>
-T IterativeRefinement::scaleTemplated(T t) {
-  return LOW_VALUE + ((HIGH_VALUE - LOW_VALUE) / (1.0 + ceres::exp(-1.0 * t)));
+T IterativeRefinement::scaleTemplated(T t, double MAX_LEN, double MIN_LEN) {
+  return MIN_LEN + ((MAX_LEN - MIN_LEN) / (1.0 + ceres::exp(-1.0 * t)));
 }
 
 void IterativeRefinement::cvt_cv_eigen(const std::vector<cv::Vec3d> &vecaCV, std::vector<Eigen::Vector3d> &vecaEIGEN) {
@@ -225,18 +234,18 @@ bool IterativeRefinement::ParametrizedBaseLine::operator()(const T *x, const T *
   return true;
 }
 
-double IterativeRefinement::reverseScale(const double length) {
+double IterativeRefinement::reverseScale(const double length, double MAX_LEN, double MIN_LEN) {
   double t = 1;
   if (length <=
-      LOW_VALUE) //Catch the Cases in which the SCaling is to low or high, cause it is Mathematical impossible to calc t
+      MIN_LEN) //Catch the Cases in which the SCaling is to low or high, cause it is Mathematical impossible to calc t
   {
-    t = reverseScale(LOW_VALUE + std::numeric_limits<double>::epsilon());
-    ROS_WARN_STREAM("Lower bound of scaling to high: " << length << std::endl);
-  } else if (length >= HIGH_VALUE) {
-    t = reverseScale(HIGH_VALUE - std::numeric_limits<double>::epsilon());
-    ROS_WARN_STREAM("Upper bound of scaling to low: " << length << std::endl);
+    t = reverseScale(MIN_LEN + (length * std::numeric_limits<double>::epsilon()), MAX_LEN, MIN_LEN);
+    ROS_WARN_STREAM("Lower bound of scaling to high: " << length);
+  } else if (length >= MAX_LEN) {
+    t = reverseScale(MAX_LEN - (length * std::numeric_limits<double>::epsilon()), MAX_LEN, MIN_LEN);
+    ROS_WARN_STREAM("Upper bound of scaling to low: " << length);
   } else {
-    t = -1.0 * std::log((HIGH_VALUE - length) / (length - LOW_VALUE));
+    t = -1.0 * std::log((MAX_LEN - length) / (length - MIN_LEN));
   }
   return t;
 }

@@ -10,6 +10,7 @@
 struct OdomData {
   cv::Point3d position;
   cv::Matx33d orientation;
+  ros::Time timeStamp;
 };
 
 #endif //MVO_SRC_PIPELINE_ODOMDATA_HPP_

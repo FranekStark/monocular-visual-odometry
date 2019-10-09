@@ -45,9 +45,9 @@ class MVO : public PipelineBegin {
   /**
    * Callbackfunction
    */
-  std::function<void(cv::Point3d, cv::Matx33d)> _estimatedCallbackFunction;
-  std::function<void(cv::Point3d, cv::Matx33d)> _refined1CallbackFunction;
-  std::function<void(cv::Point3d, cv::Matx33d)> _refined2CallbackFunction;
+  std::function<void(cv::Point3d, cv::Matx33d, ros::Time timeStamp)> _estimatedCallbackFunction;
+  std::function<void(cv::Point3d, cv::Matx33d, ros::Time timeStamp)> _refined1CallbackFunction;
+  std::function<void(cv::Point3d, cv::Matx33d, ros::Time timeStamp)> _refined2CallbackFunction;
 
   /**
    * Algorithms
@@ -84,15 +84,15 @@ class MVO : public PipelineBegin {
   Frame *_prevFrame;
 
  public:
-  MVO(std::function<void(cv::Point3d, cv::Matx33d)> estimatedPositionCallback,
-      std::function<void(cv::Point3d, cv::Matx33d)> refined1PositionCallback,
-      std::function<void(cv::Point3d, cv::Matx33d)> refined2PositionCallback);
+  MVO(std::function<void(cv::Point3d, cv::Matx33d,ros::Time timeStamp)> estimatedPositionCallback,
+      std::function<void(cv::Point3d, cv::Matx33d,ros::Time timeStamp)> refined1PositionCallback,
+      std::function<void(cv::Point3d, cv::Matx33d,ros::Time timeStamp)> refined2PositionCallback);
   ~MVO() override;
 
   void newImage(const cv::Mat &image,
                 const image_geometry::PinholeCameraModel &cameraModel,
                 const cv::Matx33d &R,
-                mvo::mvoConfig parameters);
+                mvo::mvoConfig parameters, const ros::Time &timeStamp);
 
 };
 

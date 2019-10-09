@@ -85,7 +85,7 @@ void VisualisationUtils::drawMovementDebug(const Frame &frame,
                                            cv::Mat &image,
                                            unsigned int index) {
   frame.lock();
-  auto baseLine = frame._baseLine;
+  auto baseLine = frame._scale * frame._baseLine;
   auto rotation = frame._rotation;
   //BaseLine into Frame-CameraCorrdinates
   baseLine = rotation.t() * baseLine;

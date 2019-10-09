@@ -18,12 +18,14 @@ class Frame {
   const image_geometry::PinholeCameraModel _cameraModel;
 
   cv::Vec3d _baseLine;
+  double _scale;
   const cv::Matx33d _rotation;
 
   Frame *_preFrame;
   mutable std::mutex _lock;
 
   mvo::mvoConfig _parameters;
+  ros::Time _timeStamp;
 
   void lock() const;
   void unlock() const;
@@ -35,7 +37,7 @@ class Frame {
    * @param rotation the rotation of the camera
    * @param preFrame pointer to the frame before
    */
-  Frame(std::vector<cv::Mat> imagePyramide, image_geometry::PinholeCameraModel camerModel, cv::Matx33d rotation, Frame * preFrame,  mvo::mvoConfig params);
+  Frame(std::vector<cv::Mat> imagePyramide, image_geometry::PinholeCameraModel camerModel, cv::Matx33d rotation, Frame * preFrame,  mvo::mvoConfig params, ros::Time timeStamp);
 
   virtual ~Frame() = default;
 /**
@@ -220,6 +222,13 @@ class Frame {
  * @return baseline to previous
  */
   cv::Vec3d getBaseLineToPrevious();
+
+  /**
+   * Retrieves the Scale of the baseline from this FRame to previous Frame
+   * @return the scale
+   */
+  double getScaleToPrevious();
+
 /**
    * Retrieves all known Features in specific Frame
    *
@@ -248,10 +257,17 @@ class Frame {
  */
   const std::vector<cv::Mat> &getImagePyramid();
 /**
- * Sets the 'temporarelly needed' baseline to the previous Frame to specific Frame
+ * Sets the  baseline to the previous Frame to specific Frame
  * @param baseLine the baseline
  */
   void setBaseLineToPrevious(const cv::Vec3d &baseLine);
+
+  /**
+   * Sets the scale of the baseLine from this to previous Frame
+   * @param scale the scale
+   */
+  void setScaleToPrevious(double scale);
+
 /**
    * Returns the Location of the Feature
    * @tparam T the Featurelocation Type
@@ -271,6 +287,13 @@ class Frame {
    * @return reference to the parameter-set
    */
   const mvo::mvoConfig & getParameters();
+
+  /**
+   * Retrieves the timestamp of the Frame.
+   * @return timestamp, of the the capturingtime of the image
+   */
+  ros::Time getTimeStamp();
+
 };
 
 #endif //FRAME_HPP

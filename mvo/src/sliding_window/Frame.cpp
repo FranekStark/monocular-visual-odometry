@@ -167,16 +167,34 @@ Frame::Frame(std::vector<cv::Mat> imagePyramide,
              image_geometry::PinholeCameraModel camerModel,
              cv::Matx33d rotation,
              Frame *preFrame,
-             mvo::mvoConfig params):
+             mvo::mvoConfig params,
+             ros::Time timeStamp
+             ):
              _imagePyramide(imagePyramide),
              _cameraModel(camerModel),
+             _scale(1.0),
              _rotation(rotation),
              _preFrame(preFrame),
-             _parameters(params)
+             _parameters(params),
+             _timeStamp(timeStamp)
              {
 }
 const mvo::mvoConfig &Frame::getParameters() {
   return _parameters;
+}
+double Frame::getScaleToPrevious() {
+  this->lock();
+  double scale = _scale;
+  this->unlock();
+  return scale;
+}
+void Frame::setScaleToPrevious(double scale) {
+  this->lock();
+  _scale = scale;
+  this->unlock();
+}
+ros::Time Frame::getTimeStamp() {
+  return _timeStamp;
 }
 
 template<>

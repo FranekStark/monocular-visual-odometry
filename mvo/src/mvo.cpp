@@ -4,9 +4,9 @@
 #include <map>
 #include <utility>
 
-MVO::MVO(std::function<void(cv::Point3d, cv::Matx33d)> estimatedPositionCallback,
-         std::function<void(cv::Point3d, cv::Matx33d)> refined1PositionCallback,
-         std::function<void(cv::Point3d, cv::Matx33d)> refined2PositionCallback) :
+MVO::MVO(std::function<void(cv::Point3d, cv::Matx33d, ros::Time timeStamp)> estimatedPositionCallback,
+         std::function<void(cv::Point3d, cv::Matx33d, ros::Time timeStamp)> refined1PositionCallback,
+         std::function<void(cv::Point3d, cv::Matx33d, ros::Time timeStamp)> refined2PositionCallback) :
     _estimatedPosition(0, 0, 0),
     _refined1Position(0, 0, 0),
     _refined2Position(0, 0, 0),
@@ -27,21 +27,21 @@ MVO::MVO(std::function<void(cv::Point3d, cv::Matx33d)> estimatedPositionCallback
       do {
         auto baseLine = _baseLineEstimator._baseLine.dequeue();
         _estimatedPosition = _estimatedPosition + cv::Point3d(baseLine.position);
-        _estimatedCallbackFunction(_estimatedPosition, baseLine.orientation);
+        _estimatedCallbackFunction(_estimatedPosition, baseLine.orientation, baseLine.timeStamp);
       }while(ros::ok());
     }),
     _refined1CallbackThread([this](){
       do {
         auto baseLine = _refiner._baseLine1.dequeue();
         _refined1Position = _refined1Position + cv::Point3d(baseLine.position);
-        _refined1CallbackFunction(_refined1Position, baseLine.orientation);
+        _refined1CallbackFunction(_refined1Position, baseLine.orientation, baseLine.timeStamp);
       }while(ros::ok());
     }),
     _refined2CallbackThread([this](){
       do {
         auto baseLine = _refiner._baseLine2.dequeue();
         _refined2Position = _refined2Position + cv::Point3d(baseLine.position);
-        _refined2CallbackFunction(_refined2Position, baseLine.orientation);
+        _refined2CallbackFunction(_refined2Position, baseLine.orientation, baseLine.timeStamp);
       }while(ros::ok());
     }),
     _prevFrame(nullptr)
@@ -66,10 +66,10 @@ MVO::MVO(std::function<void(cv::Point3d, cv::Matx33d)> estimatedPositionCallback
 void MVO::newImage(const cv::Mat &image,
                    const image_geometry::PinholeCameraModel &cameraModel,
                    const cv::Matx33d &R,
-                   mvo::mvoConfig parameters) {
+                   mvo::mvoConfig parameters, const ros::Time & timeStamp) {
   auto pyramideImage = _cornerTracking.createPyramide(image, cv::Size(parameters.windowSizeX, parameters.windowSizeY), parameters.pyramidDepth);
   //Creates Frame:
-  auto *frame = new Frame(pyramideImage, cameraModel, R, _prevFrame, parameters);
+  auto *frame = new Frame(pyramideImage, cameraModel, R, _prevFrame, parameters, timeStamp);
   _prevFrame = frame;
   pipeIn(frame);
   LOG_DEBUG("New Frame Created and Piped in: " << frame);

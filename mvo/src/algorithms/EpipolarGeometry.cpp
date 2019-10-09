@@ -43,7 +43,7 @@ cv::Vec3d EpipolarGeometry::estimateBaseLine(const std::vector<cv::Vec3d> &mhi, 
 
   unsigned int nIterations = this->estimateNumberOfIteration(N, inlierProbability, s, ps);
 
-  std::uniform_int_distribution<unsigned int> randomDist(0, N);
+  std::uniform_int_distribution<unsigned int> randomDist(0, N - 1);
 
   unsigned int iteration = 0;
   double pBest = -1;                   // Beste Wahrscheinlichkeit, die bisher gefunden wurde

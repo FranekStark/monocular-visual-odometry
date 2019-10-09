@@ -35,6 +35,14 @@ Frame *Merger::stage(Frame *newFrame) {
 
   Frame::getCorrespondingFeatures(*_preFrame, *_keepFrame, preCorrespondingFeatures, newCorrespondingFeatures);
 
+  //Check wether there are enough Features tracked:
+  if(preCorrespondingFeatures.size() <= 14){ //TODO: Magic Number 4 (currently from RANSAC Binominal
+    ROS_WARN_STREAM("Almost all Features lost. Scaling is now corrupted!");
+    //Smart trick: Merge them:
+    Frame::mergeFrame(*_preFrame, *_keepFrame);
+    return nullptr;
+  }
+
   //Rotate Features to previousframe to only measure the difference caused by movement not rotation
   auto preRotation = _preFrame->getRotation();
   auto nowRotation = newFrame->getRotation();

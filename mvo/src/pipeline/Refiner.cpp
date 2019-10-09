@@ -35,13 +35,11 @@ Frame *Refiner::stage(Frame *newFrame) {
     IterativeRefinement::RefinementDataCV data;
 
     data.vec0 = newFrame->getBaseLineToPrevious();
+    data.scale0 = newFrame->getScaleToPrevious();
     data.vec1 = _preFrame->getBaseLineToPrevious();
+    data.scale1 = _preFrame->getScaleToPrevious();
 
-    ROS_INFO_STREAM("BEFORE: " << std::endl
-                               << "vec0: " << data.vec0 << std::endl
-                               << "vec1: " << data.vec1 << std::endl);
-
-    data.R0 = newFrame->getRotation();
+      data.R0 = newFrame->getRotation();
     data.R1 = _preFrame->getRotation();
     data.R2 = _prePreFrame->getRotation();
 
@@ -51,12 +49,10 @@ Frame *Refiner::stage(Frame *newFrame) {
     auto tolerance = std::pow(10.0, -1 * (newFrame->getParameters().functionTolerance));
     _iterativeRefinement.refine(data, newFrame->getParameters().maxNumThreads, newFrame->getParameters().maxNumIterations, tolerance, newFrame->getParameters().useLossFunction, newFrame->getParameters().lowestLength, newFrame->getParameters().highestLength);
 
-    ROS_INFO_STREAM("After: " << std::endl
-                              << "vec0: " << data.vec0 << std::endl
-                              << "vec1: " << data.vec1 << std::endl);
-
     newFrame->setBaseLineToPrevious(data.vec0);
+    newFrame->setScaleToPrevious(data.scale0);
     _preFrame->setBaseLineToPrevious(data.vec1);
+    _preFrame->setScaleToPrevious(data.scale1);
 
 #ifdef DEBUGIMAGES
     cv::Mat image(newFrame->getImage().size(), CV_8UC3, cv::Scalar(100, 100, 100));
@@ -83,12 +79,12 @@ Frame *Refiner::stage(Frame *newFrame) {
   _prePreFrame = _preFrame;
   _preFrame = newFrame;
   if(_preFrame != nullptr){
-    _baseLine1.enqueue({_preFrame->getBaseLineToPrevious(), _preFrame->getRotation()});
+    _baseLine1.enqueue({_preFrame->getScaleToPrevious() * _preFrame->getBaseLineToPrevious(), _preFrame->getRotation(), _preFrame->getTimeStamp()});
   }
 
   if (_prePreFrame != nullptr) {
-    _baseLine2.enqueue({_prePreFrame->getBaseLineToPrevious(),
-                       _prePreFrame->getRotation()});
+    _baseLine2.enqueue({_prePreFrame->getScaleToPrevious() * _prePreFrame->getBaseLineToPrevious(),
+                       _prePreFrame->getRotation(), _prePreFrame->getTimeStamp()});
   }
   return _prePreFrame;
 }

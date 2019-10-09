@@ -62,8 +62,8 @@ class MVO_node {
 
   void dynamicConfigCallback(mvo::mvoConfig &config, uint32_t level);
 
-  void publishEstimatedPosition(cv::Point3d position, cv::Matx33d orientation);
-  void publishRefinedPosition(cv::Point3d position, cv::Matx33d orientation, int stage);
+  void publishEstimatedPosition(cv::Point3d position, cv::Matx33d orientation, ros::Time timeStamp);
+  void publishRefinedPosition(cv::Point3d position, cv::Matx33d orientation, ros::Time timeStamp, int stage);
 
 
 };

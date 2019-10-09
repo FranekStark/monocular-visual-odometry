@@ -17,14 +17,14 @@ MVO_node::MVO_node(ros::NodeHandle &nh, ros::NodeHandle &pnh)
       _imageTransport(nh),
       _currentConfig(mvo::mvoConfig::__getDefault__()),
       _transformWorldToCamera(0, 0, 1, -1, 0, 0, 0, -1, 0),
-      _mvo([this](cv::Point3d position, cv::Matx33d orientation) {
-             this->publishEstimatedPosition(position, orientation);
+      _mvo([this](cv::Point3d position, cv::Matx33d orientation, ros::Time timeStamp) {
+             this->publishEstimatedPosition(position, orientation, timeStamp);
            },
-           [this](cv::Point3d position, cv::Matx33d orientation) {
-             this->publishRefinedPosition(position, orientation,1);
+           [this](cv::Point3d position, cv::Matx33d orientation, ros::Time timeStamp) {
+             this->publishRefinedPosition(position, orientation, timeStamp, 1);
            },
-           [this](cv::Point3d position, cv::Matx33d orientation) {
-             this->publishRefinedPosition(position, orientation,2);
+           [this](cv::Point3d position, cv::Matx33d orientation, ros::Time timeStamp) {
+             this->publishRefinedPosition(position, orientation, timeStamp, 2);
            }) {
   this->init();
 }
@@ -42,7 +42,7 @@ void MVO_node::init() {
   std::string _camInfoTopic = "/pylon_camera_node/camera_info";
   std::string _imuTopic = "/imu/data";
   bool _logDebug = false;
-  bool _useCompressed = false;
+  bool _useCompressed = true;
 
   _privateNodeHandle.param<std::string>("imageTopic", _imageTopic, _imageTopic);
   _privateNodeHandle.param<std::string>("cameraInfoTopic", _camInfoTopic, _camInfoTopic);
@@ -96,7 +96,15 @@ void MVO_node::init() {
     ros::console::notifyLoggerLevelsChanged();
   }
 
-  _imageSubscriber = new image_transport::SubscriberFilter(_imageTransport, _imageTopic, 10);
+
+  std::string transport = "raw";
+  if (_useCompressed) {
+    transport = "compressed";
+  }
+    auto transport_hints = image_transport::TransportHints(transport);
+
+
+  _imageSubscriber = new image_transport::SubscriberFilter(_imageTransport, _imageTopic, 10, transport);
   _cameraInfoSubscriber =
       new message_filters::Subscriber<sensor_msgs::CameraInfo>(_nodeHandle, _camInfoTopic, 10);
   _imuSubscriber = new message_filters::Subscriber<sensor_msgs::Imu>(_nodeHandle, _imuTopic, 100);
@@ -112,9 +120,7 @@ void MVO_node::init() {
   _refined2OdomPublisher = _nodeHandle.advertise<nav_msgs::Odometry>("odom_refined_twice", 10, true);
   _synchronizer->registerCallback(boost::bind(&MVO_node::imageCallback, this, _1, _2, _3));
 
-  if (_useCompressed) {
-    _nodeHandle.setParam("image_transport", "compressed");
-  }
+
 
 }
 
@@ -147,7 +153,7 @@ void MVO_node::imageCallback(const sensor_msgs::ImageConstPtr &image, const sens
    * Call the Algorithm
    **/
   _configLock.lock();
-  _mvo.newImage(bridgeImage->image, model, orientationMatCV, _currentConfig);
+  _mvo.newImage(bridgeImage->image, model, orientationMatCV, _currentConfig, image->header.stamp);
   _configLock.unlock();
 /*  *//**
    * Pack DebugImages and Publish
@@ -173,20 +179,20 @@ void MVO_node::dynamicConfigCallback(mvo::mvoConfig &config, uint32_t level) {
   ROS_INFO_STREAM("Parameter changed! ");
 }
 
-void MVO_node::publishEstimatedPosition(cv::Point3d position, cv::Matx33d orientation) {
+void MVO_node::publishEstimatedPosition(cv::Point3d position, cv::Matx33d orientation, ros::Time timeStamp) {
   //Pack Message
   nav_msgs::Odometry odomMsg;
-  odomMsg.header.stamp = ros::Time::now(); //TODO: Time of Image?
+  odomMsg.header.stamp = timeStamp;
   odomMsg.header.frame_id = "odom";
   odomMsg.child_frame_id = "base_footprint";
   odomMsg.pose.pose = worldPoseFromCameraPosition(position, orientation);
   //Publish
   _estimatedOdomPublisher.publish(odomMsg);
 }
-void MVO_node::publishRefinedPosition(cv::Point3d position, cv::Matx33d orientation, int stage) {
+void MVO_node::publishRefinedPosition(cv::Point3d position, cv::Matx33d orientation, ros::Time timeStamp, int stage) {
   //Pack Message
   nav_msgs::Odometry odomMsg;
-  odomMsg.header.stamp = ros::Time::now(); //TODO: Time of Image?
+  odomMsg.header.stamp = timeStamp;
   odomMsg.header.frame_id = "odom";
   odomMsg.child_frame_id = "base_footprint";
   odomMsg.pose.pose = worldPoseFromCameraPosition(position, orientation);
