@@ -4,7 +4,11 @@
 #include <ros/ros.h>
 
 #include <limits>
-
+#include <exception>
+#include <typeinfo>
+#include <string>
+#include <sstream>
+#include <iostream>
 
 void IterativeRefinement::refine(RefinementDataCV &refinementData,
                                  int maxNumthreads,
@@ -46,7 +50,14 @@ void IterativeRefinement::refine(RefinementDataCV &refinementData,
 
   for (unsigned int i = 0; i < refinementData.m0.size(); i++) {
     ceres::CostFunction *cost_functiom20 = new ceres::AutoDiffCostFunction<CostFunctionScaled, 1, 3, 3, 1, 1>(
-        new CostFunctionScaled(dataEIG.m2[i], dataEIG.m1[i], dataEIG.m0[i], dataEIG.R2, dataEIG.R1, dataEIG.R0, highestLength, lowestLength)
+        new CostFunctionScaled(dataEIG.m2[i],
+                               dataEIG.m1[i],
+                               dataEIG.m0[i],
+                               dataEIG.R2,
+                               dataEIG.R1,
+                               dataEIG.R0,
+                               highestLength,
+                               lowestLength)
     );
     ceres::CostFunction *cost_functiom21 = new ceres::AutoDiffCostFunction<CostFunction, 1, 3>(
         new CostFunction(dataEIG.m2[i], dataEIG.m1[i], dataEIG.R2, dataEIG.R1)
@@ -88,6 +99,10 @@ void IterativeRefinement::refine(RefinementDataCV &refinementData,
   ceres::Solver::Summary ceres_summary;
   ceres::Solve(ceres_solver_options, &ceres_problem, &ceres_summary);
 
+  if(ceres_summary.termination_type == ceres::TerminationType::FAILURE){
+    throw std::runtime_error("CERES ERROR!");
+  }
+
   auto n0 = scaleTemplated<double>(scale0[0], highestLength, lowestLength);  // T0
   auto n1 = scaleTemplated<double>(scale1[0], highestLength, lowestLength);  // T1
 
@@ -102,9 +117,6 @@ void IterativeRefinement::refine(RefinementDataCV &refinementData,
   ROS_WARN_STREAM_COND((cv::norm(u1) != 1.0), "Vector1 isn't a unitvector, len:" << cv::norm(u1));
 
   ROS_INFO_STREAM(ceres_summary.FullReport());
-
-
-
 
   refinementData.vec0 = u0;
   refinementData.vec1 = u1;
@@ -127,8 +139,7 @@ IterativeRefinement::CostFunctionScaled::CostFunctionScaled(const Eigen::Vector3
     _R1(R1),
     _R0(R0),
     _maxLength(maxLength),
-    _minlength(minLength)
-    {}
+    _minlength(minLength) {}
 
 template<typename T>
 bool IterativeRefinement::CostFunctionScaled::operator()(const T *vec0, const T *vec1, const T *scale0, const T *scale1,
@@ -138,16 +149,14 @@ bool IterativeRefinement::CostFunctionScaled::operator()(const T *vec0, const T 
 
   Eigen::Matrix<T, 3, 1> u0;
   u0 << vec0[0], vec0[1], vec0[2];
-
   Eigen::Matrix<T, 3, 1> u1;
   u1 << vec1[0], vec1[1], vec1[2];
-
   Eigen::Matrix<T, 3, 1> u01 = n1 * u1 + n0 * u0;
   u01.normalize();
-
   T cost = ((_m2.template cast<T>()).dot(
       (_R2).transpose().template cast<T>() * u01.cross((_R0).template cast<T>() * (_m0).template cast<T>())));
   residuals[0] = cost;
+
   return true;
 }
 
@@ -175,26 +184,30 @@ bool IterativeRefinement::CostFunction::operator()(const T *vec, T *residuals) c
 template<typename T>
 Eigen::Matrix<T, 3, 1> IterativeRefinement::baseLineTemplated(const Eigen::Matrix<T, 3, 1> &vec, const T a, const T b) {
   Eigen::Matrix<T, 3, 3> A;
-  A << T(1.0) - a * a, T(-2.0) * a, T(0),
-      T(2) * a, T(1.0) - a * a, T(0),
-      T(0), T(0), T(1);
+  A << (T(1.0) - a * a) / (T(1.0) + a * a), (T(-2.0) * a) / (T(1.0) + a * a), T(0),
+      (T(1.0) * a) / (T(1.0) + a * a), (T(1.0) - a * a) / (T(1.0) + a * a), T(0),
+      T(0.0), T(0.0), T(1.0);
 
   Eigen::Matrix<T, 3, 3> B;
-  B << T(1) - b * b, T(0), T(2) * b,
-      T(0), T(1), T(0),
-      T(2.0) * b, T(0), T(1.0) - b * b;
+  B << (T(1.0) - b * b) / (T(1.0) + b * b), T(0), (T(2.0) * b) / (T(1.0) + b * b),
+      T(0.0), T(1.0), T(0.0),
+      (T(-2.0) * b) / (T(1.0) + b * b), T(0), (T(1.0) - b * b) / (T(1.0) + b * b);
 
-  T scaleA = 1.0 / (1.0 + (a * a));
-  T scaleB = 1.0 / (1.0 + (b * b));
-
-
-  return scaleB * B * scaleA * A * vec.template cast<T>();
+  return (B * A * vec.template cast<T>());
 
 }
 
 template<typename T>
 T IterativeRefinement::scaleTemplated(T t, double MAX_LEN, double MIN_LEN) {
-  return MIN_LEN + ((MAX_LEN - MIN_LEN) / (1.0 + ceres::exp(-1.0 * t)));
+
+  T result;
+  auto exp = ceres::exp(-1.0 * t);
+  if(ceres::IsInfinite(exp)){ //In Case, that this term gets infinite. The whole function is instable for derivations i guess. (It results in "nan" in ceres. Therefore we have to cattch need to know, that 1/Inf ~= 0. So we have to return MIN_VALUE.
+    result = T(MIN_LEN);
+  }else {
+    result = MIN_LEN + ((MAX_LEN - MIN_LEN) / (1.0 + exp));
+  }
+  return result;
 }
 
 void IterativeRefinement::cvt_cv_eigen(const std::vector<cv::Vec3d> &vecaCV, std::vector<Eigen::Vector3d> &vecaEIGEN) {
@@ -239,10 +252,10 @@ double IterativeRefinement::reverseScale(const double length, double MAX_LEN, do
   if (length <=
       MIN_LEN) //Catch the Cases in which the SCaling is to low or high, cause it is Mathematical impossible to calc t
   {
-    t = reverseScale(MIN_LEN + (length * std::numeric_limits<double>::epsilon()), MAX_LEN, MIN_LEN);
+    t = reverseScale(MIN_LEN + (length * std::numeric_limits<double>::epsilon()) +  std::numeric_limits<double>::epsilon(), MAX_LEN, MIN_LEN);
     ROS_WARN_STREAM("Lower bound of scaling to high: " << length);
   } else if (length >= MAX_LEN) {
-    t = reverseScale(MAX_LEN - (length * std::numeric_limits<double>::epsilon()), MAX_LEN, MIN_LEN);
+    t = reverseScale(MAX_LEN - (length * std::numeric_limits<double>::epsilon() +  std::numeric_limits<double>::epsilon()), MAX_LEN, MIN_LEN);
     ROS_WARN_STREAM("Upper bound of scaling to low: " << length);
   } else {
     t = -1.0 * std::log((MAX_LEN - length) / (length - MIN_LEN));

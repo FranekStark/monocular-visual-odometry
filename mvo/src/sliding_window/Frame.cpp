@@ -138,6 +138,10 @@ void Frame::calculateFeaturePreCounter() {
     if (feature->_preFeature >= 0) {
       feature->_preFeatureCounter = preFrame._features[feature->_preFeature]._preFeatureCounter + 1;
     }
+    else{
+      feature->_preFeatureCounter = 0;
+      feature->_preFeature = -1;
+    }
   }
   this->_preFrame->unlock();
   this->unlock();

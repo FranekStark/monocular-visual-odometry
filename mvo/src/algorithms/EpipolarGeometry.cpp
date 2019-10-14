@@ -39,6 +39,21 @@ cv::Vec3d EpipolarGeometry::estimateBaseLine(const std::vector<cv::Vec3d> &mhi, 
   unsigned int s = 3;          // Größe der Subsets, für die Berechnung
 
   double inlierProbability = 0.3;  // FIRST GUESS (für die Wahrscheinlichekit, dass ein Feature-Paar ein inlier ist),
+
+  //Handle Case of too less Points:
+  if(N < 3) {
+    //If this case occurs, there aren't enough Features. Return with no Result.
+    ROS_ERROR_STREAM("Too few features, no estimation possible!");
+    return cv::Vec3d(0,0,0);
+  }
+  else if(inlierProbability * N < s){
+    // If this Case Occurs, there are really less features. So we have to Increase the first guess
+    ROS_WARN_STREAM("Really few Features, slow down!");
+    inlierProbability = 1;
+  }
+
+
+
   // der sehr schlecht ist! (Wird später im Algorithmus noch angepasst)
 
   unsigned int nIterations = this->estimateNumberOfIteration(N, inlierProbability, s, ps);

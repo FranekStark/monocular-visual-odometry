@@ -4,6 +4,7 @@ project(mvo)
 add_compile_options(-std=c++11)
 set(CMAKE_BUILD_TYPE Debug)
 
+
 find_package(catkin REQUIRED COMPONENTS
         roscpp
         rospy
@@ -55,3 +56,4 @@ target_link_libraries(mvo_node Eigen3::Eigen)
 add_dependencies(mvo_node mvo_gencfg)
 
 target_compile_options(mvo_node PRIVATE -Wall -Werror -pedantic -Wextra)
+

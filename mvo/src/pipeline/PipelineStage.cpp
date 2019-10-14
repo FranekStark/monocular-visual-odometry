@@ -24,6 +24,7 @@ void PipelineStage::operator()() {
     /*If the Outgoing Frame is not null than pass it on*/
     if (outgoingFrame != nullptr) {
       _outGoingChannel.enqueue(outgoingFrame);
+      ROS_INFO_STREAM( Utils::GetThreadName() << " outgoing Queue: " <<_outGoingChannel.size());
       LOG_DEBUG("Piped Through: " << outgoingFrame);
     }
   }

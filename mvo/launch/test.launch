@@ -2,6 +2,4 @@
 <launch>
     <node name="mvo_node" pkg="mvo" type="mvo_node" output="screen"/>
     <node name="imu_dummy" pkg="mvo" type="imu_dummy.py" output="screen" />
-    <remap from="/camera_ueye/image_rect" to="/pylon_camera_node/image_rect"/>
-    <remap from="/camera_ueye/camera_info" to="/pylon_camera_node/camera_info"/>
 </launch>

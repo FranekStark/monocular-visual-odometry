@@ -27,9 +27,7 @@ def publishIMU(publisher):
     imu_raw.angular_velocity.z = 0
     imu_raw.angular_velocity_covariance[0] = -1
 
-    #####################################################################
-    ###### magnetometer values should not be stored in orientation ######
-    #####################################################################
+    imu_raw.orientation.w = 1
     imu_raw.orientation.x = 0
     imu_raw.orientation.y = 0
     imu_raw.orientation.z = 0

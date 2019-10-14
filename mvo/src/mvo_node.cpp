@@ -42,7 +42,7 @@ void MVO_node::init() {
   std::string _camInfoTopic = "/pylon_camera_node/camera_info";
   std::string _imuTopic = "/imu/data";
   bool _logDebug = false;
-  bool _useCompressed = true;
+  bool _useCompressed = false;
 
   _privateNodeHandle.param<std::string>("imageTopic", _imageTopic, _imageTopic);
   _privateNodeHandle.param<std::string>("cameraInfoTopic", _camInfoTopic, _camInfoTopic);

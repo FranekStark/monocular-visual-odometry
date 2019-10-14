@@ -22,6 +22,8 @@ Frame *BaselineEstimator::stage(Frame *newFrame) {
   if (_prevFrame == nullptr) { //If it is the first Frame
     newFrame->setBaseLineToPrevious(cv::Vec3d(0, 0, 0));
   } else {
+    /* Correct Connections, cause by "disband" they wil be wrong*/
+    newFrame->calculateFeaturePreCounter();
     /* Get CorrespondingFeatures */
     std::vector<cv::Vec3d> beforeCorespFeaturesE, thisCorespFeaturesUnrotatedE, thisCorespFeaturesE;
     Frame::getCorrespondingFeatures<cv::Vec3d>(*_prevFrame,
