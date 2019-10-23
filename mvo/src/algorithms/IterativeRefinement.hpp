@@ -9,16 +9,13 @@
 class IterativeRefinement {
  private:
 
-  struct RefinementDataEIG {
-    std::vector<Eigen::Vector3d> m2;
-    std::vector<Eigen::Vector3d> m1;
-    std::vector<Eigen::Vector3d> m0;
-    Eigen::Matrix3d R2;
-    Eigen::Matrix3d R1;
-    Eigen::Matrix3d R0;
-    Eigen::Vector3d vec0;
-    Eigen::Vector3d vec1;
+  struct RefinementFrameEIG {
+    std::vector<Eigen::Vector3d> m;
+    Eigen::Matrix3d R;
+    Eigen::Vector3d vec;
+    double scale;
   };
+
 
   static void cvt_cv_eigen(const std::vector<cv::Vec3d> &vecaCV, std::vector<Eigen::Vector3d> &vecaEIGEN);
 
@@ -30,27 +27,25 @@ class IterativeRefinement {
 
   struct CostFunctionScaled {
    private:
-    const Eigen::Vector3d &_m2;
     const Eigen::Vector3d &_m1;
     const Eigen::Vector3d &_m0;
-    const Eigen::Matrix3d &_R2;
     const Eigen::Matrix3d &_R1;
     const Eigen::Matrix3d &_R0;
+    const Eigen::Vector3d & _vectorOffset;
     const double _maxLength;
     const double _minlength;
    public:
-    CostFunctionScaled(const Eigen::Vector3d &m2,
-                       const Eigen::Vector3d &m1,
+    CostFunctionScaled(const Eigen::Vector3d &m1,
                        const Eigen::Vector3d &m0,
-                       const Eigen::Matrix3d &R2,
                        const Eigen::Matrix3d &R1,
                        const Eigen::Matrix3d &R0,
+                       const Eigen::Vector3d &vectorOffset,
                        double maxLength,
                        double minLength
     );
 
     template<typename T>
-    bool operator()(const T *vec0, const T *vec1, const T *scale0, const T *scale1, T *residuals) const;
+    bool operator()(T const* const* parameters, T *residuals) const;
   };
 
   struct CostFunction {
@@ -86,24 +81,19 @@ class IterativeRefinement {
 
  public:
 
-  struct RefinementDataCV {
-    std::vector<cv::Vec3d> m2;
-    std::vector<cv::Vec3d> m1;
-    std::vector<cv::Vec3d> m0;
-    cv::Matx33d R2;
-    cv::Matx33d R1;
-    cv::Matx33d R0;
-    cv::Vec3d vec0;
-    double scale0;
-    cv::Vec3d vec1;
-    double scale1;
+  struct RefinementFrame {
+    std::vector<cv::Vec3d> m;
+    cv::Matx33d R;
+    cv::Vec3d vec;
+    double scale;
   };
+
 
   IterativeRefinement() = default;
 
   ~IterativeRefinement() = default;
 
-  void refine(RefinementDataCV &refinementData,
+  void refine(std::vector<RefinementFrame> & refinementData,int numberToRefine, int numberToNote,
               int maxNumthreads,
               int maxNumIterations,
               double functionTolerance,
