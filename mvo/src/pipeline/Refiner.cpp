@@ -73,7 +73,7 @@ Frame *Refiner::stage(Frame *newFrame) {
     newFrame->setScaleToPrevious(data.scale0);
     _preFrame->setBaseLineToPrevious(data.vec1);
     _preFrame->setScaleToPrevious(data.scale1);
-
+/*
 #ifdef DEBUGIMAGES
     cv::Mat image(newFrame->getImage().size(), CV_8UC3, cv::Scalar(100, 100, 100));
 
@@ -89,7 +89,7 @@ Frame *Refiner::stage(Frame *newFrame) {
     cv::imshow("RefinerImage0", image0);
     cv::imshow("RefinerImage1", image1);
     cv::waitKey(10);
-#endif
+#endif*/
 
   }
 

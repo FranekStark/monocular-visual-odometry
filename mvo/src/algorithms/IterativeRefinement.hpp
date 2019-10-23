@@ -16,7 +16,6 @@ class IterativeRefinement {
     double scale;
   };
 
-
   static void cvt_cv_eigen(const std::vector<cv::Vec3d> &vecaCV, std::vector<Eigen::Vector3d> &vecaEIGEN);
 
   static void cvt_cv_eigen(const cv::Matx33d &matCV, Eigen::Matrix3d &matEIG);
@@ -31,9 +30,10 @@ class IterativeRefinement {
     const Eigen::Vector3d &_m0;
     const Eigen::Matrix3d &_R1;
     const Eigen::Matrix3d &_R0;
-    const Eigen::Vector3d & _vectorOffset;
+    const Eigen::Vector3d _vectorOffset;
     const double _maxLength;
     const double _minlength;
+    const int _params;
    public:
     CostFunctionScaled(const Eigen::Vector3d &m1,
                        const Eigen::Vector3d &m0,
@@ -41,11 +41,25 @@ class IterativeRefinement {
                        const Eigen::Matrix3d &R0,
                        const Eigen::Vector3d &vectorOffset,
                        double maxLength,
-                       double minLength
+                       double minLength,
+                       int params
     );
 
     template<typename T>
-    bool operator()(T const* const* parameters, T *residuals) const;
+    bool operator()(T const *const *parameters, T *residuals) const;
+
+    static void addResidualBlocks(const std::vector<Eigen::Vector3d> &m1,
+                                  const std::vector<Eigen::Vector3d> &m0,
+                                  const Eigen::Matrix3d &R1,
+                                  const Eigen::Matrix3d &R0,
+                                  ceres::LossFunction *lossFunction,
+                                  std::vector<double *> &parameter_blocks,
+                                  ceres::Problem &ceresProblem,
+                                  Eigen::Vector3d vector_offset,
+                                  double minLength,
+                                  double maxLength,
+                                  int params
+    );
   };
 
   struct CostFunction {
@@ -63,6 +77,13 @@ class IterativeRefinement {
 
     template<typename T>
     bool operator()(const T *vec, T *residuals) const;
+
+    static void addResidualBlocks(const std::vector<Eigen::Vector3d> &m1,
+                                  const std::vector<Eigen::Vector3d> &m0,
+                                  const Eigen::Matrix3d &R1,
+                                  const Eigen::Matrix3d &R0,
+                                  ceres::LossFunction *lossFunction,
+                                  double *vectorParam, ceres::Problem &ceresProblem);
 
   };
 
@@ -88,12 +109,13 @@ class IterativeRefinement {
     double scale;
   };
 
-
   IterativeRefinement() = default;
 
   ~IterativeRefinement() = default;
 
-  void refine(std::vector<RefinementFrame> & refinementData,int numberToRefine, int numberToNote,
+  void refine(std::vector<RefinementFrame> &refinementData,
+              unsigned int numberToRefine,
+              unsigned int numberToNote,
               int maxNumthreads,
               int maxNumIterations,
               double functionTolerance,

@@ -10,6 +10,7 @@
 #include "../nils_lib/Ringbuffer.hpp"
 #include "../operations/VisualisationUtils.hpp"
 #include "OdomData.hpp"
+#include "../nils_lib/Ringbuffer.hpp"
 
 
 class Refiner: public PipelineStage {
