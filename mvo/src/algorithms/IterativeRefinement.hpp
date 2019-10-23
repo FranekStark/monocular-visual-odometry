@@ -107,6 +107,8 @@ class IterativeRefinement {
               int maxNumthreads,
               int maxNumIterations,
               double functionTolerance,
+              double gradientTolerance,
+              double parameterTolerance,
               bool useLossFunction,
               double lowestLength,
               double highestLength);

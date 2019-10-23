@@ -22,7 +22,7 @@ include_directories(
 
 
 generate_dynamic_reconfigure_options(
-        cfg/dyn_config.cfg
+        cfg/mvo.cfg
 )
 
 catkin_package()

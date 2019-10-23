@@ -13,19 +13,19 @@ Refiner::Refiner(PipelineStage &precursor,
       _preFrame(nullptr),
       _prePreFrame(nullptr),
       _baseLine1(1),
-      _baseLine2(1){
+      _baseLine2(1) {
   assert(numberToRefine == 3);
   //Currently only 3 available
 #ifdef DEBUGIMAGES
   cv::namedWindow("RefinerImage0", cv::WINDOW_NORMAL);
-  cv::moveWindow("RefinerImage0", 548, 28);
-  cv::resizeWindow("RefinerImage0", 622, 796);
+  cv::moveWindow("RefinerImage0", 621, 1108);
+  cv::resizeWindow("RefinerImage0", 535, 314);
   cv::namedWindow("RefinerImage1", cv::WINDOW_NORMAL);
-  cv::moveWindow("RefinerImage1", 0, 28);
-  cv::resizeWindow("RefinerImage1", 600, 800);
+  cv::moveWindow("RefinerImage1", 0, 1103);
+  cv::resizeWindow("RefinerImage1", 617, 322);
   cv::namedWindow("RefinerImageBOTH", cv::WINDOW_NORMAL);
-  cv::moveWindow("RefinerImageBOTH", 37, 880);
-  cv::resizeWindow("RefinerImageBOTH", 1143, 1039);
+  cv::moveWindow("RefinerImageBOTH", 1, 1466);
+  cv::resizeWindow("RefinerImageBOTH", 1164, 454);
   cv::startWindowThread();
 #endif
 }
@@ -35,19 +35,39 @@ Frame *Refiner::stage(Frame *newFrame) {
     IterativeRefinement::RefinementDataCV data;
 
     data.vec0 = newFrame->getBaseLineToPrevious();
-    data.scale0 = newFrame->getScaleToPrevious();
+    if (newFrame->getParameters().usePreviousScale) { //Use Scaling from previous
+      data.scale0 = _preFrame->getScaleToPrevious();
+    } else { //Use Scaling from Etsimator (this is length 1)
+      data.scale0 = newFrame->getScaleToPrevious();
+    }
+
     data.vec1 = _preFrame->getBaseLineToPrevious();
     data.scale1 = _preFrame->getScaleToPrevious();
 
-      data.R0 = newFrame->getRotation();
+    data.R0 = newFrame->getRotation();
     data.R1 = _preFrame->getRotation();
     data.R2 = _prePreFrame->getRotation();
 
     std::vector<std::vector<cv::Vec3d> *> vectors{&(data.m0), &(data.m1), &(data.m2)};
 
     Frame::getCorrespondingFeatures(*_prePreFrame, *newFrame, vectors);
-    auto tolerance = std::pow(10.0, -1 * (newFrame->getParameters().functionTolerance));
-    _iterativeRefinement.refine(data, newFrame->getParameters().maxNumThreads, newFrame->getParameters().maxNumIterations, tolerance, newFrame->getParameters().useLossFunction, newFrame->getParameters().lowestLength, newFrame->getParameters().highestLength);
+    auto funtolerance = std::pow(10.0, -1 * (newFrame->getParameters().functionTolerance));
+    auto gradtolerance = std::pow(10.0, -1 * (newFrame->getParameters().gradientTolerance));
+    auto paramtolerance = std::pow(10.0, -1 * (newFrame->getParameters().parameterTolerance));
+
+    for(auto vector = vectors.begin(); vector != vectors.end(); vector++){
+      FeatureOperations::normFeatures(**vector);
+    }
+
+    _iterativeRefinement.refine(data,
+                                newFrame->getParameters().maxNumThreads,
+                                newFrame->getParameters().maxNumIterations,
+                                funtolerance,
+                                gradtolerance,
+                                paramtolerance,
+                                newFrame->getParameters().useLossFunction,
+                                newFrame->getParameters().lowestLength,
+                                newFrame->getParameters().highestLength);
 
     newFrame->setBaseLineToPrevious(data.vec0);
     newFrame->setScaleToPrevious(data.scale0);
@@ -78,13 +98,14 @@ Frame *Refiner::stage(Frame *newFrame) {
   //Pass the frames through
   _prePreFrame = _preFrame;
   _preFrame = newFrame;
-  if(_preFrame != nullptr){
-    _baseLine1.enqueue({_preFrame->getScaleToPrevious() * _preFrame->getBaseLineToPrevious(), _preFrame->getRotation(), _preFrame->getTimeStamp()});
+  if (_preFrame != nullptr) {
+    _baseLine1.enqueue({_preFrame->getScaleToPrevious() * _preFrame->getBaseLineToPrevious(), _preFrame->getRotation(),
+                        _preFrame->getTimeStamp()});
   }
 
   if (_prePreFrame != nullptr) {
     _baseLine2.enqueue({_prePreFrame->getScaleToPrevious() * _prePreFrame->getBaseLineToPrevious(),
-                       _prePreFrame->getRotation(), _prePreFrame->getTimeStamp()});
+                        _prePreFrame->getRotation(), _prePreFrame->getTimeStamp()});
   }
   return _prePreFrame;
 }

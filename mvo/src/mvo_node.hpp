@@ -8,13 +8,17 @@
 #include <image_geometry/pinhole_camera_model.h>
 #include <dynamic_reconfigure/server.h>
 #include <mvo/mvoConfig.h>
+#include <tf2/convert.h>
 #include <tf2_ros/transform_broadcaster.h>
 #include <tf2_ros/transform_listener.h>
 #include <tf2/LinearMath/Matrix3x3.h>
 #include <tf2/LinearMath/Vector3.h>
 #include <tf2_msgs/TFMessage.h>
+#include <visualization_msgs/MarkerArray.h>
+
 
 #include <nav_msgs/Odometry.h>
+#include <geometry_msgs/PoseStamped.h>
 #include <sensor_msgs/Imu.h>
 #include <mutex>
 #include <message_filters/synchronizer.h>
@@ -38,12 +42,18 @@ class MVO_node {
   ros::Publisher _estimatedOdomPublisher;
   ros::Publisher _refined1OdomPublisher;
   ros::Publisher _refined2OdomPublisher;
+  ros::Publisher _vectorsPublisher;
+  tf2_ros::TransformBroadcaster _transformBroadcaster;
+
+  visualization_msgs::MarkerArray _vectors;
+
   dynamic_reconfigure::Server<mvo::mvoConfig> _dynamicConfigServer;
   dynamic_reconfigure::Server<mvo::mvoConfig>::CallbackType _dynamicConfigCallBackType;
   mvo::mvoConfig _currentConfig;
   std::mutex _configLock;
 
   cv::Matx33d _transformWorldToCamera;
+
 
   MVO _mvo;
 
@@ -64,7 +74,8 @@ class MVO_node {
 
   void publishEstimatedPosition(cv::Point3d position, cv::Matx33d orientation, ros::Time timeStamp);
   void publishRefinedPosition(cv::Point3d position, cv::Matx33d orientation, ros::Time timeStamp, int stage);
-
+  void publishVectors(cv::Point3d newPosition, cv::Matx33d orientation);
+  void publishTFTransform(cv::Point3d position, cv::Matx33d orientation, ros::Time timeStamp);
 
 };
 #endif //MVO_SRC_MVO_NODE_HPP_

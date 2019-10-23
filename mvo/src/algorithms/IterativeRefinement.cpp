@@ -14,7 +14,11 @@ void IterativeRefinement::refine(RefinementDataCV &refinementData,
                                  int maxNumthreads,
                                  int maxNumIterations,
                                  double functionTolerance,
-                                 bool useLossFunction, double lowestLength, double highestLength) {
+                                 double gradientTolerance,
+                                 double parameterTolerance,
+                                 bool useLossFunction,
+                                 double lowestLength,
+                                 double highestLength) {
 
   RefinementDataEIG dataEIG;
   cvt_cv_eigen(refinementData.m0, dataEIG.m0);
@@ -44,6 +48,8 @@ void IterativeRefinement::refine(RefinementDataCV &refinementData,
   ceres_solver_options.max_num_iterations = maxNumIterations;
   ceres_solver_options.num_threads = maxNumthreads;
   ceres_solver_options.function_tolerance = functionTolerance;
+  ceres_solver_options.gradient_tolerance = gradientTolerance;
+  ceres_solver_options.parameter_tolerance = parameterTolerance;
   //ceres_solver_options.check_gradients = true; ///DEBUG!
   //ceres_solver_options.minimizer_progress_to_stdout = true; ///DEBUG!
 

@@ -13,8 +13,8 @@ BaselineEstimator::BaselineEstimator(PipelineStage &precursor,
                                                                            _baseLine(1) {
 #ifdef DEBUGIMAGES
   cv::namedWindow("EstimatorImage", cv::WINDOW_NORMAL);
-  cv::moveWindow("EstimatorImage", 1200,28);
-  cv::resizeWindow("EstimatorImage", 1200,728);
+  cv::moveWindow("EstimatorImage", 24,551);
+  cv::resizeWindow("EstimatorImage", 1139,524);
   cv::startWindowThread();
 #endif
 }
@@ -60,7 +60,7 @@ Frame *BaselineEstimator::stage(Frame *newFrame) {
     /*Remove Outlier*/
     newFrame->disbandFeatureConnection(outlier); //TODO: don't remove, but delete the connections
     /* Vote for the sign of the Baseline, which generates the feweset negative Gradients */
-    std::vector<double> depths, depthsNegate;
+     std::vector<double> depths, depthsNegate;
     auto bnegate = -1.0 * baseLine;
     FeatureOperations::reconstructDepth(depths, thisCorespFeaturesE, beforeCorespFeaturesE, diffRotation, baseLine);
     FeatureOperations::reconstructDepth(depthsNegate,

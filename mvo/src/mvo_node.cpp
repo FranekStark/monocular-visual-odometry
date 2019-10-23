@@ -25,6 +25,8 @@ MVO_node::MVO_node(ros::NodeHandle &nh, ros::NodeHandle &pnh)
            },
            [this](cv::Point3d position, cv::Matx33d orientation, ros::Time timeStamp) {
              this->publishRefinedPosition(position, orientation, timeStamp, 2);
+             this->publishVectors(position, orientation);
+             this->publishTFTransform(position, orientation, timeStamp);
            }) {
   this->init();
 }
@@ -42,7 +44,7 @@ void MVO_node::init() {
   std::string _camInfoTopic = "/pylon_camera_node/camera_info";
   std::string _imuTopic = "/imu/data";
   bool _logDebug = false;
-  bool _useCompressed = false;
+  bool _useCompressed = true;
 
   _privateNodeHandle.param<std::string>("imageTopic", _imageTopic, _imageTopic);
   _privateNodeHandle.param<std::string>("cameraInfoTopic", _camInfoTopic, _camInfoTopic);
@@ -53,11 +55,15 @@ void MVO_node::init() {
 
 
 
-  //Get Params for Algo-Config;
+  //Get Params for Algo-Config; this also gets the last Set Params from Dynamic Configure, cause they seems to be in the Roscore
   _privateNodeHandle.param<int>("numberOfFeatures", _currentConfig.numberOfFeatures, _currentConfig.numberOfFeatures);
   _privateNodeHandle.param<double>("qualityLevel", _currentConfig.qualityLevel, _currentConfig.qualityLevel);
   _privateNodeHandle.param<int>("windowSizeX", _currentConfig.windowSizeX, _currentConfig.windowSizeX);
   _privateNodeHandle.param<int>("windowSizeY", _currentConfig.windowSizeY, _currentConfig.windowSizeY);
+  _privateNodeHandle.param<double>("shipWidth", _currentConfig.shipWidth, _currentConfig.shipWidth);
+  _privateNodeHandle.param<double>("shipHeight", _currentConfig.shipHeight, _currentConfig.shipHeight);
+  _privateNodeHandle.param<double>("k", _currentConfig.k, _currentConfig.k);
+
   _privateNodeHandle.param<double>("k", _currentConfig.k, _currentConfig.k);
   _privateNodeHandle.param<double>("blockSize", _currentConfig.blockSize, _currentConfig.blockSize);
   _privateNodeHandle.param<double>("mindDiffPercent", _currentConfig.mindDiffPercent, _currentConfig.mindDiffPercent);
@@ -77,9 +83,16 @@ void MVO_node::init() {
   _privateNodeHandle.param<int>("maxNumThreads", _currentConfig.maxNumThreads, _currentConfig.maxNumThreads);
   _privateNodeHandle.param<int>("maxNumIterations", _currentConfig.maxNumIterations, _currentConfig.maxNumIterations);
   _privateNodeHandle.param<int>("functionTolerance",
-                                   _currentConfig.functionTolerance,
-                                   _currentConfig.functionTolerance);
+                                _currentConfig.functionTolerance,
+                                _currentConfig.functionTolerance);
+  _privateNodeHandle.param<int>("gradientTolerance",
+                                _currentConfig.gradientTolerance,
+                                _currentConfig.gradientTolerance);
+  _privateNodeHandle.param<int>("parameterTolerance",
+                                _currentConfig.parameterTolerance,
+                                _currentConfig.parameterTolerance);
   _privateNodeHandle.param<bool>("useLossFunction", _currentConfig.useLossFunction, _currentConfig.useLossFunction);
+  _privateNodeHandle.param<bool>("usePreviousScale", _currentConfig.usePreviousScale, _currentConfig.usePreviousScale);
   _privateNodeHandle.param<double>("lowestLength", _currentConfig.lowestLength, _currentConfig.lowestLength);
   _privateNodeHandle.param<double>("highestLength", _currentConfig.highestLength, _currentConfig.highestLength);
 
@@ -96,13 +109,11 @@ void MVO_node::init() {
     ros::console::notifyLoggerLevelsChanged();
   }
 
-
   std::string transport = "raw";
   if (_useCompressed) {
     transport = "compressed";
   }
-    auto transport_hints = image_transport::TransportHints(transport);
-
+  auto transport_hints = image_transport::TransportHints(transport);
 
   _imageSubscriber = new image_transport::SubscriberFilter(_imageTransport, _imageTopic, 10, transport);
   _cameraInfoSubscriber =
@@ -115,12 +126,11 @@ void MVO_node::init() {
 
   _dynamicConfigCallBackType = boost::bind(&MVO_node::dynamicConfigCallback, this, _1, _2);
   _dynamicConfigServer.setCallback(_dynamicConfigCallBackType);
-  _estimatedOdomPublisher = _nodeHandle.advertise<nav_msgs::Odometry>("odom_estimated", 10, true);
-  _refined1OdomPublisher = _nodeHandle.advertise<nav_msgs::Odometry>("odom_refined_once", 10, true);
-  _refined2OdomPublisher = _nodeHandle.advertise<nav_msgs::Odometry>("odom_refined_twice", 10, true);
+  _estimatedOdomPublisher = _nodeHandle.advertise<geometry_msgs::PoseStamped>("odom_estimated", 10, true);
+  _refined1OdomPublisher = _nodeHandle.advertise<geometry_msgs::PoseStamped>("odom_refined_once", 10, true);
+  _refined2OdomPublisher = _nodeHandle.advertise<geometry_msgs::PoseStamped>("odom_refined_twice", 10, true);
+  _vectorsPublisher = _nodeHandle.advertise<visualization_msgs::MarkerArray>("odom_refined_twice_vectors", 10, true);
   _synchronizer->registerCallback(boost::bind(&MVO_node::imageCallback, this, _1, _2, _3));
-
-
 
 }
 
@@ -181,31 +191,60 @@ void MVO_node::dynamicConfigCallback(mvo::mvoConfig &config, uint32_t level) {
 
 void MVO_node::publishEstimatedPosition(cv::Point3d position, cv::Matx33d orientation, ros::Time timeStamp) {
   //Pack Message
-  nav_msgs::Odometry odomMsg;
+  geometry_msgs::PoseStamped odomMsg;
   odomMsg.header.stamp = timeStamp;
-  odomMsg.header.frame_id = "odom";
-  odomMsg.child_frame_id = "base_footprint";
-  odomMsg.pose.pose = worldPoseFromCameraPosition(position, orientation);
+  odomMsg.header.frame_id = "world";
+  odomMsg.pose = worldPoseFromCameraPosition(position, orientation);
   //Publish
   _estimatedOdomPublisher.publish(odomMsg);
 }
 void MVO_node::publishRefinedPosition(cv::Point3d position, cv::Matx33d orientation, ros::Time timeStamp, int stage) {
   //Pack Message
-  nav_msgs::Odometry odomMsg;
+  geometry_msgs::PoseStamped odomMsg;
   odomMsg.header.stamp = timeStamp;
-  odomMsg.header.frame_id = "odom";
-  odomMsg.child_frame_id = "base_footprint";
-  odomMsg.pose.pose = worldPoseFromCameraPosition(position, orientation);
+  odomMsg.header.frame_id = "world";
+  odomMsg.pose = worldPoseFromCameraPosition(position, orientation);
   //Publish
   switch (stage) {
     case 1:_refined1OdomPublisher.publish(odomMsg);
       break;
-    case 2:
-      _refined2OdomPublisher.publish(odomMsg);
+    case 2:_refined2OdomPublisher.publish(odomMsg);
       break;
   }
 
 }
+
+void MVO_node::publishVectors(cv::Point3d newPosition, cv::Matx33d orientation) {
+  auto pose = worldPoseFromCameraPosition(newPosition, orientation);
+  visualization_msgs::Marker m;
+  m.type = visualization_msgs::Marker::ARROW;
+  m.action = visualization_msgs::Marker::MODIFY;
+  m.color.a = 1.0;
+  m.color.g = 1.0;
+  m.id = _vectors.markers.size();
+  m.header.frame_id = "world";
+  geometry_msgs::Point start;
+  if (_vectors.markers.size() > 0) {
+    start.x = _vectors.markers.back().points.back().x;
+    start.y = _vectors.markers.back().points.back().y;
+    start.z = _vectors.markers.back().points.back().z;
+  } else {
+    start.x = 0;
+    start.y = 0;
+    start.z = 0;
+  }
+  geometry_msgs::Point end;
+  end.x = pose.position.x;
+  end.y = pose.position.y;
+  end.z = pose.position.z;
+  m.scale.x = 0.1;//shaft diameter;
+  m.scale.y = 0.2; //head diamaete;
+  m.points.push_back(start);
+  m.points.push_back(end);
+  _vectors.markers.push_back(m);
+  _vectorsPublisher.publish(_vectors);
+}
+
 geometry_msgs::Pose MVO_node::worldPoseFromCameraPosition(const cv::Point3d &position, const cv::Matx33d &orientation) {
   /**
    * Reproject TO World Coordinates
@@ -240,4 +279,19 @@ geometry_msgs::Pose MVO_node::worldPoseFromCameraPosition(const cv::Point3d &pos
   pose.orientation.x = orientationQuat.getX();
   //Return Position
   return pose;
+}
+void MVO_node::publishTFTransform(cv::Point3d position, cv::Matx33d orientation, ros::Time timeStamp) {
+  geometry_msgs::TransformStamped transform;
+  transform.header.stamp = timeStamp;
+  transform.header.frame_id = "world";
+  transform.child_frame_id = "odom";
+  auto pose = worldPoseFromCameraPosition(position, orientation);
+
+  transform.transform.translation.x = pose.position.x;
+  transform.transform.translation.y = pose.position.y;
+  transform.transform.translation.z = pose.position.z;
+
+  transform.transform.rotation = pose.orientation;
+
+  _transformBroadcaster.sendTransform(transform);
 }

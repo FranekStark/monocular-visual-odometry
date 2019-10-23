@@ -11,8 +11,8 @@ Merger::Merger(PipelineStage &precursor,
     _keepFrame(nullptr) {
 #ifdef DEBUGIMAGES
   cv::namedWindow("MergerImage", cv::WINDOW_NORMAL);
-  cv::moveWindow("MergerImage", 2400, 895);
-  cv::resizeWindow("MergerImage", 960, 988);
+  cv::moveWindow("MergerImage", -36, 44);
+  cv::resizeWindow("MergerImage", 638, 475);
   cv::startWindowThread();
 #endif
 }
@@ -60,12 +60,19 @@ Frame *Merger::stage(Frame *newFrame) {
       image = cv::Scalar(255, 255, 255);
     }
     VisualisationUtils::drawFeaturesUnrotated(image, preCorespF, nowCorespF, nowCorespFU);
+    auto brightnessVector = cv::mean(image.colRange(10, 100).rowRange(40,100));
+    double brightness = (brightnessVector[0] + brightnessVector[1] + brightnessVector[2])/3; //mean the three channels
+    auto color = cv::Scalar(255, 255, 255);
+    if(brightness > 125){
+      color = cv::Scalar(0, 0, 0);
+    }
     cv::putText(image,
                 "Disparity: " + std::to_string(disparity),
                 cv::Point(10, 40),
-                cv::FONT_HERSHEY_PLAIN,
-                4,
-                cv::Scalar(0, 255, 255));
+                cv::FONT_HERSHEY_SIMPLEX,
+                2,
+                color,
+                5);
     cv::imshow("MergerImage", image);
     cv::waitKey(10);
   }

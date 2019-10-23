@@ -35,6 +35,12 @@ class FeatureOperations {
   static void euclidUnNormFeatures(const std::vector<cv::Vec3d> &featuresE, std::vector<cv::Point2f> &features,
                                    const image_geometry::PinholeCameraModel &cameraModel);
 
+/**
+ * Norms every feature INPLACE
+ * @param featuresE the vector of features
+ */
+  static void normFeatures(std::vector<cv::Vec3d> & featuresE);
+
   /**
    * Unrotates features from source- into target-vector
    * @param features source vector

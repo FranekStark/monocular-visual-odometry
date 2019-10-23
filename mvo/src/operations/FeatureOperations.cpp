@@ -12,7 +12,7 @@ double FeatureOperations::calcDisparity(const std::vector<cv::Vec3d> &first, con
   //
   double diff = 0;
   for (auto p1 = first.begin(), p2 = second.begin(); p1 != first.end() && p2 != second.end(); p1++, p2++) {
-    diff += cv::norm((*p2) - (*p1));
+    diff +=  (1 - ((p2->dot(*p1))/(cv::norm(*p2)*cv::norm(*p1)))); //TODO: What about negativ Scalar products?
   }
   diff = diff / first.size();
   //
@@ -29,7 +29,9 @@ void FeatureOperations::euclidNormFeatures(const std::vector<cv::Point2f> &featu
   featuresE.reserve(features.size());
   //Project Feature and push_back
   for (auto feature = features.begin(); feature != features.end(); feature++) {
-    featuresE.push_back(cameraModel.projectPixelTo3dRay(*feature));
+    cv::Vec3d projected = cameraModel.projectPixelTo3dRay(*feature);
+    //cv::Vec3d projected_normed = projected/cv::norm(projected);
+    featuresE.push_back(projected);
   }
 }
 
@@ -79,5 +81,12 @@ void FeatureOperations::reconstructDepth(std::vector<double> &depth,
         -(*m2)(0), -(*m2)(1), (*m2)(0) * (*m2)(0) + (*m2)(1) * (*m2)(1);
     double Z = (m1->t() * r * C * r.t() * b)(0) / (m1->t() * r * C * r.t() * (*m1))(0);
     depth.push_back(Z);
+  }
+}
+
+void FeatureOperations::normFeatures(std::vector<cv::Vec3d> &featuresE) {
+  for(auto feature = featuresE.begin(); feature != featuresE.end(); feature++){
+    double scale = 1.0/cv::norm(*feature);
+    *feature = *feature * scale;
   }
 }

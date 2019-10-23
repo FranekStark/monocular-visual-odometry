@@ -30,7 +30,7 @@ class TrackerDetector : public PipelineStage{
                   CornerTracking &cornerTracking);
   ~TrackerDetector() override;
   Frame* stage(Frame * newFrame) override;
-  static cv::Rect2d getShipMask(const cv::Size& imageSize);
+  static cv::Rect2d getShipMask(const cv::Size &imageSize, double shipHeight, double shipWidth);
 };
 
 #endif //MVO_SRC_TRACKERDETECTOR_HPP_
