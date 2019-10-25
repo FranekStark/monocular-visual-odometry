@@ -66,7 +66,7 @@ class Frame {
  * @tparam T the Type of the Features
  * @param oldestFrame the oldest Frame
  * @param newestFrame the newest Frame
- * @param features the return of the features. Index 0, contains the newest. And the last Index the newest. The Featurevectors have to be empty!
+ * @param features the return of the features. Index 0, contains the newest. And the last Index the oldest. The Featurevectors have to be empty!
  */
   template<typename T>
   static void getCorrespondingFeatures(const Frame &oldestFrame,

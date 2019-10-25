@@ -16,22 +16,12 @@ MVO_node::MVO_node(ros::NodeHandle &nh, ros::NodeHandle &pnh)
       _privateNodeHandle(pnh),
       _imageTransport(nh),
       _currentConfig(mvo::mvoConfig::__getDefault__()),
-      _transformWorldToCamera(0, 0, 1, -1, 0, 0, 0, -1, 0),
-      _mvo([this](cv::Point3d position, cv::Matx33d orientation, ros::Time timeStamp) {
-             this->publishEstimatedPosition(position, orientation, timeStamp);
-           },
-           [this](cv::Point3d position, cv::Matx33d orientation, ros::Time timeStamp) {
-             this->publishRefinedPosition(position, orientation, timeStamp, 1);
-           },
-           [this](cv::Point3d position, cv::Matx33d orientation, ros::Time timeStamp) {
-             this->publishRefinedPosition(position, orientation, timeStamp, 2);
-             this->publishVectors(position, orientation);
-             this->publishTFTransform(position, orientation, timeStamp);
-           }) {
+      _transformWorldToCamera(0, 0, 1, -1, 0, 0, 0, -1, 0) {
   this->init();
 }
 
 MVO_node::~MVO_node() {
+  delete _mvo;
   delete _synchronizer;
   delete _imuSubscriber;
   delete _cameraInfoSubscriber;
@@ -96,7 +86,22 @@ void MVO_node::init() {
   _privateNodeHandle.param<double>("lowestLength", _currentConfig.lowestLength, _currentConfig.lowestLength);
   _privateNodeHandle.param<double>("highestLength", _currentConfig.highestLength, _currentConfig.highestLength);
 
+  _privateNodeHandle.param<int>("numberToRefine", _currentConfig.numberToRefine, _currentConfig.numberToRefine);
+  _privateNodeHandle.param<int>("numberToNote", _currentConfig.numberToNote, _currentConfig.numberToNote);
+
+
   _dynamicConfigServer.updateConfig(_currentConfig);
+
+  _mvo = new MVO([this](cv::Point3d position, cv::Matx33d orientation, ros::Time timeStamp) {
+                   this->publishEstimatedPosition(position, orientation, timeStamp);
+                 },
+                 [this](cv::Point3d position, cv::Matx33d orientation, ros::Time timeStamp) {
+                   this->publishRefinedPosition(position, orientation, timeStamp, 2);
+                   this->publishVectors(position, orientation);
+                   this->publishTFTransform(position, orientation, timeStamp);
+                 },
+                 _currentConfig
+  );
 
 
   //Set Log-Level:
@@ -163,7 +168,7 @@ void MVO_node::imageCallback(const sensor_msgs::ImageConstPtr &image, const sens
    * Call the Algorithm
    **/
   _configLock.lock();
-  _mvo.newImage(bridgeImage->image, model, orientationMatCV, _currentConfig, image->header.stamp);
+  _mvo->newImage(bridgeImage->image, model, orientationMatCV, _currentConfig, image->header.stamp);
   _configLock.unlock();
 /*  *//**
    * Pack DebugImages and Publish
@@ -245,7 +250,8 @@ void MVO_node::publishVectors(cv::Point3d newPosition, cv::Matx33d orientation) 
   _vectorsPublisher.publish(_vectors);
 }
 
-geometry_msgs::Pose MVO_node::worldPoseFromCameraPosition(const cv::Point3d &position, const cv::Matx33d &orientation) {
+geometry_msgs::Pose MVO_node::worldPoseFromCameraPosition(const cv::Point3d &position,
+                                                          const cv::Matx33d &orientation) {
   /**
    * Reproject TO World Coordinates
    */

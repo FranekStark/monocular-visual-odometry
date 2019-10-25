@@ -55,7 +55,7 @@ class MVO_node {
   cv::Matx33d _transformWorldToCamera;
 
 
-  MVO _mvo;
+  MVO * _mvo;
 
   void init();
 

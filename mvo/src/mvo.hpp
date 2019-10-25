@@ -39,15 +39,13 @@ class MVO : public PipelineBegin {
    * Positions
    */
   cv::Point3d _estimatedPosition;
-  cv::Point3d _refined1Position;
-  cv::Point3d _refined2Position;
+  cv::Point3d _refinedPosition;
 
   /**
    * Callbackfunction
    */
   std::function<void(cv::Point3d, cv::Matx33d, ros::Time timeStamp)> _estimatedCallbackFunction;
-  std::function<void(cv::Point3d, cv::Matx33d, ros::Time timeStamp)> _refined1CallbackFunction;
-  std::function<void(cv::Point3d, cv::Matx33d, ros::Time timeStamp)> _refined2CallbackFunction;
+  std::function<void(cv::Point3d, cv::Matx33d, ros::Time timeStamp)> _refinedCallbackFunction;
 
   /**
    * Algorithms
@@ -78,15 +76,13 @@ class MVO : public PipelineBegin {
    *Callbackthreads
    */
   std::thread _estimatedCallbackThread;
-  std::thread _refined1CallbackThread;
-  std::thread _refined2CallbackThread;
+  std::thread _refinedCallbackThread;
 
   Frame *_prevFrame;
 
  public:
   MVO(std::function<void(cv::Point3d, cv::Matx33d,ros::Time timeStamp)> estimatedPositionCallback,
-      std::function<void(cv::Point3d, cv::Matx33d,ros::Time timeStamp)> refined1PositionCallback,
-      std::function<void(cv::Point3d, cv::Matx33d,ros::Time timeStamp)> refined2PositionCallback);
+      std::function<void(cv::Point3d, cv::Matx33d,ros::Time timeStamp)> refinedPositionCallback, mvo::mvoConfig startConfig);
   ~MVO() override;
 
   void newImage(const cv::Mat &image,

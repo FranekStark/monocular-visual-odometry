@@ -3,117 +3,123 @@
 //
 
 #include "Refiner.hpp"
-#include "../operations/FeatureOperations.h"
+
 Refiner::Refiner(PipelineStage &precursor,
                  unsigned int out_going_channel_size,
                  IterativeRefinement &iterativeRefinement,
-                 unsigned int numberToRefine)
+                 unsigned int numberToRefine,
+                 unsigned int numberToNote
+)
     : PipelineStage(&precursor, out_going_channel_size),
       _iterativeRefinement(iterativeRefinement),
-      _preFrame(nullptr),
-      _prePreFrame(nullptr),
-      _baseLine1(1),
-      _baseLine2(1) {
-  assert(numberToRefine == 3);
+      _frames(numberToNote + 1, nullptr), //One plus, to avoid Overflow!
+      _numberToNote(numberToNote),
+      _numberToRefine(numberToRefine),
+      _baseLine(1) {
+
   //Currently only 3 available
 #ifdef DEBUGIMAGES
-  cv::namedWindow("RefinerImage0", cv::WINDOW_NORMAL);
-  cv::moveWindow("RefinerImage0", 621, 1108);
-  cv::resizeWindow("RefinerImage0", 535, 314);
-  cv::namedWindow("RefinerImage1", cv::WINDOW_NORMAL);
-  cv::moveWindow("RefinerImage1", 0, 1103);
-  cv::resizeWindow("RefinerImage1", 617, 322);
-  cv::namedWindow("RefinerImageBOTH", cv::WINDOW_NORMAL);
-  cv::moveWindow("RefinerImageBOTH", 1, 1466);
-  cv::resizeWindow("RefinerImageBOTH", 1164, 454);
+  cv::namedWindow("RefinerImage", cv::WINDOW_NORMAL);
+  cv::moveWindow("RefinerImage", 1, 1466);
+  cv::resizeWindow("RefinerImage", 1164, 454);
   cv::startWindowThread();
 #endif
 }
 
 Frame *Refiner::stage(Frame *newFrame) {
-  if (_prePreFrame != nullptr) { //Only if enough Frames
-    IterativeRefinement::RefinementDataCV data;
 
-    data.vec0 = newFrame->getBaseLineToPrevious();
-    if (newFrame->getParameters().usePreviousScale) { //Use Scaling from previous
-      data.scale0 = _preFrame->getScaleToPrevious();
-    } else { //Use Scaling from Etsimator (this is length 1)
-      data.scale0 = newFrame->getScaleToPrevious();
-    }
+  //Add One more to keptFrames, cause we have a 'newFrame'.
+  _frames.push(newFrame);
+  unsigned int keptFrames = _frames.size();
+  unsigned int numberToRefine = _numberToRefine;
+  unsigned int numberToNote = _numberToNote;
 
-    data.vec1 = _preFrame->getBaseLineToPrevious();
-    data.scale1 = _preFrame->getScaleToPrevious();
+  if (keptFrames < _numberToNote) {
+    ROS_WARN_STREAM("not enough Frames to reach 'framesToNote', took as much, as possible!");
+    numberToNote = keptFrames;
+  }
 
-    data.R0 = newFrame->getRotation();
-    data.R1 = _preFrame->getRotation();
-    data.R2 = _prePreFrame->getRotation();
+  if (keptFrames < _numberToNote) {
+    ROS_WARN_STREAM("not enough Frames to reach 'framesToRefine', took as much, as possible!");
+    numberToRefine =
+        numberToNote - 1; //Refine one less than numberToNote. That wouldn't be to much, cause we are in this If-Case.
+  }
 
-    std::vector<std::vector<cv::Vec3d> *> vectors{&(data.m0), &(data.m1), &(data.m2)};
+  if (keptFrames < 2) { //Not enough to do anything. -> That case will only be there one Time I think.
+    return nullptr;
+  }
 
-    Frame::getCorrespondingFeatures(*_prePreFrame, *newFrame, vectors);
-    auto funtolerance = std::pow(10.0, -1 * (newFrame->getParameters().functionTolerance));
-    auto gradtolerance = std::pow(10.0, -1 * (newFrame->getParameters().gradientTolerance));
-    auto paramtolerance = std::pow(10.0, -1 * (newFrame->getParameters().parameterTolerance));
+  //Else we have enough Frames and the vars are set up correctly:
 
-    for(auto vector = vectors.begin(); vector != vectors.end(); vector++){
-      FeatureOperations::normFeatures(**vector);
-    }
+  //Get Data
+  std::vector<IterativeRefinement::RefinementFrame> refinementData(numberToNote);
+  std::vector<std::vector<cv::Vec3d> *> featureVectors(numberToNote, nullptr);
+  for (unsigned int i = 0; i < numberToNote; i++) {
+    Frame *frame = _frames[(keptFrames - 1) - i];
+    featureVectors[i] = &refinementData[i].m;
+    refinementData[i].scale = frame->getScaleToPrevious();
+    refinementData[i].vec = frame->getBaseLineToPrevious();
+    refinementData[i].R = frame->getRotation();
+  }
+  Frame::getCorrespondingFeatures<cv::Vec3d>(*_frames[0],
+                                             *_frames[keptFrames - 1],
+                                             featureVectors); //This should be between oldest and newest Frame.
 
-    _iterativeRefinement.refine(data,
-                                newFrame->getParameters().maxNumThreads,
-                                newFrame->getParameters().maxNumIterations,
-                                funtolerance,
-                                gradtolerance,
-                                paramtolerance,
-                                newFrame->getParameters().useLossFunction,
-                                newFrame->getParameters().lowestLength,
-                                newFrame->getParameters().highestLength);
+  ROS_INFO_STREAM("Refining over a Featuretracking set of [" << featureVectors[0]->size() << "] features.");
 
-    newFrame->setBaseLineToPrevious(data.vec0);
-    newFrame->setScaleToPrevious(data.scale0);
-    _preFrame->setBaseLineToPrevious(data.vec1);
-    _preFrame->setScaleToPrevious(data.scale1);
-/*
+  //Start Refinement
+  auto funtolerance = std::pow(10.0, -1 * (newFrame->getParameters().functionTolerance));
+  auto gradtolerance = std::pow(10.0, -1 * (newFrame->getParameters().gradientTolerance));
+  auto paramtolerance = std::pow(10.0, -1 * (newFrame->getParameters().parameterTolerance));
+  _iterativeRefinement.refine(refinementData, numberToRefine, numberToNote, newFrame->getParameters().maxNumThreads,
+                              newFrame->getParameters().maxNumIterations,
+                              funtolerance,
+                              gradtolerance,
+                              paramtolerance,
+                              newFrame->getParameters().useLossFunction,
+                              newFrame->getParameters().lowestLength,
+                              newFrame->getParameters().highestLength);
+
+  //Write Back Data:
+  for (unsigned int i = 0; i < numberToRefine; i++) {
+    Frame *frame = _frames[(keptFrames - 1) - i];
+    frame->setScaleToPrevious(refinementData[i].scale);
+    frame->setBaseLineToPrevious(refinementData[i].vec);
+  }
+
 #ifdef DEBUGIMAGES
-    cv::Mat image(newFrame->getImage().size(), CV_8UC3, cv::Scalar(100, 100, 100));
+  cv::Mat image(newFrame->getImage().size(), CV_8UC3, cv::Scalar(100, 100, 100));
 
-    VisualisationUtils::drawCorrespondences({&data.m0, &data.m1, &data.m2}, newFrame->getCameraModel(), image);
-    cv::imshow("RefinerImageBOTH", image);
+  VisualisationUtils::drawCorrespondences(featureVectors, newFrame->getCameraModel(), image);
+  cv::imshow("RefinerImage", image);
 
-    cv::Mat image0(newFrame->getImage().size(), CV_8UC3, cv::Scalar(100, 100, 100));
-    cv::Mat image1(newFrame->getImage().size(), CV_8UC3, cv::Scalar(100, 100, 100));
-    //Image0
-    VisualisationUtils::drawMovementDebug(*_preFrame, cv::Scalar(0, 255, 255), image1, 0);
-    //Image1
-    VisualisationUtils::drawMovementDebug(*newFrame, cv::Scalar(0, 255, 255), image0, 0);
-    cv::imshow("RefinerImage0", image0);
-    cv::imshow("RefinerImage1", image1);
-    cv::waitKey(10);
-#endif*/
+  cv::waitKey(10);
+#endif
 
+
+  //Enqueue the mostRefined, only if there already enough Frames, to prevent double enqueuing
+  if (numberToRefine >= _numberToRefine) {
+    Frame *mostRefined = _frames[keptFrames - numberToRefine];
+    _baseLine.enqueue({mostRefined->getScaleToPrevious() * mostRefined->getBaseLineToPrevious(),
+                       mostRefined->getRotation(), mostRefined->getTimeStamp()
+                      });
   }
 
+  //Pass throuh Frames, but Only, if we don't need more
 
-
-  //Pass the frames through
-  _prePreFrame = _preFrame;
-  _preFrame = newFrame;
-  if (_preFrame != nullptr) {
-    _baseLine1.enqueue({_preFrame->getScaleToPrevious() * _preFrame->getBaseLineToPrevious(), _preFrame->getRotation(),
-                        _preFrame->getTimeStamp()});
+  if (keptFrames >= _numberToNote) { //When that was enough, pass through
+    Frame *presFrame = _frames[0];
+    _frames.pop();
+    return presFrame;
+  } else {
+    return nullptr;
   }
 
-  if (_prePreFrame != nullptr) {
-    _baseLine2.enqueue({_prePreFrame->getScaleToPrevious() * _prePreFrame->getBaseLineToPrevious(),
-                        _prePreFrame->getRotation(), _prePreFrame->getTimeStamp()});
-  }
-  return _prePreFrame;
 }
 
 Refiner::~Refiner() {
 #ifdef DEBUGIMAGES
-  cv::destroyWindow("RefinerImage0");
-  cv::destroyWindow("RefinerImage1");
-  cv::destroyWindow("RefinerBOTH");
+
+  cv::destroyWindow("Refiner");
 #endif
 }

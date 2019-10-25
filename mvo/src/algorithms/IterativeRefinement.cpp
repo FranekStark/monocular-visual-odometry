@@ -23,7 +23,7 @@ void IterativeRefinement::refine(std::vector<RefinementFrame> &refinementData,
                                  double highestLength) {
   assert(refinementData.size() == numberToNote);
   assert(numberToNote > numberToRefine);
-  assert(numberToRefine > 1);
+  assert(numberToRefine > 0);
   //Convert into EIGEN-Space:
   std::vector<RefinementFrameEIG> frames(refinementData.size());
   auto cvFrame = refinementData.begin();
@@ -67,10 +67,12 @@ void IterativeRefinement::refine(std::vector<RefinementFrame> &refinementData,
   //ceres_solver_options.minimizer_progress_to_stdout = true; ///DEBUG!
 
   //Create Params:
+  ROS_INFO_STREAM("BEFORE:");
   for (unsigned int frameID = 0; frameID < numberToRefine; frameID++) {
     vectors[frameID][0] = frames[frameID].vec[0];
     vectors[frameID][1] = frames[frameID].vec[1];
     vectors[frameID][2] = frames[frameID].vec[2];
+    ROS_INFO_STREAM("[" << frameID << "] - " << frames[frameID].scale << " * "  << refinementData[frameID].vec);
     scales[frameID][0] = reverseScale(frames[frameID].scale, highestLength, lowestLength);
 
     ceres_problem.AddParameterBlock(vectors[frameID], 3);
@@ -133,16 +135,21 @@ void IterativeRefinement::refine(std::vector<RefinementFrame> &refinementData,
   ceres::Solve(ceres_solver_options, &ceres_problem, &ceres_summary
   );
 
+
   if (ceres_summary.termination_type == ceres::TerminationType::FAILURE) {
     throw std::runtime_error("CERES ERROR!");
   }
 
+  ROS_INFO_STREAM("AFTER:");
   for (unsigned int i = 0; i < numberToRefine; i++) {
     auto scale = scaleTemplated<double>(scales[i][0], highestLength, lowestLength);
     cv::Vec3d vec = cvt_eigen_cv(Eigen::Vector3d(vectors[i][0], vectors[i][1], vectors[i][2]));
     refinementData[i].scale = scale;
     refinementData[i].vec = vec;
+    ROS_INFO_STREAM("[" << i << "] - " << scale << " * "  << vec);
   }
+
+  ROS_INFO_STREAM(ceres_summary.FullReport());
 
 }
 

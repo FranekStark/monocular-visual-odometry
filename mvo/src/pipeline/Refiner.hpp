@@ -11,25 +11,28 @@
 #include "../operations/VisualisationUtils.hpp"
 #include "OdomData.hpp"
 #include "../nils_lib/Ringbuffer.hpp"
+#include "../operations/FeatureOperations.h"
 
 
-class Refiner: public PipelineStage {
+class Refiner : public PipelineStage {
  private:
+  IterativeRefinement &_iterativeRefinement;
+  RingBuffer<Frame *> _frames;
+  unsigned int _numberToNote;
+  unsigned int _numberToRefine;
 
-  IterativeRefinement & _iterativeRefinement;
-  Frame * _preFrame;
-  Frame * _prePreFrame;
   Frame *stage(Frame *newFrame) override;
 
  public:
   Refiner(PipelineStage &precursor,
           unsigned int out_going_channel_size,
-          IterativeRefinement &iterativeRefinement, unsigned int numberToRefine);
+          IterativeRefinement &iterativeRefinement,
+          unsigned int numberToRefine,
+          unsigned int numberToNote
+  );
   ~Refiner() override;
 
-  Channel<OdomData> _baseLine1;
-  Channel<OdomData> _baseLine2;
-
+  Channel<OdomData> _baseLine;
 
 };
 
