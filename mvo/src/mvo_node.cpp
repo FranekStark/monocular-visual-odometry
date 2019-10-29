@@ -90,6 +90,10 @@ void MVO_node::init() {
   _privateNodeHandle.param<int>("numberToNote", _currentConfig.numberToNote, _currentConfig.numberToNote);
 
 
+  _privateNodeHandle.param<bool>("useMergeFrequency", _currentConfig.useMergeFrequency, _currentConfig.useMergeFrequency);
+  _privateNodeHandle.param<double>("mergeFrequency", _currentConfig.mergeFrequency, _currentConfig.mergeFrequency);
+
+
   _dynamicConfigServer.updateConfig(_currentConfig);
 
   _mvo = new MVO([this](cv::Point3d position, cv::Matx33d orientation, ros::Time timeStamp) {

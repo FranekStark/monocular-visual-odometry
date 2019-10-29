@@ -13,6 +13,7 @@ class Merger : public PipelineStage {
  private:
   Frame* _preFrame;
   Frame* _keepFrame;
+  ros::Time _lastFrameTime;
 
  public:
   Merger(PipelineStage &precursor,

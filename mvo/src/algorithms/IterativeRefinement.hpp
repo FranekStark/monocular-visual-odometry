@@ -5,12 +5,16 @@
 #include <eigen3/Eigen/Dense>
 #include <opencv2/core/eigen.hpp>
 #include <ceres/ceres.h>
+#include "../sliding_window/Frame.hpp"
+#include "../operations/VisualisationUtils.hpp"
+
+#define EIGEN_INITIALIZE_MATRICES_BY_ZERO
+#define EIGEN_NO_AUTOMATIC_RESIZING
 
 class IterativeRefinement {
  private:
 
   struct RefinementFrameEIG {
-    std::vector<Eigen::Vector3d> m;
     Eigen::Matrix3d R;
     Eigen::Vector3d vec;
     double scale;
@@ -26,60 +30,57 @@ class IterativeRefinement {
 
   struct CostFunctionScaled {
    private:
-    const Eigen::Vector3d &_m1;
-    const Eigen::Vector3d &_m0;
+    const Eigen::Vector3d _m1;
+    const Eigen::Vector3d _m0;
     const Eigen::Matrix3d &_R1;
     const Eigen::Matrix3d &_R0;
-    const Eigen::Vector3d _vectorOffset;
     const double _maxLength;
     const double _minlength;
     const int _params;
    public:
-    CostFunctionScaled(const Eigen::Vector3d &m1,
-                       const Eigen::Vector3d &m0,
+    CostFunctionScaled(const Eigen::Vector3d m1,
+                       const Eigen::Vector3d m0,
                        const Eigen::Matrix3d &R1,
                        const Eigen::Matrix3d &R0,
-                       const Eigen::Vector3d &vectorOffset,
                        double maxLength,
                        double minLength,
-                       int params
+                       int number_of_params
     );
 
     template<typename T>
     bool operator()(T const *const *parameters, T *residuals) const;
 
-    static void addResidualBlocks(const std::vector<Eigen::Vector3d> &m1,
-                                  const std::vector<Eigen::Vector3d> &m0,
+    static void addResidualBlocks(const std::vector<Eigen::Vector3d> m1,
+                                  const std::vector<Eigen::Vector3d> m0,
                                   const Eigen::Matrix3d &R1,
                                   const Eigen::Matrix3d &R0,
                                   ceres::LossFunction *lossFunction,
-                                  std::vector<double *> &parameter_blocks,
+                                  const std::vector<double *> &parameter_blocks,
                                   ceres::Problem &ceresProblem,
-                                  Eigen::Vector3d vector_offset,
                                   double minLength,
                                   double maxLength,
-                                  int params
+                                  int number_of_params
     );
   };
 
   struct CostFunction {
    private:
-    const Eigen::Vector3d &_m1;
-    const Eigen::Vector3d &_m0;
+    const Eigen::Vector3d _m1;
+    const Eigen::Vector3d _m0;
     const Eigen::Matrix3d &_R1;
     const Eigen::Matrix3d &_R0;
    public:
     CostFunction(
-        const Eigen::Vector3d &m1,
-        const Eigen::Vector3d &m0,
+        const Eigen::Vector3d m1,
+        const Eigen::Vector3d m0,
         const Eigen::Matrix3d &R1,
         const Eigen::Matrix3d &R0);
 
     template<typename T>
     bool operator()(const T *vec, T *residuals) const;
 
-    static void addResidualBlocks(const std::vector<Eigen::Vector3d> &m1,
-                                  const std::vector<Eigen::Vector3d> &m0,
+    static void addResidualBlocks(const std::vector<Eigen::Vector3d> m1,
+                                  const std::vector<Eigen::Vector3d> m0,
                                   const Eigen::Matrix3d &R1,
                                   const Eigen::Matrix3d &R0,
                                   ceres::LossFunction *lossFunction,
@@ -101,9 +102,11 @@ class IterativeRefinement {
   };
 
  public:
+#ifdef DEBUGIMAGES
+ cv::Mat _debugImage;
+#endif
 
   struct RefinementFrame {
-    std::vector<cv::Vec3d> m;
     cv::Matx33d R;
     cv::Vec3d vec;
     double scale;
@@ -123,7 +126,8 @@ class IterativeRefinement {
               double parameterTolerance,
               bool useLossFunction,
               double lowestLength,
-              double highestLength);
+              double highestLength,
+              const Frame & nowFrame);
 
 };
 

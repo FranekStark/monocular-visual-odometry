@@ -1,4 +1,5 @@
 #include "IterativeRefinement.hpp"
+#include "../operations/FeatureOperations.h"
 #include <opencv2/highgui.hpp>
 
 #include <ros/ros.h>
@@ -20,7 +21,9 @@ void IterativeRefinement::refine(std::vector<RefinementFrame> &refinementData,
                                  double parameterTolerance,
                                  bool useLossFunction,
                                  double lowestLength,
-                                 double highestLength) {
+                                 double highestLength,
+                                 const Frame &nowFrame
+) {
   assert(refinementData.size() == numberToNote);
   assert(numberToNote > numberToRefine);
   assert(numberToRefine > 0);
@@ -29,7 +32,6 @@ void IterativeRefinement::refine(std::vector<RefinementFrame> &refinementData,
   auto cvFrame = refinementData.begin();
   auto eigFrame = frames.begin();
   for (; cvFrame != refinementData.end(); cvFrame++, eigFrame++) {
-    cvt_cv_eigen(cvFrame->m, eigFrame->m);
     cvt_cv_eigen(cvFrame->R, eigFrame->R);
     cvt_cv_eigen(cvFrame->vec, eigFrame->vec);
     eigFrame->scale = cvFrame->scale;
@@ -37,8 +39,8 @@ void IterativeRefinement::refine(std::vector<RefinementFrame> &refinementData,
 
 
   //Create Params
-  std::vector<double[1]> scales(numberToRefine);
-  std::vector<double[3]> vectors(numberToRefine);
+  std::vector<double[1]> scales(numberToNote);
+  std::vector<double[3]> vectors(numberToNote);
 
 
 
@@ -57,75 +59,130 @@ void IterativeRefinement::refine(std::vector<RefinementFrame> &refinementData,
   ceres::Solver::Options ceres_solver_options;
   ceres_solver_options.minimizer_type = ceres::TRUST_REGION;
   ceres_solver_options.trust_region_strategy_type = ceres::LEVENBERG_MARQUARDT;
-  ceres_solver_options.linear_solver_type = ceres::DENSE_QR;
+  ceres_solver_options.linear_solver_type = ceres::SPARSE_NORMAL_CHOLESKY;
+  ceres_solver_options.use_explicit_schur_complement = true;
   ceres_solver_options.max_num_iterations = maxNumIterations;
   ceres_solver_options.num_threads = maxNumthreads;
+  //ceres_solver_options.use_inner_iterations = true;
+  ceres_solver_options.use_nonmonotonic_steps = true;
+  ceres_solver_options.preconditioner_type = ceres::JACOBI;
   ceres_solver_options.function_tolerance = functionTolerance;
   ceres_solver_options.gradient_tolerance = gradientTolerance;
   ceres_solver_options.parameter_tolerance = parameterTolerance;
+  ceres_solver_options.min_trust_region_radius = 10.0e-200;
   //ceres_solver_options.check_gradients = true; ///DEBUG!
   //ceres_solver_options.minimizer_progress_to_stdout = true; ///DEBUG!
 
+  //Create Local Parametrization
+  ceres::LocalParameterization
+      *local_parametrization_vec = new ceres::AutoDiffLocalParameterization<ParametrizedBaseLine, 3, 2>;
   //Create Params:
   ROS_INFO_STREAM("BEFORE:");
-  for (unsigned int frameID = 0; frameID < numberToRefine; frameID++) {
+  for (unsigned int frameID = 0; frameID < numberToNote; frameID++) {
     vectors[frameID][0] = frames[frameID].vec[0];
     vectors[frameID][1] = frames[frameID].vec[1];
     vectors[frameID][2] = frames[frameID].vec[2];
-    ROS_INFO_STREAM("[" << frameID << "] - " << frames[frameID].scale << " * "  << refinementData[frameID].vec);
     scales[frameID][0] = reverseScale(frames[frameID].scale, highestLength, lowestLength);
-
-    ceres_problem.AddParameterBlock(vectors[frameID], 3);
+    ceres_problem.AddParameterBlock(vectors[frameID], 3, local_parametrization_vec);
     ceres_problem.AddParameterBlock(scales[frameID], 1);
+    //ceres_problem.SetParameterLowerBound(scales[frameID], 0, lowestLength);
+    //ceres_problem.SetParameterUpperBound(scales[frameID], 0, highestLength);
 
-    ceres::LocalParameterization
-        *local_parametrizationVec = new ceres::AutoDiffLocalParameterization<ParametrizedBaseLine, 3, 2>;
-    ceres_problem.SetParameterization(vectors[frameID], local_parametrizationVec);
+    if (frameID < numberToRefine) {
+      ROS_INFO_STREAM("[" << frameID << "] - " << frames[frameID].scale << " * " << refinementData[frameID].vec);
+    } else {
+      ceres_problem.SetParameterBlockConstant(vectors[frameID]);
+      ceres_problem.SetParameterBlockConstant(scales[frameID]);
+    }
   }
 
 
   //Go through the Frames:
   for (unsigned int frame0 = 0; frame0 < numberToRefine; frame0++) {
+#ifdef DEBUGIMAGES
+    cv::Scalar color(255,255,255);
+    switch (frame0){
+      case 0:
+        color = cv::Scalar(0,0,255);
+        break;
+      case 1:
+        color = cv::Scalar(0,255,0);
+        break;
+      case 2:
+        color = cv::Scalar(255,0,0);
+        break;
+      case 3:
+        color = cv::Scalar(0,255,255);
+        break;
+
+    }
+#endif
     //Add the "normal" CostFunction
     ceres::LossFunction *lossFun = nullptr;
     if (useLossFunction) {
       lossFun = new ceres::CauchyLoss(0.5);
     }
-    CostFunction::addResidualBlocks(frames[frame0 + 1].m,
-                                    frames[frame0].m,
-                                    frames[frame0 + 1].R,
-                                    frames[frame0].R,
-                                    lossFun,
-                                    vectors[frame0],
-                                    ceres_problem);
+    {
+      //Get features
+      std::vector<cv::Vec3d> feature1CV, feature0CV;
+      std::vector<Eigen::Vector3d> feature1EIG, feature0EIG;
+      nowFrame.getPreviousFrame(frame0).getCorrespondingFeatures(1, feature1CV, feature0CV);
+      FeatureOperations::normFeatures(feature0CV);
+      FeatureOperations::normFeatures(feature1CV);
+#ifdef DEBUGIMAGES
+      VisualisationUtils::drawCorrespondences({&feature0CV, &feature1CV}, nowFrame.getCameraModel(), _debugImage, color, color);
+#endif
+      cvt_cv_eigen(feature0CV, feature0EIG);
+      cvt_cv_eigen(feature1CV, feature1EIG);
 
+      CostFunction::addResidualBlocks(feature1EIG,
+                                      feature0EIG,
+                                      frames[frame0 + 1].R,
+                                      frames[frame0].R,
+                                      lossFun,
+                                      vectors[frame0],
+                                      ceres_problem);
+    }
     //Iterate through each following Frame to create a correspondence to each Frame
     std::vector<double *> parameter_blocks;
-    Eigen::Vector3d vector_offset(0, 0, 0);
-    parameter_blocks.push_back(scales[frame0]);
+    parameter_blocks.clear();
+    parameter_blocks.push_back(scales[frame0]); //TODO, does this puhses the reference
     parameter_blocks.push_back(vectors[frame0]);
     int params_counter = 1;
     for (unsigned int frame1 = (frame0 + 1); frame1 < (numberToNote - 1);
-         frame1++) {  //Skip Last Frame, cause its Vector an dscale to prev is unneccecccary
-      if (frame1 < numberToRefine) { //Frame1 also needs to be Refined
-        parameter_blocks.push_back(scales[frame1]);
-        parameter_blocks.push_back(vectors[frame1]);
-        params_counter++;
-      } else { //Don't Refine Frame1
-        vector_offset = vector_offset + frames[frame1].scale * frames[frame1].vec;
+         frame1++) {  //Skip Last Frame, cause its vector and scale to prev is unneccecccary
+
+
+      //Add Paramert Block. It doesn't matters, wether it ist a "Note" or a "Refine" Frame. Cause we block them above.
+      parameter_blocks.push_back(scales[frame1]);
+      parameter_blocks.push_back(vectors[frame1]);
+      params_counter++;
+      {//Get features
+        std::vector<cv::Vec3d> feature1CV, feature0CV;
+        std::vector<Eigen::Vector3d> feature1EIG, feature0EIG;
+        nowFrame.getPreviousFrame(frame0).getCorrespondingFeatures(frame1 - frame0, feature1CV, feature0CV);
+        FeatureOperations::normFeatures(feature0CV);
+        FeatureOperations::normFeatures(feature1CV);
+
+#ifdef DEBUGIMAGES
+        VisualisationUtils::drawCorrespondences({&feature0CV, &feature1CV}, nowFrame.getCameraModel(), _debugImage, color, color);
+#endif
+
+        cvt_cv_eigen(feature0CV, feature0EIG);
+        cvt_cv_eigen(feature1CV, feature1EIG);
+
+        //Add this "scaled" CostFunction
+        CostFunctionScaled::addResidualBlocks(feature1EIG,
+                                              feature0EIG,
+                                              frames[frame1 + 1].R,
+                                              frames[frame0].R,
+                                              lossFun,
+                                              parameter_blocks,
+                                              ceres_problem,
+                                              lowestLength,
+                                              highestLength,
+                                              params_counter);
       }
-      //Add this "scaled" CostFunction
-      CostFunctionScaled::addResidualBlocks(frames[frame1 + 1].m,
-                                            frames[frame0].m,
-                                            frames[frame1 + 1].R,
-                                            frames[frame0].R,
-                                            lossFun,
-                                            parameter_blocks,
-                                            ceres_problem,
-                                            vector_offset,
-                                            lowestLength,
-                                            highestLength,
-                                            params_counter);
 
     }
 
@@ -135,80 +192,81 @@ void IterativeRefinement::refine(std::vector<RefinementFrame> &refinementData,
   ceres::Solve(ceres_solver_options, &ceres_problem, &ceres_summary
   );
 
-
   if (ceres_summary.termination_type == ceres::TerminationType::FAILURE) {
-    throw std::runtime_error("CERES ERROR!");
+   ROS_ERROR_STREAM("CERES ERROR!" << ceres_summary.FullReport());
   }
 
   ROS_INFO_STREAM("AFTER:");
   for (unsigned int i = 0; i < numberToRefine; i++) {
-    auto scale = scaleTemplated<double>(scales[i][0], highestLength, lowestLength);
+    double scale = scaleTemplated<double>(scales[i][0], highestLength, lowestLength);
     cv::Vec3d vec = cvt_eigen_cv(Eigen::Vector3d(vectors[i][0], vectors[i][1], vectors[i][2]));
     refinementData[i].scale = scale;
     refinementData[i].vec = vec;
-    ROS_INFO_STREAM("[" << i << "] - " << scale << " * "  << vec);
+    ROS_INFO_STREAM("[" << i << "] - " << scale << " * " << vec);
   }
 
   ROS_INFO_STREAM(ceres_summary.FullReport());
 
 }
 
-IterativeRefinement::CostFunctionScaled::CostFunctionScaled(const Eigen::Vector3d &m1,
-                                                            const Eigen::Vector3d &m0,
+IterativeRefinement::CostFunctionScaled::CostFunctionScaled(const Eigen::Vector3d m1,
+                                                            const Eigen::Vector3d m0,
                                                             const Eigen::Matrix3d &R1,
                                                             const Eigen::Matrix3d &R0,
-                                                            const Eigen::Vector3d &vectorOffset,
                                                             double maxLength,
                                                             double minLength,
-                                                            int params) :
+                                                            int number_of_params) :
     _m1(m1),
     _m0(m0),
     _R1(R1),
     _R0(R0),
-    _vectorOffset(vectorOffset),
     _maxLength(maxLength),
     _minlength(minLength),
-    _params(params) {}
+    _params(number_of_params) {}
 
 template<typename T>
 bool IterativeRefinement::CostFunctionScaled::operator()(T const *const *parameters,
                                                          T *residuals) const {
   //Calculate the "baseLine"
-  Eigen::Matrix<T, 3, 1> u01 = _vectorOffset.template cast<T>();
+  T x = T(0);
+  T y = T(0);
+  T z = T(0);
 
   for (int i = 0; i < _params; i++) {
     T scale = scaleTemplated(parameters[i][0], _maxLength, _minlength);
-    Eigen::Matrix<T, 3, 1> vector(parameters[i + 1][0], parameters[i + 1][1], parameters[i + 1][2]);
-    u01 = u01 + scale * vector;
+    x = x + (scale * parameters[i + 1][0]);
+    y = y + (scale * parameters[i + 1][1]);
+    z = z + (scale * parameters[i + 1][2]);
   }
+
+  Eigen::Matrix<T, 3, 1> u01(x,y,z);
   //Normalize the "baseLine";
   u01.normalize();
 
   T cost = ((_m1.template cast<T>()).dot(
-      (_R1).transpose().template cast<T>() * u01.cross((_R0).template cast<T>() * (_m0).template cast<T>())));
+      (_R1).transpose().eval().template cast<T>() * u01.cross(((_R0).template cast<T>() * (_m0).template cast<T>()))));
   residuals[0] = cost;
 
   return true;
 }
 
-void IterativeRefinement::CostFunctionScaled::addResidualBlocks(const std::vector<Eigen::Vector3d> &m1,
-                                                                const std::vector<Eigen::Vector3d> &m0,
+void IterativeRefinement::CostFunctionScaled::addResidualBlocks(const std::vector<Eigen::Vector3d> m1,
+                                                                const std::vector<Eigen::Vector3d> m0,
                                                                 const Eigen::Matrix3d &R1,
                                                                 const Eigen::Matrix3d &R0,
                                                                 ceres::LossFunction *lossFunction,
-                                                                std::vector<double *> &parameter_blocks,
+                                                                const std::vector<double *> &parameter_blocks,
                                                                 ceres::Problem &ceresProblem,
-                                                                Eigen::Vector3d vector_offset,
                                                                 double minLength,
                                                                 double maxLength,
-                                                                int params) {
+                                                                int number_of_params) {
   for (unsigned int i = 0; i < m1.size(); i++) {
-    ceres::DynamicAutoDiffCostFunction<CostFunctionScaled, 4> //TODO: Number of Stride!!
-        *scaled_costfunction = new ceres::DynamicAutoDiffCostFunction<CostFunctionScaled, 4>(
-        new CostFunctionScaled(m1[i], m0[i], R1, R0, vector_offset, maxLength, minLength, params)
+    auto//TODO: Number of Stride!!
+        *scaled_costfunction = new ceres::DynamicAutoDiffCostFunction<CostFunctionScaled, 1>(
+        new CostFunctionScaled(m1[i], m0[i], R1, R0, maxLength, minLength, number_of_params)
     );
 
-    for (int j = 0; j < params; j++) {
+    for (int j = 0; j < number_of_params; j++) {
       scaled_costfunction->AddParameterBlock(1);
       scaled_costfunction->AddParameterBlock(3);
     }
@@ -219,8 +277,8 @@ void IterativeRefinement::CostFunctionScaled::addResidualBlocks(const std::vecto
   }
 }
 
-IterativeRefinement::CostFunction::CostFunction(const Eigen::Vector3d &m1,
-                                                const Eigen::Vector3d &m0,
+IterativeRefinement::CostFunction::CostFunction(const Eigen::Vector3d m1,
+                                                const Eigen::Vector3d m0,
                                                 const Eigen::Matrix3d &R1,
                                                 const Eigen::Matrix3d &R0) :
     _m1(m1),
@@ -235,13 +293,13 @@ bool IterativeRefinement::CostFunction::operator()(const T *vec, T *residuals) c
   u << vec[0], vec[1], vec[2];
 
   T cost = ((_m1.template cast<T>()).dot(
-      _R1.transpose().template cast<T>() * u.cross(_R0.template cast<T>() * _m0.template cast<T>())));
+      _R1.transpose().eval().template cast<T>() * u.cross(_R0.template cast<T>() * _m0.template cast<T>())));
   residuals[0] = cost;
   return true;
 }
 
-void IterativeRefinement::CostFunction::addResidualBlocks(const std::vector<Eigen::Vector3d> &m1,
-                                                          const std::vector<Eigen::Vector3d> &m0,
+void IterativeRefinement::CostFunction::addResidualBlocks(const std::vector<Eigen::Vector3d> m1,
+                                                          const std::vector<Eigen::Vector3d> m0,
                                                           const Eigen::Matrix3d &R1,
                                                           const Eigen::Matrix3d &R0,
                                                           ceres::LossFunction *lossFunction,
@@ -275,8 +333,9 @@ T IterativeRefinement::scaleTemplated(T t, double MAX_LEN, double MIN_LEN) {
 
   T result;
   auto exp = ceres::exp(-1.0 * t);
-  if (ceres::IsInfinite(exp)) { //In Case, that this term gets infinite. The whole function is instable for derivations i guess. (It results in "nan" in ceres. Therefore we have to cattch need to know, that 1/Inf ~= 0. So we have to return MIN_VALUE.
+  if (ceres::IsInfinite(exp)) { //In Case, that this term gets infinite. The whole function is instable for derivations i guess. (It results in "nan" in ceres. Therefore we have to catch. We know, that 1/Inf ~= 0. So we have to return MIN_VALUE.
     result = T(MIN_LEN);
+    //ROS_ERROR_STREAM("INfinity Case");
   } else {
     result = MIN_LEN + ((MAX_LEN - MIN_LEN) / (1.0 + exp));
   }

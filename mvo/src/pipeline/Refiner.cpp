@@ -37,12 +37,7 @@ Frame *Refiner::stage(Frame *newFrame) {
   if (keptFrames < _numberToNote) {
     ROS_WARN_STREAM("not enough Frames to reach 'framesToNote', took as much, as possible!");
     numberToNote = keptFrames;
-  }
-
-  if (keptFrames < _numberToNote) {
-    ROS_WARN_STREAM("not enough Frames to reach 'framesToRefine', took as much, as possible!");
-    numberToRefine =
-        numberToNote - 1; //Refine one less than numberToNote. That wouldn't be to much, cause we are in this If-Case.
+    numberToRefine = std::min(numberToNote - 1, _numberToRefine); //Takes the biggest restriction
   }
 
   if (keptFrames < 2) { //Not enough to do anything. -> That case will only be there one Time I think.
@@ -53,24 +48,24 @@ Frame *Refiner::stage(Frame *newFrame) {
 
   //Get Data
   std::vector<IterativeRefinement::RefinementFrame> refinementData(numberToNote);
-  std::vector<std::vector<cv::Vec3d> *> featureVectors(numberToNote, nullptr);
   for (unsigned int i = 0; i < numberToNote; i++) {
     Frame *frame = _frames[(keptFrames - 1) - i];
-    featureVectors[i] = &refinementData[i].m;
     refinementData[i].scale = frame->getScaleToPrevious();
     refinementData[i].vec = frame->getBaseLineToPrevious();
     refinementData[i].R = frame->getRotation();
   }
-  Frame::getCorrespondingFeatures<cv::Vec3d>(*_frames[0],
-                                             *_frames[keptFrames - 1],
-                                             featureVectors); //This should be between oldest and newest Frame.
 
-  ROS_INFO_STREAM("Refining over a Featuretracking set of [" << featureVectors[0]->size() << "] features.");
 
   //Start Refinement
   auto funtolerance = std::pow(10.0, -1 * (newFrame->getParameters().functionTolerance));
   auto gradtolerance = std::pow(10.0, -1 * (newFrame->getParameters().gradientTolerance));
   auto paramtolerance = std::pow(10.0, -1 * (newFrame->getParameters().parameterTolerance));
+
+#ifdef DEBUGIMAGES
+  cv::Mat image(newFrame->getImage().size(), CV_8UC3, cv::Scalar(100, 100, 100));
+  _iterativeRefinement._debugImage = image;
+#endif
+
   _iterativeRefinement.refine(refinementData, numberToRefine, numberToNote, newFrame->getParameters().maxNumThreads,
                               newFrame->getParameters().maxNumIterations,
                               funtolerance,
@@ -78,7 +73,7 @@ Frame *Refiner::stage(Frame *newFrame) {
                               paramtolerance,
                               newFrame->getParameters().useLossFunction,
                               newFrame->getParameters().lowestLength,
-                              newFrame->getParameters().highestLength);
+                              newFrame->getParameters().highestLength, *newFrame);
 
   //Write Back Data:
   for (unsigned int i = 0; i < numberToRefine; i++) {
@@ -88,11 +83,8 @@ Frame *Refiner::stage(Frame *newFrame) {
   }
 
 #ifdef DEBUGIMAGES
-  cv::Mat image(newFrame->getImage().size(), CV_8UC3, cv::Scalar(100, 100, 100));
-
-  VisualisationUtils::drawCorrespondences(featureVectors, newFrame->getCameraModel(), image);
+  //VisualisationUtils::drawCorrespondences(featureVectors, newFrame->getCameraModel(), image);
   cv::imshow("RefinerImage", image);
-
   cv::waitKey(10);
 #endif
 

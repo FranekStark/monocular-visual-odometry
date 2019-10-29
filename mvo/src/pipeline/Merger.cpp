@@ -42,6 +42,10 @@ Frame *Merger::stage(Frame *newFrame) {
   auto diffRotation = preRotation.t() * nowRotation;
   FeatureOperations::unrotateFeatures(newCorrespondingFeatures, newCorrespondingFeaturesUnrotated, diffRotation);
   auto disparity = FeatureOperations::calcDisparity(preCorrespondingFeatures, newCorrespondingFeaturesUnrotated);
+  auto timeDiff =  _keepFrame->getTimeStamp() - _preFrame->getTimeStamp();
+  auto neededTimeDiff = ros::Duration(1.0/newFrame->getParameters().mergeFrequency);
+  bool enoughTime = timeDiff >= neededTimeDiff;
+
 #ifdef DEBUGIMAGES
   if (!(newFrame->isFirstFrame())) {
     std::vector<cv::Point2f> preCorespF, nowCorespF, nowCorespFU;
@@ -56,35 +60,49 @@ Frame *Merger::stage(Frame *newFrame) {
                                             newFrame->getCameraModel());
     cv::Mat image;
     cv::cvtColor(newFrame->getImage(), image, cv::COLOR_GRAY2BGR);
-    if (disparity > newFrame->getParameters().movementDisparityThreshold) {
-      image = cv::Scalar(255, 255, 255);
-    }
+
     VisualisationUtils::drawFeaturesUnrotated(image, preCorespF, nowCorespF, nowCorespFU);
-    auto brightnessVector = cv::mean(image.colRange(10, 100).rowRange(40,100));
-    double brightness = (brightnessVector[0] + brightnessVector[1] + brightnessVector[2])/3; //mean the three channels
+    auto brightnessVector = cv::mean(image.colRange(10, 100).rowRange(40, 100));
+    double brightness = (brightnessVector[0] + brightnessVector[1] + brightnessVector[2]) / 3; //mean the three channels
     auto color = cv::Scalar(255, 255, 255);
-    if(brightness > 125){
+    std::string hint = "";
+    if (disparity > newFrame->getParameters().movementDisparityThreshold) {
+      hint += " locOK";
+    }
+    if(enoughTime){
+      hint += " tOK";
+    }
+    if (brightness > 125) {
       color = cv::Scalar(0, 0, 0);
     }
     cv::putText(image,
-                "Disparity: " + std::to_string(disparity),
+                "Disparity: " + std::to_string(disparity) + hint,
                 cv::Point(10, 40),
                 cv::FONT_HERSHEY_SIMPLEX,
                 2,
                 color,
                 5);
+
+    if((enoughTime || !newFrame->getParameters().useMergeFrequency) && disparity > newFrame->getParameters().movementDisparityThreshold){
+      image = cv::Scalar(255,255,255);
+    }
     cv::imshow("MergerImage", image);
     cv::waitKey(10);
   }
 #endif
+
+
   //Casedifferntation based on amount of the difference
-  if (disparity <= newFrame->getParameters().sameDisparityThreshold) { //Threat the new Frame as if where on the SAME position as preFrame
+  if (disparity
+      <= newFrame->getParameters().sameDisparityThreshold) { //Threat the new Frame as if where on the SAME position as preFrame
     //Merge the new Frame onto the preFrame
     Frame::mergeFrame(*_preFrame, *newFrame);
     LOG_DEBUG("Merged " << newFrame << " into " << _preFrame);
     return nullptr; //Hold PipeLine
-  } else if (disparity <= newFrame->getParameters().movementDisparityThreshold) { //Not enough disparity, HOLD Pipeline
-    return nullptr; //Hold PipeLine
+  } else if (disparity <= newFrame->getParameters().movementDisparityThreshold
+      || (!enoughTime
+          && newFrame->getParameters().useMergeFrequency)) { //Not enough feature disparity OR not enough time disparity, HOLD Pipeline
+    return nullptr;//Hold PipeLine
   } else { //Enough Disparity
     //Calculate the correct prefeaturecounter:
     newFrame->calculateFeaturePreCounter();

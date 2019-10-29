@@ -37,7 +37,12 @@ class Frame {
    * @param rotation the rotation of the camera
    * @param preFrame pointer to the frame before
    */
-  Frame(std::vector<cv::Mat> imagePyramide, image_geometry::PinholeCameraModel camerModel, cv::Matx33d rotation, Frame * preFrame,  mvo::mvoConfig params, ros::Time timeStamp);
+  Frame(std::vector<cv::Mat> imagePyramide,
+        image_geometry::PinholeCameraModel camerModel,
+        cv::Matx33d rotation,
+        Frame *preFrame,
+        mvo::mvoConfig params,
+        ros::Time timeStamp);
 
   virtual ~Frame() = default;
 /**
@@ -138,12 +143,20 @@ class Frame {
  *
  * @return the Cameramodell
  */
-  const image_geometry::PinholeCameraModel &getCameraModel();
+  const image_geometry::PinholeCameraModel &getCameraModel() const;
 /**
  * Recieves the current tracked and detected Features in that Frame
  * @return the number of features
  */
   unsigned int getNumberOfKnownFeatures();
+
+
+/**
+ * Retrieves the n-previous Frame.
+ * @param past 0 retrieves this Frame. 1 the one Before. 2 the Before-Before...
+ * @return the Frame, if it exists. Otherwise it will fail.
+ */
+  const Frame & getPreviousFrame(unsigned int past) const;
 /**
  * Removes the Features from that Frame and tells that also the previous and following Frame
  * @param indices list of indeces of the to features to remove
@@ -206,6 +219,60 @@ class Frame {
     }
     oldFrame.unlock();
     newFrame.unlock();
+  }
+
+/**
+ * Retrieves corresponding Features between this Frame and the n to the past Frame.
+ * There have to be enough Frames to the past.
+ * @tparam T the type of the Featurelocations to retreive
+ * @param past how much frames to the past (0 means , 1 means frame before)
+ * @param oldFeatures where to put the Featurelocations of the "Pastframe" (Has to be empty)
+ * @param newFeatures where to put the Featurelocations of this Frame (Has to be empty)
+ */
+  template<typename T>
+  void getCorrespondingFeatures(unsigned int past,
+                                       std::vector<T> &oldFeatures,
+                                       std::vector<T> &newFeatures) const{
+    assert(past > 0);
+    {
+      const Frame *tmpFrame = this;
+      for (unsigned int i = 0; i < past; i++) {
+        assert(tmpFrame != nullptr);
+        tmpFrame->lock();
+        tmpFrame = tmpFrame->_preFrame;
+      }
+    }
+    assert(oldFeatures.empty());
+    assert(newFeatures.empty());
+
+    oldFeatures.reserve(this->_features.size());
+    newFeatures.reserve(this->_features.size());
+
+    for (auto newFeature = this->_features.begin(); newFeature != this->_features.end(); newFeature++) {
+      unsigned int preFeatureCounter = newFeature->_preFeatureCounter;
+      if (preFeatureCounter >= past) {
+        assert(preFeatureCounter >= 0);
+        newFeatures.push_back(getFeatureLocation<T>(*newFeature));
+
+        const Feature * oldFeature = &*newFeature;
+        const Frame * oldFrame = this;
+        for(unsigned int i = 0; i < past; i++){
+          oldFrame = oldFrame->_preFrame;
+          oldFeature = &oldFrame->_features[oldFeature->_preFeature];
+        }
+        oldFeatures.push_back(getFeatureLocation<T>(*oldFeature));
+
+      }
+
+    }
+    {
+      const Frame *tmpFrame = this;
+      for (unsigned int i = 0; i < past; i++) {
+        tmpFrame->unlock();
+        tmpFrame = tmpFrame->_preFrame;
+      }
+    }
+
   }
 /**
    * Iterates through each feature and sets the correct Precounter based on ONLY the features in the Preframe.
@@ -286,7 +353,7 @@ class Frame {
    * Retrieves the Parameters which the algorithm needs
    * @return reference to the parameter-set
    */
-  const mvo::mvoConfig & getParameters();
+  const mvo::mvoConfig &getParameters();
 
   /**
    * Retrieves the timestamp of the Frame.
