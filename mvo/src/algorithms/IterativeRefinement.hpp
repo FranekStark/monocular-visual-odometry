@@ -30,16 +30,16 @@ class IterativeRefinement {
 
   struct CostFunctionScaled {
    private:
-    const Eigen::Vector3d _m1;
-    const Eigen::Vector3d _m0;
+    const Eigen::Vector3d &_m1;
+    const Eigen::Vector3d &_m0;
     const Eigen::Matrix3d &_R1;
     const Eigen::Matrix3d &_R0;
     const double _maxLength;
     const double _minlength;
     const int _params;
    public:
-    CostFunctionScaled(const Eigen::Vector3d m1,
-                       const Eigen::Vector3d m0,
+    CostFunctionScaled(const Eigen::Vector3d &m1,
+                       const Eigen::Vector3d &m0,
                        const Eigen::Matrix3d &R1,
                        const Eigen::Matrix3d &R0,
                        double maxLength,
@@ -50,8 +50,8 @@ class IterativeRefinement {
     template<typename T>
     bool operator()(T const *const *parameters, T *residuals) const;
 
-    static void addResidualBlocks(const std::vector<Eigen::Vector3d> m1,
-                                  const std::vector<Eigen::Vector3d> m0,
+    static void addResidualBlocks(const std::vector<Eigen::Vector3d> &m1,
+                                  const std::vector<Eigen::Vector3d> &m0,
                                   const Eigen::Matrix3d &R1,
                                   const Eigen::Matrix3d &R0,
                                   ceres::LossFunction *lossFunction,

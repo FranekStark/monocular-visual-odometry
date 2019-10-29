@@ -10,6 +10,7 @@
 #include <string>
 #include <sstream>
 #include <iostream>
+#include <list>
 
 void IterativeRefinement::refine(std::vector<RefinementFrame> &refinementData,
                                  unsigned int numberToRefine,
@@ -27,6 +28,7 @@ void IterativeRefinement::refine(std::vector<RefinementFrame> &refinementData,
   assert(refinementData.size() == numberToNote);
   assert(numberToNote > numberToRefine);
   assert(numberToRefine > 0);
+  ROS_INFO_STREAM("REFINEMENT: " << std::endl << "\trefine: " << numberToRefine << std::endl << "\tnote: " << numberToNote);
   //Convert into EIGEN-Space:
   std::vector<RefinementFrameEIG> frames(refinementData.size());
   auto cvFrame = refinementData.begin();
@@ -59,8 +61,8 @@ void IterativeRefinement::refine(std::vector<RefinementFrame> &refinementData,
   ceres::Solver::Options ceres_solver_options;
   ceres_solver_options.minimizer_type = ceres::TRUST_REGION;
   ceres_solver_options.trust_region_strategy_type = ceres::LEVENBERG_MARQUARDT;
-  ceres_solver_options.linear_solver_type = ceres::SPARSE_NORMAL_CHOLESKY;
-  ceres_solver_options.use_explicit_schur_complement = true;
+  ceres_solver_options.linear_solver_type = ceres::DENSE_QR;
+  //ceres_solver_options.use_explicit_schur_complement = true;
   ceres_solver_options.max_num_iterations = maxNumIterations;
   ceres_solver_options.num_threads = maxNumthreads;
   //ceres_solver_options.use_inner_iterations = true;
@@ -69,25 +71,37 @@ void IterativeRefinement::refine(std::vector<RefinementFrame> &refinementData,
   ceres_solver_options.function_tolerance = functionTolerance;
   ceres_solver_options.gradient_tolerance = gradientTolerance;
   ceres_solver_options.parameter_tolerance = parameterTolerance;
-  ceres_solver_options.min_trust_region_radius = 10.0e-200;
   //ceres_solver_options.check_gradients = true; ///DEBUG!
   //ceres_solver_options.minimizer_progress_to_stdout = true; ///DEBUG!
 
   //Create Local Parametrization
   ceres::LocalParameterization
       *local_parametrization_vec = new ceres::AutoDiffLocalParameterization<ParametrizedBaseLine, 3, 2>;
+
+  //Create loss_function if required
+  ceres::LossFunction *loss_function = nullptr;
+  if(useLossFunction) {
+    loss_function = new ceres::CauchyLoss(0.5);
+  }
+
+
+
   //Create Params:
   ROS_INFO_STREAM("BEFORE:");
-  for (unsigned int frameID = 0; frameID < numberToNote; frameID++) {
+  // Create Vectors for frame 0 until numbertoNote - 1, because the Last frames contains only the baseline to a not to Note Frame
+  for (unsigned int frameID = 0; frameID < (numberToNote - 1); frameID++) {
     vectors[frameID][0] = frames[frameID].vec[0];
     vectors[frameID][1] = frames[frameID].vec[1];
     vectors[frameID][2] = frames[frameID].vec[2];
     scales[frameID][0] = reverseScale(frames[frameID].scale, highestLength, lowestLength);
     ceres_problem.AddParameterBlock(vectors[frameID], 3, local_parametrization_vec);
     ceres_problem.AddParameterBlock(scales[frameID], 1);
+
+
     //ceres_problem.SetParameterLowerBound(scales[frameID], 0, lowestLength);
     //ceres_problem.SetParameterUpperBound(scales[frameID], 0, highestLength);
 
+    //If this Frame should not be Refined, than "block" it.
     if (frameID < numberToRefine) {
       ROS_INFO_STREAM("[" << frameID << "] - " << frames[frameID].scale << " * " << refinementData[frameID].vec);
     } else {
@@ -96,6 +110,7 @@ void IterativeRefinement::refine(std::vector<RefinementFrame> &refinementData,
     }
   }
 
+  std::list<std::vector<Eigen::Vector3d>> features; //To Store all Vectors while refinement (to avoid Copying)
 
   //Go through the Frames:
   for (unsigned int frame0 = 0; frame0 < numberToRefine; frame0++) {
@@ -117,41 +132,14 @@ void IterativeRefinement::refine(std::vector<RefinementFrame> &refinementData,
 
     }
 #endif
-    //Add the "normal" CostFunction
-    ceres::LossFunction *lossFun = nullptr;
-    if (useLossFunction) {
-      lossFun = new ceres::CauchyLoss(0.5);
-    }
-    {
-      //Get features
-      std::vector<cv::Vec3d> feature1CV, feature0CV;
-      std::vector<Eigen::Vector3d> feature1EIG, feature0EIG;
-      nowFrame.getPreviousFrame(frame0).getCorrespondingFeatures(1, feature1CV, feature0CV);
-      FeatureOperations::normFeatures(feature0CV);
-      FeatureOperations::normFeatures(feature1CV);
-#ifdef DEBUGIMAGES
-      VisualisationUtils::drawCorrespondences({&feature0CV, &feature1CV}, nowFrame.getCameraModel(), _debugImage, color, color);
-#endif
-      cvt_cv_eigen(feature0CV, feature0EIG);
-      cvt_cv_eigen(feature1CV, feature1EIG);
 
-      CostFunction::addResidualBlocks(feature1EIG,
-                                      feature0EIG,
-                                      frames[frame0 + 1].R,
-                                      frames[frame0].R,
-                                      lossFun,
-                                      vectors[frame0],
-                                      ceres_problem);
-    }
     //Iterate through each following Frame to create a correspondence to each Frame
     std::vector<double *> parameter_blocks;
     parameter_blocks.clear();
-    parameter_blocks.push_back(scales[frame0]); //TODO, does this puhses the reference
-    parameter_blocks.push_back(vectors[frame0]);
-    int params_counter = 1;
-    for (unsigned int frame1 = (frame0 + 1); frame1 < (numberToNote - 1);
-         frame1++) {  //Skip Last Frame, cause its vector and scale to prev is unneccecccary
-
+    parameter_blocks.reserve(numberToNote - 1);
+    int params_counter = 0;
+    for (unsigned int frame1 = (frame0); frame1 < (numberToNote - 1);
+         frame1++) {  //Skip Last Frame, cause its vector and scale to prev is unneccecccary. The Last Vector is implicit used, when receiving the Features of it.
 
       //Add Paramert Block. It doesn't matters, wether it ist a "Note" or a "Refine" Frame. Cause we block them above.
       parameter_blocks.push_back(scales[frame1]);
@@ -159,8 +147,12 @@ void IterativeRefinement::refine(std::vector<RefinementFrame> &refinementData,
       params_counter++;
       {//Get features
         std::vector<cv::Vec3d> feature1CV, feature0CV;
-        std::vector<Eigen::Vector3d> feature1EIG, feature0EIG;
-        nowFrame.getPreviousFrame(frame0).getCorrespondingFeatures(frame1 - frame0, feature1CV, feature0CV);
+        features.push_back({});
+        std::vector<Eigen::Vector3d>  & feature1EIG = features.back();
+        features.push_back({});
+        std::vector<Eigen::Vector3d>  & feature0EIG = features.back();
+
+        nowFrame.getPreviousFrame(frame0).getCorrespondingFeatures((frame1 - frame0) + 1 , feature1CV, feature0CV);
         FeatureOperations::normFeatures(feature0CV);
         FeatureOperations::normFeatures(feature1CV);
 
@@ -171,12 +163,13 @@ void IterativeRefinement::refine(std::vector<RefinementFrame> &refinementData,
         cvt_cv_eigen(feature0CV, feature0EIG);
         cvt_cv_eigen(feature1CV, feature1EIG);
 
+
         //Add this "scaled" CostFunction
         CostFunctionScaled::addResidualBlocks(feature1EIG,
                                               feature0EIG,
                                               frames[frame1 + 1].R,
                                               frames[frame0].R,
-                                              lossFun,
+                                              loss_function,
                                               parameter_blocks,
                                               ceres_problem,
                                               lowestLength,
@@ -209,8 +202,8 @@ void IterativeRefinement::refine(std::vector<RefinementFrame> &refinementData,
 
 }
 
-IterativeRefinement::CostFunctionScaled::CostFunctionScaled(const Eigen::Vector3d m1,
-                                                            const Eigen::Vector3d m0,
+IterativeRefinement::CostFunctionScaled::CostFunctionScaled(const Eigen::Vector3d &m1,
+                                                            const Eigen::Vector3d &m0,
                                                             const Eigen::Matrix3d &R1,
                                                             const Eigen::Matrix3d &R0,
                                                             double maxLength,
@@ -228,7 +221,7 @@ template<typename T>
 bool IterativeRefinement::CostFunctionScaled::operator()(T const *const *parameters,
                                                          T *residuals) const {
   //Calculate the "baseLine"
-  T x = T(0);
+   T x = T(0);
   T y = T(0);
   T z = T(0);
 
@@ -244,14 +237,14 @@ bool IterativeRefinement::CostFunctionScaled::operator()(T const *const *paramet
   u01.normalize();
 
   T cost = ((_m1.template cast<T>()).dot(
-      (_R1).transpose().eval().template cast<T>() * u01.cross(((_R0).template cast<T>() * (_m0).template cast<T>()))));
+      (_R1.template cast<T>()).transpose().eval()*(u01.cross(((_R0.template cast<T>()) * (_m0.template cast<T>())).eval()))));
   residuals[0] = cost;
 
   return true;
 }
 
-void IterativeRefinement::CostFunctionScaled::addResidualBlocks(const std::vector<Eigen::Vector3d> m1,
-                                                                const std::vector<Eigen::Vector3d> m0,
+void IterativeRefinement::CostFunctionScaled::addResidualBlocks(const std::vector<Eigen::Vector3d>& m1,
+                                                                const std::vector<Eigen::Vector3d>& m0,
                                                                 const Eigen::Matrix3d &R1,
                                                                 const Eigen::Matrix3d &R0,
                                                                 ceres::LossFunction *lossFunction,
@@ -262,7 +255,7 @@ void IterativeRefinement::CostFunctionScaled::addResidualBlocks(const std::vecto
                                                                 int number_of_params) {
   for (unsigned int i = 0; i < m1.size(); i++) {
     auto//TODO: Number of Stride!!
-        *scaled_costfunction = new ceres::DynamicAutoDiffCostFunction<CostFunctionScaled, 1>(
+        *scaled_costfunction = new ceres::DynamicAutoDiffCostFunction<CostFunctionScaled, 4>(
         new CostFunctionScaled(m1[i], m0[i], R1, R0, maxLength, minLength, number_of_params)
     );
 
@@ -332,7 +325,7 @@ template<typename T>
 T IterativeRefinement::scaleTemplated(T t, double MAX_LEN, double MIN_LEN) {
 
   T result;
-  auto exp = ceres::exp(-1.0 * t);
+  T exp = ceres::exp(-1.0 * t);
   if (ceres::IsInfinite(exp)) { //In Case, that this term gets infinite. The whole function is instable for derivations i guess. (It results in "nan" in ceres. Therefore we have to catch. We know, that 1/Inf ~= 0. So we have to return MIN_VALUE.
     result = T(MIN_LEN);
     //ROS_ERROR_STREAM("INfinity Case");

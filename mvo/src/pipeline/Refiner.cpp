@@ -66,6 +66,10 @@ Frame *Refiner::stage(Frame *newFrame) {
   _iterativeRefinement._debugImage = image;
 #endif
 
+  if(newFrame->getParameters().usePreviousScale){
+    newFrame->setScaleToPrevious(newFrame->getPreviousFrame(1).getScaleToPrevious());
+  }
+
   _iterativeRefinement.refine(refinementData, numberToRefine, numberToNote, newFrame->getParameters().maxNumThreads,
                               newFrame->getParameters().maxNumIterations,
                               funtolerance,

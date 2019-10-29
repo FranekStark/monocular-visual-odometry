@@ -130,13 +130,13 @@ class Frame {
  *
  * @return the image
  */
-  const cv::Mat &getImage();
+  const cv::Mat &getImage() const;
 /**
  * Retrieves Rotation of specific Frame
  *
  * @return the Rotation
  */
-  const cv::Matx33d &getRotation();
+  const cv::Matx33d &getRotation() const;
 /**
  * Retrieves the Cameramodell of specific Frame
  *
@@ -148,7 +148,7 @@ class Frame {
  * Recieves the current tracked and detected Features in that Frame
  * @return the number of features
  */
-  unsigned int getNumberOfKnownFeatures();
+  unsigned int getNumberOfKnownFeatures() const;
 
 
 /**
@@ -236,7 +236,7 @@ class Frame {
     assert(past > 0);
     {
       const Frame *tmpFrame = this;
-      for (unsigned int i = 0; i < past; i++) {
+      for (unsigned int i = 0; i <= past; i++) {
         assert(tmpFrame != nullptr);
         tmpFrame->lock();
         tmpFrame = tmpFrame->_preFrame;
@@ -267,7 +267,7 @@ class Frame {
     }
     {
       const Frame *tmpFrame = this;
-      for (unsigned int i = 0; i < past; i++) {
+      for (unsigned int i = 0; i <= past; i++) {
         tmpFrame->unlock();
         tmpFrame = tmpFrame->_preFrame;
       }
@@ -288,13 +288,13 @@ class Frame {
  * Retrieves the baseline to previous of specific Frame
  * @return baseline to previous
  */
-  cv::Vec3d getBaseLineToPrevious();
+  cv::Vec3d getBaseLineToPrevious() const;
 
   /**
    * Retrieves the Scale of the baseline from this FRame to previous Frame
    * @return the scale
    */
-  double getScaleToPrevious();
+  double getScaleToPrevious() const;
 
 /**
    * Retrieves all known Features in specific Frame
@@ -304,7 +304,7 @@ class Frame {
    * @param features reference to an empty vector where the features will be placed
    */
   template<typename T>
-  void getFeatures(std::vector<T> &features) {
+  void getFeatures(std::vector<T> &features) const{
     this->lock();
     //Check wether the Vector is empty
     assert(features.size() == 0);
@@ -322,7 +322,7 @@ class Frame {
  *
  * @return the ImagePyramid
  */
-  const std::vector<cv::Mat> &getImagePyramid();
+  const std::vector<cv::Mat> &getImagePyramid() const;
 /**
  * Sets the  baseline to the previous Frame to specific Frame
  * @param baseLine the baseline
@@ -347,19 +347,19 @@ class Frame {
    * Retrieves wether this Frame is the frist Frame (so it has no preframe).
    * @return wether its the first
    */
-  bool isFirstFrame();
+  bool isFirstFrame() const;
 
   /**
    * Retrieves the Parameters which the algorithm needs
    * @return reference to the parameter-set
    */
-  const mvo::mvoConfig &getParameters();
+  const mvo::mvoConfig &getParameters() const;
 
   /**
    * Retrieves the timestamp of the Frame.
    * @return timestamp, of the the capturingtime of the image
    */
-  ros::Time getTimeStamp();
+  ros::Time getTimeStamp() const;
 
 };
 
