@@ -1,9 +1,9 @@
 <?xml version="1.0"?>
 <launch>
-    <node name="mvo_node" pkg="mvo" type="mvo_node" />
     <node type="rviz" name="rviz" pkg="rviz" args="-d $(find mvo)/cfg/rviz_test.rviz" />
     <node name = "my_rqt_dashboard" pkg = "rqt_gui" type = "rqt_gui" respawn = "false" output = "screen"/>
     <node name="odom_scale_node" pkg="relative_scaler" type="odom_scale_node" respawn = "false" output="screen"/>
+    <node name="mvo_node" pkg="mvo" type="mvo_node" output= "screen" />
 
 <!--
     <node pkg="hector_mapping" type="hector_mapping" name="hector_mapping" output="screen">

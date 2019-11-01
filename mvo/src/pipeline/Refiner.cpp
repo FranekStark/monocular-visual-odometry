@@ -19,9 +19,9 @@ Refiner::Refiner(PipelineStage &precursor,
 
   //Currently only 3 available
 #ifdef DEBUGIMAGES
-  cv::namedWindow("RefinerImage", cv::WINDOW_NORMAL);
-  cv::moveWindow("RefinerImage", 1, 1466);
-  cv::resizeWindow("RefinerImage", 1164, 454);
+  cv::namedWindow("mvocv-RefinerImage", cv::WINDOW_NORMAL);
+  cv::moveWindow("mvocv-RefinerImage", 1, 1466);
+  cv::resizeWindow("mvocv-RefinerImage", 1164, 454);
   cv::startWindowThread();
 #endif
 }
@@ -88,7 +88,7 @@ Frame *Refiner::stage(Frame *newFrame) {
 
 #ifdef DEBUGIMAGES
   //VisualisationUtils::drawCorrespondences(featureVectors, newFrame->getCameraModel(), image);
-  cv::imshow("RefinerImage", image);
+  cv::imshow("mvocv-RefinerImage", image);
   cv::waitKey(10);
 #endif
 
@@ -116,6 +116,6 @@ Frame *Refiner::stage(Frame *newFrame) {
 Refiner::~Refiner() {
 #ifdef DEBUGIMAGES
 
-  cv::destroyWindow("Refiner");
+  cv::destroyWindow("mvocv-Refiner");
 #endif
 }

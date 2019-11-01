@@ -12,9 +12,9 @@ BaselineEstimator::BaselineEstimator(PipelineStage &precursor,
                                                                            _epipolarGeometry(epipolarGeometry),
                                                                            _baseLine(1) {
 #ifdef DEBUGIMAGES
-  cv::namedWindow("EstimatorImage", cv::WINDOW_NORMAL);
-  cv::moveWindow("EstimatorImage", 24,551);
-  cv::resizeWindow("EstimatorImage", 1139,524);
+  cv::namedWindow("mvocv-EstimatorImage", cv::WINDOW_NORMAL);
+  cv::moveWindow("mvocv-EstimatorImage", 24,551);
+  cv::resizeWindow("mvocv-EstimatorImage", 1139,524);
   cv::startWindowThread();
 #endif
 }
@@ -102,7 +102,7 @@ Frame *BaselineEstimator::stage(Frame *newFrame) {
     VisualisationUtils::drawCorrespondences({&thisCorespFeaturesE, &beforeCorespFeaturesE},
                                             newFrame->getCameraModel(), image);
     VisualisationUtils::drawMovementDebug(*newFrame, cv::Scalar(0,0,255), image,0);
-    cv::imshow("EstimatorImage", image);
+    cv::imshow("mvocv-EstimatorImage", image);
     cv::waitKey(10);
 #endif
   }
@@ -114,7 +114,7 @@ Frame *BaselineEstimator::stage(Frame *newFrame) {
 }
 BaselineEstimator::~BaselineEstimator() {
 #ifdef DEBUGIMAGES
-  cv::destroyWindow("EstimatorImage");
+  cv::destroyWindow("mvocv-EstimatorImage");
 #endif
 }
 
