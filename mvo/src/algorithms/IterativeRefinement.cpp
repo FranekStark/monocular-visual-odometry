@@ -28,7 +28,8 @@ void IterativeRefinement::refine(std::vector<RefinementFrame> &refinementData,
   assert(refinementData.size() == numberToNote);
   assert(numberToNote > numberToRefine);
   assert(numberToRefine > 0);
-  ROS_INFO_STREAM("REFINEMENT: " << std::endl << "\trefine: " << numberToRefine << std::endl << "\tnote: " << numberToNote);
+  ROS_INFO_STREAM(
+      "REFINEMENT: " << std::endl << "\trefine: " << numberToRefine << std::endl << "\tnote: " << numberToNote);
   //Convert into EIGEN-Space:
   std::vector<RefinementFrameEIG> frames(refinementData.size());
   auto cvFrame = refinementData.begin();
@@ -41,8 +42,8 @@ void IterativeRefinement::refine(std::vector<RefinementFrame> &refinementData,
 
 
   //Create Params
-  std::vector<double[1]> scales(numberToNote);
-  std::vector<double[3]> vectors(numberToNote);
+  std::vector<std::array<double, 1>> scales(numberToRefine);
+  std::vector<std::array<double, 3>> vectors(numberToRefine);
 
 
 
@@ -80,7 +81,7 @@ void IterativeRefinement::refine(std::vector<RefinementFrame> &refinementData,
 
   //Create loss_function if required
   ceres::LossFunction *loss_function = nullptr;
-  if(useLossFunction) {
+  if (useLossFunction) {
     loss_function = new ceres::CauchyLoss(0.5);
   }
 
@@ -90,27 +91,22 @@ void IterativeRefinement::refine(std::vector<RefinementFrame> &refinementData,
   ROS_INFO_STREAM("BEFORE:");
   // Create Vectors for frame 0 until numbertoNote - 1, because the Last frames contains only the baseline to a not to Note Frame
   for (unsigned int frameID = 0; frameID < (numberToNote - 1); frameID++) {
-    vectors[frameID][0] = frames[frameID].vec[0];
-    vectors[frameID][1] = frames[frameID].vec[1];
-    vectors[frameID][2] = frames[frameID].vec[2];
-    scales[frameID][0] = reverseScale(frames[frameID].scale, highestLength, lowestLength);
-    ceres_problem.AddParameterBlock(vectors[frameID], 3, local_parametrization_vec);
-    ceres_problem.AddParameterBlock(scales[frameID], 1);
-
-
-    //ceres_problem.SetParameterLowerBound(scales[frameID], 0, lowestLength);
-    //ceres_problem.SetParameterUpperBound(scales[frameID], 0, highestLength);
-
     //If this Frame should not be Refined, than "block" it.
     if (frameID < numberToRefine) {
       ROS_INFO_STREAM("[" << frameID << "] - " << frames[frameID].scale << " * " << refinementData[frameID].vec);
-    } else {
-      ceres_problem.SetParameterBlockConstant(vectors[frameID]);
-      ceres_problem.SetParameterBlockConstant(scales[frameID]);
+      vectors[frameID][0] = frames[frameID].vec[0];
+      vectors[frameID][1] = frames[frameID].vec[1];
+      vectors[frameID][2] = frames[frameID].vec[2];
+      scales[frameID][0] = reverseScale(frames[frameID].scale, highestLength, lowestLength);
+      ceres_problem.AddParameterBlock(vectors[frameID].data(), 3, local_parametrization_vec);
+      ceres_problem.AddParameterBlock(scales[frameID].data(), 1);
     }
   }
 
   std::list<std::vector<Eigen::Vector3d>> features; //To Store all Vectors while refinement (to avoid Copying)
+  std::list<Eigen::Vector3d> vector_offsets;
+  std::vector<std::vector<double *>> parameter_blocks;
+
 
   //Go through the Frames:
   for (unsigned int frame0 = 0; frame0 < numberToRefine; frame0++) {
@@ -134,25 +130,26 @@ void IterativeRefinement::refine(std::vector<RefinementFrame> &refinementData,
 #endif
 
     //Iterate through each following Frame to create a correspondence to each Frame
-    std::vector<double *> parameter_blocks;
-    parameter_blocks.clear();
-    parameter_blocks.reserve(numberToNote - 1);
-    int params_counter = 0;
+    parameter_blocks.push_back({});
     for (unsigned int frame1 = (frame0); frame1 < (numberToNote - 1);
          frame1++) {  //Skip Last Frame, cause its vector and scale to prev is unneccecccary. The Last Vector is implicit used, when receiving the Features of it.
 
-      //Add Paramert Block. It doesn't matters, wether it ist a "Note" or a "Refine" Frame. Cause we block them above.
-      parameter_blocks.push_back(scales[frame1]);
-      parameter_blocks.push_back(vectors[frame1]);
-      params_counter++;
+      vector_offsets.push_back(Eigen::Vector3d(0, 0, 0));
+      if (frame1 < numberToRefine) {
+        //Add Paramert Block. It doesn't matters, wether it ist a "Note" or a "Refine" Frame. Cause we block them above.
+        parameter_blocks.back().push_back(scales[frame1].data());
+        parameter_blocks.back().push_back(vectors[frame1].data());
+      } else {
+        vector_offsets.back() += (frames[frame1].scale * frames[frame1].vec);
+      }
       {//Get features
         std::vector<cv::Vec3d> feature1CV, feature0CV;
         features.push_back({});
-        std::vector<Eigen::Vector3d>  & feature1EIG = features.back();
+        std::vector<Eigen::Vector3d> &feature1EIG = features.back();
         features.push_back({});
-        std::vector<Eigen::Vector3d>  & feature0EIG = features.back();
+        std::vector<Eigen::Vector3d> &feature0EIG = features.back();
 
-        nowFrame.getPreviousFrame(frame0).getCorrespondingFeatures((frame1 - frame0) + 1 , feature1CV, feature0CV);
+        nowFrame.getPreviousFrame(frame0).getCorrespondingFeatures((frame1 - frame0) + 1, feature1CV, feature0CV);
         FeatureOperations::normFeatures(feature0CV);
         FeatureOperations::normFeatures(feature1CV);
 
@@ -165,16 +162,7 @@ void IterativeRefinement::refine(std::vector<RefinementFrame> &refinementData,
 
 
         //Add this "scaled" CostFunction
-        CostFunctionScaled::addResidualBlocks(feature1EIG,
-                                              feature0EIG,
-                                              frames[frame1 + 1].R,
-                                              frames[frame0].R,
-                                              loss_function,
-                                              parameter_blocks,
-                                              ceres_problem,
-                                              lowestLength,
-                                              highestLength,
-                                              params_counter);
+        addResidualBlocks(feature1EIG, feature0EIG,  frames[frame1 + 1].R, frames[frame0].R, parameter_blocks.back(), vector_offsets.back(), loss_function, ceres_problem, highestLength, lowestLength);
       }
 
     }
@@ -186,7 +174,7 @@ void IterativeRefinement::refine(std::vector<RefinementFrame> &refinementData,
   );
 
   if (ceres_summary.termination_type == ceres::TerminationType::FAILURE) {
-   ROS_ERROR_STREAM("CERES ERROR!" << ceres_summary.FullReport());
+    ROS_ERROR_STREAM("CERES ERROR!" << ceres_summary.FullReport());
   }
 
   ROS_INFO_STREAM("AFTER:");
@@ -202,107 +190,32 @@ void IterativeRefinement::refine(std::vector<RefinementFrame> &refinementData,
 
 }
 
-IterativeRefinement::CostFunctionScaled::CostFunctionScaled(const Eigen::Vector3d &m1,
-                                                            const Eigen::Vector3d &m0,
-                                                            const Eigen::Matrix3d &R1,
-                                                            const Eigen::Matrix3d &R0,
-                                                            double maxLength,
-                                                            double minLength,
-                                                            int number_of_params) :
+template<typename T>
+T IterativeRefinement::CostFunctionBase::cost(const Eigen::Matrix<T, 3, 1> &baseLine) const {
+  Eigen::Matrix<T, 3, 1> u01 = baseLine + _vectOffset.template cast<T>();
+  u01.normalize();
+
+  T cost = (_m1.template cast<T>().dot(
+      (_R1.template cast<T>()).transpose() * (u01.cross(((_R0.template cast<T>()) * (_m0.template cast<T>()))))));
+
+  return cost;
+}
+
+IterativeRefinement::CostFunctionBase::CostFunctionBase(const Eigen::Vector3d &m1,
+                                                        const Eigen::Vector3d &m0,
+                                                        const Eigen::Matrix3d &R1,
+                                                        const Eigen::Matrix3d &R0,
+                                                        double maxLength,
+                                                        double minLength,
+                                                        const Eigen::Vector3d &vectOffset) :
     _m1(m1),
     _m0(m0),
     _R1(R1),
     _R0(R0),
+    _vectOffset(vectOffset),
     _maxLength(maxLength),
-    _minlength(minLength),
-    _params(number_of_params) {}
+    _minlength(minLength) {
 
-template<typename T>
-bool IterativeRefinement::CostFunctionScaled::operator()(T const *const *parameters,
-                                                         T *residuals) const {
-  //Calculate the "baseLine"
-   T x = T(0);
-  T y = T(0);
-  T z = T(0);
-
-  for (int i = 0; i < _params; i++) {
-    T scale = scaleTemplated(parameters[i][0], _maxLength, _minlength);
-    x = x + (scale * parameters[i + 1][0]);
-    y = y + (scale * parameters[i + 1][1]);
-    z = z + (scale * parameters[i + 1][2]);
-  }
-
-  Eigen::Matrix<T, 3, 1> u01(x,y,z);
-  //Normalize the "baseLine";
-  u01.normalize();
-
-  T cost = ((_m1.template cast<T>()).dot(
-      (_R1.template cast<T>()).transpose().eval()*(u01.cross(((_R0.template cast<T>()) * (_m0.template cast<T>())).eval()))));
-  residuals[0] = cost;
-
-  return true;
-}
-
-void IterativeRefinement::CostFunctionScaled::addResidualBlocks(const std::vector<Eigen::Vector3d>& m1,
-                                                                const std::vector<Eigen::Vector3d>& m0,
-                                                                const Eigen::Matrix3d &R1,
-                                                                const Eigen::Matrix3d &R0,
-                                                                ceres::LossFunction *lossFunction,
-                                                                const std::vector<double *> &parameter_blocks,
-                                                                ceres::Problem &ceresProblem,
-                                                                double minLength,
-                                                                double maxLength,
-                                                                int number_of_params) {
-  for (unsigned int i = 0; i < m1.size(); i++) {
-    auto//TODO: Number of Stride!!
-        *scaled_costfunction = new ceres::DynamicAutoDiffCostFunction<CostFunctionScaled, 4>(
-        new CostFunctionScaled(m1[i], m0[i], R1, R0, maxLength, minLength, number_of_params)
-    );
-
-    for (int j = 0; j < number_of_params; j++) {
-      scaled_costfunction->AddParameterBlock(1);
-      scaled_costfunction->AddParameterBlock(3);
-    }
-    scaled_costfunction->SetNumResiduals(1);
-    ceresProblem.AddResidualBlock(scaled_costfunction,
-                                  lossFunction,
-                                  parameter_blocks); //TODO: Parametersblock vector copyed?
-  }
-}
-
-IterativeRefinement::CostFunction::CostFunction(const Eigen::Vector3d m1,
-                                                const Eigen::Vector3d m0,
-                                                const Eigen::Matrix3d &R1,
-                                                const Eigen::Matrix3d &R0) :
-    _m1(m1),
-    _m0(m0),
-    _R1(R1),
-    _R0(R0) {}
-
-template<typename T>
-bool IterativeRefinement::CostFunction::operator()(const T *vec, T *residuals) const {
-
-  Eigen::Matrix<T, 3, 1> u;
-  u << vec[0], vec[1], vec[2];
-
-  T cost = ((_m1.template cast<T>()).dot(
-      _R1.transpose().eval().template cast<T>() * u.cross(_R0.template cast<T>() * _m0.template cast<T>())));
-  residuals[0] = cost;
-  return true;
-}
-
-void IterativeRefinement::CostFunction::addResidualBlocks(const std::vector<Eigen::Vector3d> m1,
-                                                          const std::vector<Eigen::Vector3d> m0,
-                                                          const Eigen::Matrix3d &R1,
-                                                          const Eigen::Matrix3d &R0,
-                                                          ceres::LossFunction *lossFunction,
-                                                          double *vectorParam, ceres::Problem &ceresProblem) {
-  for (unsigned int i = 0; i < m1.size(); i++) {
-    ceres::CostFunction *costfunctionUnscaled = new ceres::AutoDiffCostFunction<CostFunction, 1, 3>(
-        new CostFunction(m1[i], m0[i], R1, R0)
-    );
-    ceresProblem.AddResidualBlock(costfunctionUnscaled, lossFunction, vectorParam);
-  }
 }
 
 template<typename T>
@@ -392,4 +305,174 @@ double IterativeRefinement::reverseScale(const double length, double MAX_LEN, do
     t = -1.0 * std::log((MAX_LEN - length) / (length - MIN_LEN));
   }
   return t;
+}
+void IterativeRefinement::addResidualBlocks(const std::vector<Eigen::Vector3d> &features1,
+                                            const std::vector<Eigen::Vector3d> &features0,
+                                            const Eigen::Matrix3d &R1,
+                                            const Eigen::Matrix3d &R0,
+                                            std::vector<double *> parameter_blocks,
+                                            const Eigen::Vector3d & vect_offset,
+                                            ceres::LossFunction *loss_fun,
+                                            ceres::Problem &ceres_problem,
+                                            double highest_len,
+                                            double lowest_len) {
+  assert(features0.size() == features1.size());
+  auto f1 = features1.begin();
+  auto f0 = features0.begin();
+  for(;f1 != features1.end(); f1++, f0++){
+    ceres::CostFunction *cost_function;
+    switch (parameter_blocks.size()){
+      case 2:
+        cost_function = new ceres::AutoDiffCostFunction<CostFunction1,1,1,3>(
+            new CostFunction1(*f1, *f0, R1, R0, highest_len, lowest_len, vect_offset)
+            );
+        break;
+      case 4:
+        cost_function = new ceres::AutoDiffCostFunction<CostFunction2,1,1,3,1,3>(
+            new CostFunction2(*f1, *f0, R1, R0, highest_len, lowest_len, vect_offset)
+        );
+        break;
+      case 6:
+        cost_function = new ceres::AutoDiffCostFunction<CostFunction3,1,1,3,1,3,1,3>(
+            new CostFunction3(*f1, *f0, R1, R0, highest_len, lowest_len, vect_offset)
+        );
+        break;
+      case 8:
+        cost_function = new ceres::AutoDiffCostFunction<CostFunction4,1,1,3,1,3,1,3,1,3>(
+            new CostFunction4(*f1, *f0, R1, R0, highest_len, lowest_len, vect_offset)
+        );
+        break;
+      case 10:
+        cost_function = new ceres::AutoDiffCostFunction<CostFunction5,1,1,3,1,3,1,3,1,3,1,3>(
+            new CostFunction5(*f1, *f0, R1, R0, highest_len, lowest_len, vect_offset)
+        );
+        break;
+      default:
+        assert(false); //FAIL!
+    };
+    ceres_problem.AddResidualBlock(cost_function,loss_fun, parameter_blocks);
+  }
+
+}
+
+IterativeRefinement::CostFunction1::CostFunction1(
+    const Eigen::Vector3d &m1,
+    const Eigen::Vector3d &m0,
+    const Eigen::Matrix3d &r1,
+    const Eigen::Matrix3d &r0,
+    double max_length,
+    double min_length,
+    const Eigen::Vector3d &vect_offset) : CostFunctionBase(m1, m0, r1, r0, max_length, min_length, vect_offset) {}
+
+template<typename T>
+bool IterativeRefinement::CostFunction1::operator()(const T *scale0, const T *vec0, T *residuals) const {
+  residuals[0] = CostFunctionBase::cost(Eigen::Matrix<T,3,1>(
+      scaleTemplated(scale0[0], _maxLength, _minlength) * Eigen::Matrix<T, 3, 1>(vec0[0], vec0[1], vec0[2])).eval());
+  return true;
+}
+
+IterativeRefinement::CostFunction2::CostFunction2(
+    const Eigen::Vector3d &m1,
+    const Eigen::Vector3d &m0,
+    const Eigen::Matrix3d &r1,
+    const Eigen::Matrix3d &r0,
+    double max_length,
+    double min_length,
+    const Eigen::Vector3d &vect_offset) : CostFunctionBase(m1, m0, r1, r0, max_length, min_length, vect_offset) {}
+
+template<typename T>
+bool IterativeRefinement::CostFunction2::operator()(const T *scale0,
+                                                    const T *vec0,
+                                                    const T *scale1,
+                                                    const T *vec1,
+                                                    T *residuals) const {
+  residuals[0] = CostFunctionBase::cost(Eigen::Matrix<T,3,1>(
+      scaleTemplated(scale0[0], _maxLength, _minlength) * Eigen::Matrix<T, 3, 1>(vec0[0], vec0[1], vec0[2]) +
+          scaleTemplated(scale1[0], _maxLength, _minlength) * Eigen::Matrix<T, 3, 1>(vec1[0], vec1[1], vec1[2])).eval()
+  );
+  return true;
+}
+
+IterativeRefinement::CostFunction3::CostFunction3(
+    const Eigen::Vector3d &m1,
+    const Eigen::Vector3d &m0,
+    const Eigen::Matrix3d &r1,
+    const Eigen::Matrix3d &r0,
+    double max_length,
+    double min_length,
+    const Eigen::Vector3d &vect_offset) : CostFunctionBase(m1, m0, r1, r0, max_length, min_length, vect_offset) {}
+
+template<typename T>
+bool IterativeRefinement::CostFunction3::operator()(const T *scale0,
+                                                    const T *vec0,
+                                                    const T *scale1,
+                                                    const T *vec1,
+                                                    const T *scale2,
+                                                    const T *vec2,
+                                                    T *residuals) const {
+  residuals[0] = CostFunctionBase::cost(Eigen::Matrix<T,3,1>(
+      scaleTemplated(scale0[0], _maxLength, _minlength) * Eigen::Matrix<T, 3, 1>(vec0[0], vec0[1], vec0[2]) +
+          scaleTemplated(scale1[0], _maxLength, _minlength) * Eigen::Matrix<T, 3, 1>(vec1[0], vec1[1], vec1[2]) +
+          scaleTemplated(scale2[0], _maxLength, _minlength) * Eigen::Matrix<T, 3, 1>(vec2[0], vec2[1], vec2[2])).eval()
+  );
+  return true;
+}
+
+IterativeRefinement::CostFunction4::CostFunction4(
+    const Eigen::Vector3d &m1,
+    const Eigen::Vector3d &m0,
+    const Eigen::Matrix3d &r1,
+    const Eigen::Matrix3d &r0,
+    double max_length,
+    double min_length,
+    const Eigen::Vector3d &vect_offset) : CostFunctionBase(m1, m0, r1, r0, max_length, min_length, vect_offset) {}
+
+template<typename T>
+bool IterativeRefinement::CostFunction4::operator()(const T *scale0,
+                                                    const T *vec0,
+                                                    const T *scale1,
+                                                    const T *vec1,
+                                                    const T *scale2,
+                                                    const T *vec2,
+                                                    const T *scale3,
+                                                    const T *vec3,
+                                                    T *residuals) const {
+  Eigen::Matrix<T,3,1> vec(
+      scaleTemplated(scale0[0], _maxLength, _minlength) * Eigen::Matrix<T, 3, 1>(vec0[0], vec0[1], vec0[2]) +
+          scaleTemplated(scale1[0], _maxLength, _minlength) * Eigen::Matrix<T, 3, 1>(vec1[0], vec1[1], vec1[2]) +
+          scaleTemplated(scale2[0], _maxLength, _minlength) * Eigen::Matrix<T, 3, 1>(vec2[0], vec2[1], vec2[2]) +
+          scaleTemplated(scale3[0], _maxLength, _minlength) * Eigen::Matrix<T, 3, 1>(vec3[0], vec3[1], vec3[2]));
+  residuals[0] = CostFunctionBase::cost(vec);
+  return true;
+}
+
+IterativeRefinement::CostFunction5::CostFunction5(
+    const Eigen::Vector3d &m1,
+    const Eigen::Vector3d &m0,
+    const Eigen::Matrix3d &r1,
+    const Eigen::Matrix3d &r0,
+    double max_length,
+    double min_length,
+    const Eigen::Vector3d &vect_offset) : CostFunctionBase(m1, m0, r1, r0, max_length, min_length, vect_offset) {}
+
+template<typename T>
+bool IterativeRefinement::CostFunction5::operator()(const T *scale0,
+                                                    const T *vec0,
+                                                    const T *scale1,
+                                                    const T *vec1,
+                                                    const T *scale2,
+                                                    const T *vec2,
+                                                    const T *scale3,
+                                                    const T *vec3,
+                                                    const T *scale4,
+                                                    const T *vec4,
+                                                    T *residuals) const {
+  Eigen::Matrix<T,3,1> vec(scaleTemplated(scale0[0], _maxLength, _minlength) * Eigen::Matrix<T, 3, 1>(vec0[0], vec0[1], vec0[2]) +
+      scaleTemplated(scale1[0], _maxLength, _minlength) * Eigen::Matrix<T, 3, 1>(vec1[0], vec1[1], vec1[2]) +
+      scaleTemplated(scale2[0], _maxLength, _minlength) * Eigen::Matrix<T, 3, 1>(vec2[0], vec2[1], vec2[2]) +
+      scaleTemplated(scale3[0], _maxLength, _minlength) * Eigen::Matrix<T, 3, 1>(vec3[0], vec3[1], vec3[2]) +
+      scaleTemplated(scale4[0], _maxLength, _minlength) * Eigen::Matrix<T, 3, 1>(vec4[0], vec4[1], vec4[2]));
+  residuals[0] = cost(vec);
+
+  return true;
 }

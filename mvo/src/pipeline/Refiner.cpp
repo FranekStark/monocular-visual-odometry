@@ -94,8 +94,9 @@ Frame *Refiner::stage(Frame *newFrame) {
 
 
   //Enqueue the mostRefined, only if there already enough Frames, to prevent double enqueuing
-  if (numberToRefine >= _numberToRefine) {
-    Frame *mostRefined = _frames[keptFrames - numberToRefine];
+  //And take the one before the last refined
+  if (keptFrames > _numberToRefine) {
+    Frame *mostRefined = _frames[keptFrames - (numberToRefine + 1)];
     _baseLine.enqueue({mostRefined->getScaleToPrevious() * mostRefined->getBaseLineToPrevious(),
                        mostRefined->getRotation(), mostRefined->getTimeStamp()
                       });

@@ -28,65 +28,95 @@ class IterativeRefinement {
 
   static cv::Vec3d cvt_eigen_cv(const Eigen::Vector3d &vecEIG);
 
-  struct CostFunctionScaled {
+  struct CostFunctionBase {
    private:
     const Eigen::Vector3d &_m1;
     const Eigen::Vector3d &_m0;
     const Eigen::Matrix3d &_R1;
     const Eigen::Matrix3d &_R0;
+    const Eigen::Vector3d &_vectOffset;
+   protected:
     const double _maxLength;
     const double _minlength;
-    const int _params;
-   public:
-    CostFunctionScaled(const Eigen::Vector3d &m1,
-                       const Eigen::Vector3d &m0,
-                       const Eigen::Matrix3d &R1,
-                       const Eigen::Matrix3d &R0,
-                       double maxLength,
-                       double minLength,
-                       int number_of_params
-    );
-
     template<typename T>
-    bool operator()(T const *const *parameters, T *residuals) const;
-
-    static void addResidualBlocks(const std::vector<Eigen::Vector3d> &m1,
-                                  const std::vector<Eigen::Vector3d> &m0,
-                                  const Eigen::Matrix3d &R1,
-                                  const Eigen::Matrix3d &R0,
-                                  ceres::LossFunction *lossFunction,
-                                  const std::vector<double *> &parameter_blocks,
-                                  ceres::Problem &ceresProblem,
-                                  double minLength,
-                                  double maxLength,
-                                  int number_of_params
-    );
+    T cost(const Eigen::Matrix<T, 3, 1> &baseLine) const;
+   public:
+    CostFunctionBase(const Eigen::Vector3d &m1,
+                     const Eigen::Vector3d &m0,
+                     const Eigen::Matrix3d &R1,
+                     const Eigen::Matrix3d &R0,
+                     double maxLength,
+                     double minLength, const Eigen::Vector3d &vectOffset);
+    virtual ~CostFunctionBase() = default;
   };
 
-  struct CostFunction {
-   private:
-    const Eigen::Vector3d _m1;
-    const Eigen::Vector3d _m0;
-    const Eigen::Matrix3d &_R1;
-    const Eigen::Matrix3d &_R0;
-   public:
-    CostFunction(
-        const Eigen::Vector3d m1,
-        const Eigen::Vector3d m0,
-        const Eigen::Matrix3d &R1,
-        const Eigen::Matrix3d &R0);
-
+  struct CostFunction1 : CostFunctionBase {
+    CostFunction1(const Eigen::Vector3d &m1,
+                  const Eigen::Vector3d &m0,
+                  const Eigen::Matrix3d &r1,
+                  const Eigen::Matrix3d &r0,
+                  double max_length,
+                  double min_length,
+                  const Eigen::Vector3d &vect_offset);
+    virtual ~CostFunction1() = default;
     template<typename T>
-    bool operator()(const T *vec, T *residuals) const;
-
-    static void addResidualBlocks(const std::vector<Eigen::Vector3d> m1,
-                                  const std::vector<Eigen::Vector3d> m0,
-                                  const Eigen::Matrix3d &R1,
-                                  const Eigen::Matrix3d &R0,
-                                  ceres::LossFunction *lossFunction,
-                                  double *vectorParam, ceres::Problem &ceresProblem);
-
+    bool operator()(const T *scale0, const T *vec0,T *residuals) const;
   };
+
+  struct CostFunction2 : CostFunctionBase {
+    CostFunction2(const Eigen::Vector3d &m1,
+                  const Eigen::Vector3d &m0,
+                  const Eigen::Matrix3d &r1,
+                  const Eigen::Matrix3d &r0,
+                  double max_length,
+                  double min_length,
+                  const Eigen::Vector3d &vect_offset);
+    virtual ~CostFunction2() = default;
+    template<typename T>
+    bool operator()(const T *scale0, const T *vec0,const T *scale1, const T *vec1,T *residuals) const;
+  };
+
+  struct CostFunction3 : CostFunctionBase {
+    CostFunction3(const Eigen::Vector3d &m1,
+                  const Eigen::Vector3d &m0,
+                  const Eigen::Matrix3d &r1,
+                  const Eigen::Matrix3d &r0,
+                  double max_length,
+                  double min_length,
+                  const Eigen::Vector3d &vect_offset);
+    virtual ~CostFunction3() = default;
+    template<typename T>
+    bool operator()(const T *scale0, const T *vec0,const T *scale1, const T *vec1, const T *scale2, const T *vec2,T *residuals) const;
+  };
+
+
+  struct CostFunction4 : CostFunctionBase {
+    CostFunction4(const Eigen::Vector3d &m1,
+                  const Eigen::Vector3d &m0,
+                  const Eigen::Matrix3d &r1,
+                  const Eigen::Matrix3d &r0,
+                  double max_length,
+                  double min_length,
+                  const Eigen::Vector3d &vect_offset);
+    virtual ~CostFunction4() = default;
+    template<typename T>
+    bool operator()(const T *scale0, const T *vec0,const T *scale1, const T *vec1, const T *scale2, const T *vec2, const T *scale3, const T *vec3,T *residuals) const;
+  };
+
+  struct CostFunction5 : CostFunctionBase {
+    CostFunction5(const Eigen::Vector3d &m1,
+                  const Eigen::Vector3d &m0,
+                  const Eigen::Matrix3d &r1,
+                  const Eigen::Matrix3d &r0,
+                  double max_length,
+                  double min_length,
+                  const Eigen::Vector3d &vect_offset);
+    virtual ~CostFunction5() = default;
+    template<typename T>
+    bool operator()(const T *scale0, const T *vec0,const T *scale1, const T *vec1, const T *scale2, const T *vec2, const T *scale3, const T *vec3,const T *scale4, const T *vec4,T *residuals) const;
+  };
+
+
 
   template<typename T>
   static Eigen::Matrix<T, 3, 1> baseLineTemplated(const Eigen::Matrix<T, 3, 1> &vec, const T a, const T b);
@@ -101,9 +131,15 @@ class IterativeRefinement {
     bool operator()(const T *x, const T *delta, T *x_plus_delta) const;
   };
 
+
+  static void addResidualBlocks(const std::vector<Eigen::Vector3d> & features1, const std::vector<Eigen::Vector3d> & features0,
+                                const Eigen::Matrix3d & R1, const Eigen::Matrix3d & R0,
+                                std::vector<double *> parameter_blocks, const Eigen::Vector3d & vect_offset,
+                                ceres::LossFunction * loss_fun, ceres::Problem & ceres_problem, double highest_len, double lowest_len);
+
  public:
 #ifdef DEBUGIMAGES
- cv::Mat _debugImage;
+  cv::Mat _debugImage;
 #endif
 
   struct RefinementFrame {
@@ -127,7 +163,7 @@ class IterativeRefinement {
               bool useLossFunction,
               double lowestLength,
               double highestLength,
-              const Frame & nowFrame);
+              const Frame &nowFrame);
 
 };
 

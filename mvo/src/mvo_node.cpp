@@ -163,10 +163,11 @@ void MVO_node::imageCallback(const sensor_msgs::ImageConstPtr &image, const sens
                                orientationMat[1][0], orientationMat[1][1], orientationMat[1][2],
                                orientationMat[2][0], orientationMat[2][1], orientationMat[2][2]
   );
+
   /**
    * Project To Camera Coordinates
    **/
-  orientationMatCV = _transformWorldToCamera.t() * orientationMatCV * _transformWorldToCamera;
+    orientationMatCV = _transformWorldToCamera.t() * orientationMatCV * _transformWorldToCamera;
 
   /**
    * Call the Algorithm

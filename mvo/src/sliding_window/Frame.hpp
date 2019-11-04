@@ -15,10 +15,10 @@
 #ifdef RATINGDATA
 #include <ceres/ceres.h>
 struct infos{
-  unsigned int outsortet_features;
+  unsigned int RANSAC_outsortet_features;
   double RANSAC_probability;
-  ceres::Solver::Summary ceres_summary;
-  double FEEATURE_cover;
+  ceres::Solver::Summary CERES_summary;
+  cv::Vec3d ESTIMATED_baseline;
 };
 #endif
 
