@@ -28,6 +28,30 @@ class IterativeRefinement {
 
   static cv::Vec3d cvt_eigen_cv(const Eigen::Vector3d &vecEIG);
 
+
+  struct ScaleCostFunction{
+   private:
+    const Eigen::Vector3d &_m2;
+    const Eigen::Vector3d &_m1;
+    const Eigen::Vector3d &_m0;
+    const Eigen::Matrix3d &_R2;
+    const Eigen::Matrix3d &_R1;
+    const Eigen::Matrix3d &_R0;
+    const double _maxLength;
+    const double _minlength;
+   public:
+    ScaleCostFunction(const Eigen::Vector3d &m2,
+                      const Eigen::Vector3d &m1,
+                      const Eigen::Vector3d &m0,
+                      const Eigen::Matrix3d &r2,
+                      const Eigen::Matrix3d &r1,
+                      const Eigen::Matrix3d &r0,
+                      const double max_length,
+                      const double min_length);
+    template<typename T>
+    bool operator()(const T *scale0, const T *vec0,const T *scale1, const T *vec1,T *residuals) const;
+  };
+
   struct CostFunctionBase {
    private:
     const Eigen::Vector3d &_m1;
@@ -136,6 +160,8 @@ class IterativeRefinement {
                                 const Eigen::Matrix3d & R1, const Eigen::Matrix3d & R0,
                                 std::vector<double *> parameter_blocks, const Eigen::Vector3d & vect_offset,
                                 ceres::LossFunction * loss_fun, ceres::Problem & ceres_problem, double highest_len, double lowest_len);
+
+
 
  public:
 #ifdef DEBUGIMAGES

@@ -87,7 +87,7 @@ Frame *BaselineEstimator::stage(Frame *newFrame) {
       //baseLine = baseLine;
       ROS_INFO_STREAM("Baseline positive!");
     } else if (negCountbnegate < negCountb) {
-      baseLine = bnegate;
+      //baseLine = bnegate;
       ROS_INFO_STREAM("Baseline negative!");
     } else {
       ROS_WARN_STREAM("Couldn't find unambiguous solution for sign of movement." << std::endl);
