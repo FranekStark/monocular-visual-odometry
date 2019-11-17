@@ -178,7 +178,7 @@ void IterativeRefinement::refine(std::vector<RefinementFrame> &refinementData,
 
   }
 
-  //The "new" CostFunction:
+ /* //The "new" CostFunction:
   if(numberToNote >= 3 && numberToRefine >= 2) {
     for (unsigned int frame0 = 0; frame0 <= (numberToRefine - 2); frame0++) {
       auto frame1 = frame0 + 1;
@@ -222,7 +222,7 @@ void IterativeRefinement::refine(std::vector<RefinementFrame> &refinementData,
                                        vectors[frame1].data());
       }
     }
-    }
+    }*/
 
   ceres::Solver::Summary ceres_summary;
   ceres::Solve(ceres_solver_options, &ceres_problem, &ceres_summary
@@ -377,8 +377,9 @@ void IterativeRefinement::addResidualBlocks(const std::vector<Eigen::Vector3d> &
     ceres::CostFunction *cost_function;
     switch (parameter_blocks.size()) {
       case 2:
-        cost_function = new ceres::AutoDiffCostFunction<CostFunction1, 1, 1, 3>(
+        cost_function = new ceres::AutoDiffCostFunction<CostFunction1, 1, 3>(
             new CostFunction1(*f1, *f0, R1, R0, highest_len, lowest_len, vect_offset)
+
         );
         break;
       case 4:
@@ -418,9 +419,9 @@ IterativeRefinement::CostFunction1::CostFunction1(
     const Eigen::Vector3d &vect_offset) : CostFunctionBase(m1, m0, r1, r0, max_length, min_length, vect_offset) {}
 
 template<typename T>
-bool IterativeRefinement::CostFunction1::operator()(const T *scale0, const T *vec0, T *residuals) const {
+bool IterativeRefinement::CostFunction1::operator()(const T *vec0, T *residuals) const {
   residuals[0] = CostFunctionBase::cost(Eigen::Matrix<T, 3, 1>(
-      scaleTemplated(scale0[0], _maxLength, _minlength) * Eigen::Matrix<T, 3, 1>(vec0[0], vec0[1], vec0[2])).eval());
+      Eigen::Matrix<T, 3, 1>(vec0[0], vec0[1], vec0[2])).eval());
   return true;
 }
 

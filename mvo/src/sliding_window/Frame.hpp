@@ -368,6 +368,12 @@ class Frame {
   const mvo::mvoConfig &getParameters() const;
 
   /**
+   * Sets mew Parameters for this Frame
+   * @param config the new Parameters
+   */
+  void setParameters(const mvo::mvoConfig & config);
+
+  /**
    * Retrieves the timestamp of the Frame.
    * @return timestamp, of the the capturingtime of the image
    */
