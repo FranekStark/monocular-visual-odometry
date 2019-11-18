@@ -103,9 +103,11 @@ Frame *BaselineEstimator::stage(Frame *newFrame) {
         negCountbnegate += cos(0.5 * *depthnegateIt);
       }
 
+/*
       ROS_INFO_STREAM(
           "depth: " << *depthIt * 180.0 / M_PI << " (" << cos(0.5 * *depthIt) << ") | " << *depthnegateIt * 180.0 / M_PI
                     << " (" << cos(0.5 * *depthnegateIt) << ") ");
+*/
 
       depthIt++;
       depthnegateIt++;

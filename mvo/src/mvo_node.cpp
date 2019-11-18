@@ -98,6 +98,9 @@ void MVO_node::init() {
 
   _privateNodeHandle.param<bool>("useScaler", _currentConfig.useScaler, _currentConfig.useScaler);
   _privateNodeHandle.param<bool>("useRefiner", _currentConfig.useRefiner, _currentConfig.useRefiner);
+  _privateNodeHandle.param<bool>("fixLength", _currentConfig.fixLength, _currentConfig.fixLength);
+
+
 
 
   _dynamicConfigServer.updateConfig(_currentConfig);

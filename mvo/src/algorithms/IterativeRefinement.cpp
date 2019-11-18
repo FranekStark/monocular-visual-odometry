@@ -102,6 +102,9 @@ void IterativeRefinement::refine(std::vector<RefinementFrame> &refinementData,
       scales[frameID][0] = reverseScale(frames[frameID].scale, highestLength, lowestLength);
       ceres_problem.AddParameterBlock(vectors[frameID].data(), 3, local_parametrization_vec);
       ceres_problem.AddParameterBlock(scales[frameID].data(), 1);
+      if(nowFrame.getParameters().fixLength){
+        ceres_problem.SetParameterBlockConstant(scales[frameID].data());
+      }
     }
   }
 
@@ -296,7 +299,7 @@ T IterativeRefinement::scaleTemplated(T t, double MAX_LEN, double MIN_LEN) {
   T exp = ceres::exp(-1.0 * t);
   if (ceres::IsInfinite(exp)) { //In Case, that this term gets infinite. The whole function is instable for derivations i guess. (It results in "nan" in ceres. Therefore we have to catch. We know, that 1/Inf ~= 0. So we have to return MIN_VALUE.
     result = T(MIN_LEN);
-    ROS_ERROR_STREAM("Infinity Case");
+/*    ROS_ERROR_STREAM("Infinity Case");*/
   } else {
     result = MIN_LEN + ((MAX_LEN - MIN_LEN) / (1.0 + exp));
   }
