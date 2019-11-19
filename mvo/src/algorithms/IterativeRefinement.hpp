@@ -58,7 +58,7 @@ class IterativeRefinement {
     const Eigen::Vector3d &_m0;
     const Eigen::Matrix3d &_R1;
     const Eigen::Matrix3d &_R0;
-    const Eigen::Vector3d &_vectOffset;
+    const Eigen::Vector3d _vectOffset;
    protected:
     const double _maxLength;
     const double _minlength;
@@ -84,7 +84,7 @@ class IterativeRefinement {
                   const Eigen::Vector3d &vect_offset);
     virtual ~CostFunction1() = default;
     template<typename T>
-    bool operator()(const T *vec0,T *residuals) const;
+    bool operator()(const T *scale0, const T *vec0,T *residuals) const;
   };
 
   struct CostFunction2 : CostFunctionBase {

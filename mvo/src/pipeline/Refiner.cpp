@@ -92,6 +92,15 @@ Frame *Refiner::stage(Frame *newFrame) {
   cv::waitKey(10);
 #endif
 
+#ifdef RATINGDATA
+  //Iterate through each Refined Frame and Save its current Baseline and Scale
+  for (unsigned int i = 0; i < numberToRefine; i++) {
+    Frame *frame = _frames[(keptFrames - 1) - i];
+    frame->_infos.REFINED_scales.push_back(refinementData[i].scale);
+    frame->_infos.REFINED_baselines.push_back(refinementData[i].vec);
+  }
+#endif
+
 
   //Enqueue the mostRefined, only if there already enough Frames, to prevent double enqueuing
   //And take the one before the last refined

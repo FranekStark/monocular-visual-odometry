@@ -105,7 +105,6 @@ void IterativeRefinement::refine(std::vector<RefinementFrame> &refinementData,
 
   std::list<std::vector<Eigen::Vector3d>> features; //To Store all Vectors while refinement (to avoid Copying)
   std::list<Eigen::Vector3d> vector_offsets;
-  std::vector<std::vector<double *>> parameter_blocks;
 
 
   //Go through the Frames:
@@ -126,17 +125,17 @@ void IterativeRefinement::refine(std::vector<RefinementFrame> &refinementData,
 #endif
 
     //Iterate through each following Frame to create a correspondence to each Frame
-    parameter_blocks.push_back({});
+    std::vector<double *> parameter_blocks;
     for (unsigned int frame1 = (frame0); frame1 < (numberToNote - 1);
          frame1++) {  //Skip Last Frame, cause its vector and scale to prev is unneccecccary. The Last Vector is implicit used, when receiving the Features of it.
 
       vector_offsets.push_back(Eigen::Vector3d(0, 0, 0));
       if (frame1 < numberToRefine) {
         //Add Paramert Block. It doesn't matters, wether it ist a "Note" or a "Refine" Frame. Cause we block them above.
-        parameter_blocks.back().push_back(scales[frame1].data());
-        parameter_blocks.back().push_back(vectors[frame1].data());
+        parameter_blocks.push_back(scales[frame1].data());
+        parameter_blocks.push_back(vectors[frame1].data());
       } else {
-        vector_offsets.back() += (frames[frame1].scale * frames[frame1].vec);
+        vector_offsets.back() = vector_offsets.back() + (frames[frame1].scale * frames[frame1].vec);
       }
       {//Get features
         std::vector<cv::Vec3d> feature1CV, feature0CV;
@@ -166,7 +165,7 @@ void IterativeRefinement::refine(std::vector<RefinementFrame> &refinementData,
                           feature0EIG,
                           frames[frame1 + 1].R,
                           frames[frame0].R,
-                          parameter_blocks.back(),
+                          parameter_blocks,
                           vector_offsets.back(),
                           loss_function,
                           ceres_problem,
@@ -178,51 +177,51 @@ void IterativeRefinement::refine(std::vector<RefinementFrame> &refinementData,
 
   }
 
- /* //The "new" CostFunction:
-  if(numberToNote >= 3 && numberToRefine >= 2) {
-    for (unsigned int frame0 = 0; frame0 <= (numberToRefine - 2); frame0++) {
-      auto frame1 = frame0 + 1;
-      auto frame2 = frame0 + 2;
-      std::vector<cv::Vec3d> feature2CV, feature1CV, feature0CV;
-      features.push_back({});
-      std::vector<Eigen::Vector3d> &feature2EIG = features.back();
-      features.push_back({});
-      std::vector<Eigen::Vector3d> &feature1EIG = features.back();
-      features.push_back({});
-      std::vector<Eigen::Vector3d> &feature0EIG = features.back();
-      Frame::getCorrespondingFeatures<cv::Vec3d>(nowFrame.getPreviousFrame(frame2),
-                                                 nowFrame.getPreviousFrame(frame0),
-                                                 {&feature0CV, &feature1CV, &feature2CV});
-      FeatureOperations::normFeatures(feature0CV);
-      FeatureOperations::normFeatures(feature1CV);
-      FeatureOperations::normFeatures(feature2CV);
-      cvt_cv_eigen(feature0CV, feature0EIG);
-      cvt_cv_eigen(feature1CV, feature1EIG);
-      cvt_cv_eigen(feature2CV, feature2EIG);
+  /* //The "new" CostFunction:
+   if(numberToNote >= 3 && numberToRefine >= 2) {
+     for (unsigned int frame0 = 0; frame0 <= (numberToRefine - 2); frame0++) {
+       auto frame1 = frame0 + 1;
+       auto frame2 = frame0 + 2;
+       std::vector<cv::Vec3d> feature2CV, feature1CV, feature0CV;
+       features.push_back({});
+       std::vector<Eigen::Vector3d> &feature2EIG = features.back();
+       features.push_back({});
+       std::vector<Eigen::Vector3d> &feature1EIG = features.back();
+       features.push_back({});
+       std::vector<Eigen::Vector3d> &feature0EIG = features.back();
+       Frame::getCorrespondingFeatures<cv::Vec3d>(nowFrame.getPreviousFrame(frame2),
+                                                  nowFrame.getPreviousFrame(frame0),
+                                                  {&feature0CV, &feature1CV, &feature2CV});
+       FeatureOperations::normFeatures(feature0CV);
+       FeatureOperations::normFeatures(feature1CV);
+       FeatureOperations::normFeatures(feature2CV);
+       cvt_cv_eigen(feature0CV, feature0EIG);
+       cvt_cv_eigen(feature1CV, feature1EIG);
+       cvt_cv_eigen(feature2CV, feature2EIG);
 
-      auto m0 = feature0EIG.begin();
-      auto m1 = feature1EIG.begin();
-      auto m2 = feature2EIG.begin();
-      for (; m0 != feature0EIG.end(); m0++, m1++, m2++) {
-        ceres::CostFunction *cost_function = new ceres::AutoDiffCostFunction<ScaleCostFunction, 1, 1, 3, 1, 3>(
-            new ScaleCostFunction(*m2,
-                                  *m1,
-                                  *m0,
-                                  frames[frame2].R,
-                                  frames[frame1].R,
-                                  frames[frame0].R,
-                                  highestLength,
-                                  lowestLength)
-        );
-        ceres_problem.AddResidualBlock(cost_function,
-                                       nullptr,
-                                       scales[frame0].data(),
-                                       vectors[frame0].data(),
-                                       scales[frame1].data(),
-                                       vectors[frame1].data());
-      }
-    }
-    }*/
+       auto m0 = feature0EIG.begin();
+       auto m1 = feature1EIG.begin();
+       auto m2 = feature2EIG.begin();
+       for (; m0 != feature0EIG.end(); m0++, m1++, m2++) {
+         ceres::CostFunction *cost_function = new ceres::AutoDiffCostFunction<ScaleCostFunction, 1, 1, 3, 1, 3>(
+             new ScaleCostFunction(*m2,
+                                   *m1,
+                                   *m0,
+                                   frames[frame2].R,
+                                   frames[frame1].R,
+                                   frames[frame0].R,
+                                   highestLength,
+                                   lowestLength)
+         );
+         ceres_problem.AddResidualBlock(cost_function,
+                                        nullptr,
+                                        scales[frame0].data(),
+                                        vectors[frame0].data(),
+                                        scales[frame1].data(),
+                                        vectors[frame1].data());
+       }
+     }
+     }*/
 
   ceres::Solver::Summary ceres_summary;
   ceres::Solve(ceres_solver_options, &ceres_problem, &ceres_summary
@@ -377,34 +376,73 @@ void IterativeRefinement::addResidualBlocks(const std::vector<Eigen::Vector3d> &
     ceres::CostFunction *cost_function;
     switch (parameter_blocks.size()) {
       case 2:
-        cost_function = new ceres::AutoDiffCostFunction<CostFunction1, 1, 3>(
+        cost_function = new ceres::AutoDiffCostFunction<CostFunction1, 1, 1, 3>(
             new CostFunction1(*f1, *f0, R1, R0, highest_len, lowest_len, vect_offset)
-
         );
+        ceres_problem.AddResidualBlock(cost_function,
+            loss_fun,
+            parameter_blocks[0],
+            parameter_blocks[1]);
         break;
       case 4:
         cost_function = new ceres::AutoDiffCostFunction<CostFunction2, 1, 1, 3, 1, 3>(
             new CostFunction2(*f1, *f0, R1, R0, highest_len, lowest_len, vect_offset)
         );
+        ceres_problem.AddResidualBlock(cost_function,
+                                       loss_fun,
+                                       parameter_blocks[0],
+                                       parameter_blocks[1],
+                                       parameter_blocks[2],
+                                       parameter_blocks[3]);
         break;
       case 6:
         cost_function = new ceres::AutoDiffCostFunction<CostFunction3, 1, 1, 3, 1, 3, 1, 3>(
             new CostFunction3(*f1, *f0, R1, R0, highest_len, lowest_len, vect_offset)
         );
+        ceres_problem.AddResidualBlock(cost_function,
+                                       loss_fun,
+                                       parameter_blocks[0],
+                                       parameter_blocks[1],
+                                       parameter_blocks[2],
+                                       parameter_blocks[3],
+                                       parameter_blocks[4],
+                                       parameter_blocks[5]);
         break;
       case 8:
         cost_function = new ceres::AutoDiffCostFunction<CostFunction4, 1, 1, 3, 1, 3, 1, 3, 1, 3>(
             new CostFunction4(*f1, *f0, R1, R0, highest_len, lowest_len, vect_offset)
         );
+        ceres_problem.AddResidualBlock(cost_function,
+                                       loss_fun,
+                                       parameter_blocks[0],
+                                       parameter_blocks[1],
+                                       parameter_blocks[2],
+                                       parameter_blocks[3],
+                                       parameter_blocks[4],
+                                       parameter_blocks[5],
+                                       parameter_blocks[6],
+                                       parameter_blocks[7]);
         break;
       case 10:
         cost_function = new ceres::AutoDiffCostFunction<CostFunction5, 1, 1, 3, 1, 3, 1, 3, 1, 3, 1, 3>(
             new CostFunction5(*f1, *f0, R1, R0, highest_len, lowest_len, vect_offset)
         );
+        ceres_problem.AddResidualBlock(cost_function,
+                                       loss_fun,
+                                       parameter_blocks[0],
+                                       parameter_blocks[1],
+                                       parameter_blocks[2],
+                                       parameter_blocks[3],
+                                       parameter_blocks[4],
+                                       parameter_blocks[5],
+                                       parameter_blocks[6],
+                                       parameter_blocks[7],
+                                       parameter_blocks[8],
+                                       parameter_blocks[9]);
         break;
       default:assert(false); //FAIL!
     };
-    ceres_problem.AddResidualBlock(cost_function, loss_fun, parameter_blocks);
+
   }
 
 }
@@ -419,9 +457,9 @@ IterativeRefinement::CostFunction1::CostFunction1(
     const Eigen::Vector3d &vect_offset) : CostFunctionBase(m1, m0, r1, r0, max_length, min_length, vect_offset) {}
 
 template<typename T>
-bool IterativeRefinement::CostFunction1::operator()(const T *vec0, T *residuals) const {
+bool IterativeRefinement::CostFunction1::operator()(const T *scale0, const T *vec0, T *residuals) const {
   residuals[0] = CostFunctionBase::cost(Eigen::Matrix<T, 3, 1>(
-      Eigen::Matrix<T, 3, 1>(vec0[0], vec0[1], vec0[2])).eval());
+      scaleTemplated(scale0[0], _maxLength, _minlength) * Eigen::Matrix<T, 3, 1>(vec0[0], vec0[1], vec0[2])).eval());
   return true;
 }
 

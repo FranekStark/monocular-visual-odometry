@@ -15,3 +15,4 @@ PipelineBegin::PipelineBegin() : PipelineStage(nullptr,
 void PipelineBegin::pipeIn(Frame *frame) {
   _outGoingChannel.enqueue(frame);
 }
+

@@ -109,6 +109,9 @@ Frame *Merger::stage(Frame *newFrame) {
   } else { //Enough Disparity
     //Calculate the correct prefeaturecounter:
     newFrame->calculateFeaturePreCounter();
+#ifdef RATINGDATA
+    newFrame->_infos.MERGER_disparity = disparity;
+#endif
     //Pipethrough
     _preFrame = newFrame;
     _keepFrame = nullptr; //Wait here for a maybe new Frame

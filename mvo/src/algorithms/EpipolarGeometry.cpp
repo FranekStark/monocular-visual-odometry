@@ -109,6 +109,7 @@ cv::Vec3d EpipolarGeometry::estimateBaseLine(const std::vector<cv::Vec3d> &mhi, 
 
     }
 
+
     if (nProbability > pBest) {  // Neuer bester wurde gefunden
       pBest = nProbability;
       nBest = nInlier;
