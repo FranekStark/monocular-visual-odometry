@@ -11,6 +11,8 @@
 #include "PipelineStage.h"
 class Scaler : public PipelineStage{
  public:
+  double _highestScale = 0;
+  double _lowestScale = 0;
   Scaler(PipelineStage &precursor, unsigned int out_going_channel_size);
   Frame *stage(Frame *newFrame) override;
   virtual ~Scaler();

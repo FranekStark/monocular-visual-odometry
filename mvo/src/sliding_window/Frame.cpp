@@ -186,7 +186,14 @@ Frame::Frame(std::vector<cv::Mat> imagePyramide,
 const mvo::mvoConfig &Frame::getParameters() {
   return _parameters;
 }
-double Frame::getScaleToPrevious() {
+
+void Frame::setParameters(const mvo::mvoConfig & config){
+  this->_lock.lock();
+  _parameters = config;
+   this->_lock.unlock();
+}
+
+double Frame::getScaleToPrevious() const {
   this->lock();
   double scale = _scale;
   this->unlock();
