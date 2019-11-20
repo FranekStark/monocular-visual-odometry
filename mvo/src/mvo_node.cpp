@@ -40,8 +40,8 @@ MVO_node::~MVO_node() {
 
 void MVO_node::init() {
   //Get Params
-  std::string _imageTopic = "/camera/image_raw";
-  std::string _camInfoTopic = "/camera/camera_info";
+  std::string _imageTopic = "/pylon_camera_node/image_raw";
+  std::string _camInfoTopic = "/pylon_camera_node/camera_info";
   std::string _imuTopic = "/imu/data";
   bool _logDebug = false;
   bool _useCompressed = true;

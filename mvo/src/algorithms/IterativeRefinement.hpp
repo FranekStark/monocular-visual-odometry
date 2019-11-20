@@ -85,10 +85,6 @@ class IterativeRefinement {
   };
 
 
-  static void addResidualBlocks(const std::vector<Eigen::Vector3d> & features1, const std::vector<Eigen::Vector3d> & features0,
-                                const Eigen::Matrix3d & R1, const Eigen::Matrix3d & R0,
-                                std::vector<double *> parameter_blocks, const Eigen::Vector3d & vect_offset,
-                                ceres::LossFunction * loss_fun, ceres::Problem & ceres_problem, double highest_len, double lowest_len);
 
  public:
 

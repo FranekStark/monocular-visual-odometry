@@ -199,6 +199,7 @@ double Frame::getScaleToPrevious() const {
   this->unlock();
   return scale;
 }
+
 void Frame::setScaleToPrevious(double scale) {
   this->lock();
   _scale = scale;

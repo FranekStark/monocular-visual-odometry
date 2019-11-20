@@ -227,7 +227,7 @@ class Frame {
    * Retrieves the Scale of the baseline from this FRame to previous Frame
    * @return the scale
    */
-  double getScaleToPrevious();
+  double getScaleToPrevious() const;
 
 /**
    * Retrieves all known Features in specific Frame

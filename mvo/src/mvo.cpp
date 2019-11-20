@@ -17,7 +17,7 @@ MVO::MVO(std::function<void(cv::Point3d, cv::Matx33d, ros::Time timeStamp)> esti
     _merger(_trackerDetector, 10),
     _baseLineEstimator(_merger, 100, _epipolarGeometry),
     _scaler(_baseLineEstimator, 100),
-    _refiner(_scaler, 4, _iterativeRefinement, startConfig.numberToRefine, startConfig.numberToNote),
+    _refiner(_scaler, 4, _iterativeRefinement,3),
     _end(_refiner),
     _trackerThread(std::ref(_trackerDetector)),
     _mergerThread(std::ref(_merger)),
