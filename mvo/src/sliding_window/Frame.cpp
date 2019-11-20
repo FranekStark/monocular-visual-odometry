@@ -205,7 +205,7 @@ void Frame::setScaleToPrevious(double scale) {
   _scale = scale;
   this->unlock();
 }
-ros::Time Frame::getTimeStamp() {
+ros::Time Frame::getTimeStamp() const {
   return _timeStamp;
 }
 

@@ -74,6 +74,17 @@ Frame *Refiner::stage(Frame *newFrame) {
     _preFrame->setBaseLineToPrevious(data.vec1);
     _preFrame->setScaleToPrevious(data.scale1);
 
+
+#ifdef RATINGDATA
+
+    newFrame->_infos.REFINED_scales.push_back(data.scale0);
+    newFrame->_infos.REFINED_baselines.push_back(data.vec0);
+    _preFrame->_infos.REFINED_scales.push_back(data.scale1);
+    _preFrame->_infos.REFINED_baselines.push_back(data.vec1);
+
+#endif
+
+
 #ifdef DEBUGIMAGES
     cv::Mat image(newFrame->getImage().size(), CV_8UC3, cv::Scalar(100, 100, 100));
 
@@ -94,14 +105,6 @@ Frame *Refiner::stage(Frame *newFrame) {
   }
 
 
-#ifdef RATINGDATA
-  //Iterate through each Refined Frame and Save its current Baseline and Scale
-  for (unsigned int i = 0; i < numberToRefine; i++) {
-    Frame *frame = _frames[(keptFrames - 1) - i];
-    frame->_infos.REFINED_scales.push_back(refinementData[i].scale);
-    frame->_infos.REFINED_baselines.push_back(refinementData[i].vec);
-  }
-#endif
 
   //Pass the frames through
   _prePreFrame = _preFrame;

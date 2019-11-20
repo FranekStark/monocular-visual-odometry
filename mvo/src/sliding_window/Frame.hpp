@@ -10,6 +10,8 @@
 #include "../Utils.hpp"
 #include <mvo/mvoConfig.h>
 
+#define RATINGDATA
+
 
 #ifdef RATINGDATA
 #include <ceres/ceres.h>
@@ -316,7 +318,7 @@ class Frame {
    * Retrieves the timestamp of the Frame.
    * @return timestamp, of the the capturingtime of the image
    */
-  ros::Time getTimeStamp();
+  ros::Time getTimeStamp() const;
 
 };
 
