@@ -63,7 +63,7 @@ const cv::Mat &Frame::getImage() {
 const cv::Matx33d &Frame::getRotation() {
   return this->_rotation; //TODO:: Lockproblem?
 }
-const image_geometry::PinholeCameraModel &Frame::getCameraModel() {
+const image_geometry::PinholeCameraModel &Frame::getCameraModel() const {
   return this->_cameraModel; //TODO: Lockproblem
 }
 unsigned int Frame::getNumberOfKnownFeatures() {
@@ -160,6 +160,7 @@ void Frame::setBaseLineToPrevious(const cv::Vec3d &baseLine) {
   this->_baseLine = baseLine;
   this->unlock();
 }
+
 template<>
 const cv::Point2f &Frame::getFeatureLocation(const Feature &f) {
   return f._positionImage;
@@ -207,6 +208,16 @@ void Frame::setScaleToPrevious(double scale) {
 }
 ros::Time Frame::getTimeStamp() const {
   return _timeStamp;
+}
+const Frame &Frame::getPreviousFrame(unsigned int past) const{
+  _lock.lock();
+  const Frame * frame = this;
+  for(unsigned int i = 0; i < past; i++){
+    frame = frame->_preFrame;
+    assert(frame != nullptr);
+  }
+  _lock.unlock();
+  return *frame;
 }
 
 template<>

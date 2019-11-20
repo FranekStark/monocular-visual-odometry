@@ -5,6 +5,11 @@
 #include <eigen3/Eigen/Dense>
 #include <opencv2/core/eigen.hpp>
 #include <ceres/ceres.h>
+#include "../sliding_window/Frame.hpp"
+#include "../operations/VisualisationUtils.hpp"
+
+#define EIGEN_INITIALIZE_MATRICES_BY_ZERO
+#define EIGEN_NO_AUTOMATIC_RESIZING
 
 class IterativeRefinement {
  private:
@@ -55,14 +60,14 @@ class IterativeRefinement {
 
   struct CostFunction {
    private:
-    const Eigen::Vector3d &_m1;
-    const Eigen::Vector3d &_m0;
+    const Eigen::Vector3d _m1;
+    const Eigen::Vector3d _m0;
     const Eigen::Matrix3d &_R1;
     const Eigen::Matrix3d &_R0;
    public:
     CostFunction(
-        const Eigen::Vector3d &m1,
-        const Eigen::Vector3d &m0,
+        const Eigen::Vector3d m1,
+        const Eigen::Vector3d m0,
         const Eigen::Matrix3d &R1,
         const Eigen::Matrix3d &R0);
 
@@ -87,6 +92,9 @@ class IterativeRefinement {
 
 
  public:
+#ifdef DEBUGIMAGES
+ cv::Mat _debugImage;
+#endif
 
   struct RefinementDataCV {
     std::vector<cv::Vec3d> m2;
@@ -113,7 +121,8 @@ class IterativeRefinement {
               double parameterTolerance,
               bool useLossFunction,
               double lowestLength,
-              double highestLength);
+              double highestLength,
+              const Frame & nowFrame);
 
 };
 

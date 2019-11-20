@@ -6,7 +6,7 @@
 
 void VisualisationUtils::drawFeatures(const Frame &frame, cv::Mat &image) {
   frame.lock();
-  for (const auto & _feature : frame._features) {
+  for (const auto &_feature : frame._features) {
     cv::Scalar color;
     if (_feature._preFeature < 0) { //Blue, if ne prefeatures
       color = cv::Scalar(255, 0, 0); //BGR
@@ -122,31 +122,33 @@ void VisualisationUtils::drawFeaturesUnrotated(cv::Mat &image,
     featureNewUnrotaed++;
   }
 }
-void VisualisationUtils::drawCorrespondences(const std::vector<std::vector<cv::Vec3d> *> vectors,
+void VisualisationUtils::drawCorrespondences(const std::vector<const std::vector<cv::Vec3d> *> vectors,
                                              const image_geometry::PinholeCameraModel &camera,
-                                             cv::Mat &image) {
-  for(unsigned int featureIndex = 0;  featureIndex < vectors[0]->size(); featureIndex++){
-    for(unsigned int frameIndex = 0; frameIndex < vectors.size(); frameIndex++){
+                                             cv::Mat &image,
+                                             const cv::Scalar &lineColor,
+                                             const cv::Scalar &pointColor) {
+  for (unsigned int featureIndex = 0; featureIndex < vectors[0]->size(); featureIndex++) {
+    for (unsigned int frameIndex = 0; frameIndex < vectors.size(); frameIndex++) {
       //Point
-      auto & point3d = (*vectors[frameIndex])[featureIndex];
+      auto &point3d = (*vectors[frameIndex])[featureIndex];
       cv::Point2f point2f = camera.project3dToPixel(point3d);
-      cv::circle(image, point2f, 5, cv::Scalar(0, 0, 255), -1);
+      cv::circle(image, point2f, 2, pointColor, -1);
       cv::putText(image,
                   std::to_string(frameIndex),
                   point2f,
                   cv::FONT_HERSHEY_PLAIN,
-                  5,
+                  2,
                   cv::Scalar(255, 255, 0));
 
-      if(frameIndex != (vectors.size() -1)){//If not Last one
+      if (frameIndex != (vectors.size() - 1)) {//If not Last one
         //Line
-        auto & point3dNEXT =  (*vectors[frameIndex + 1])[featureIndex];
+        auto &point3dNEXT = (*vectors[frameIndex + 1])[featureIndex];
         cv::Point2f point2fNEXT = camera.project3dToPixel(point3dNEXT);
         cv::line(image,
                  point2f,
                  point2fNEXT,
-                 cv::Scalar(255, 255, 255),
-                 4);
+                 lineColor,
+                 2);
       }
     }
   }

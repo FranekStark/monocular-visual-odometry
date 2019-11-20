@@ -18,6 +18,7 @@ void PipelineStage::operator()() {
   while (ros::ok()) {
     /*Block on new Frame*/
     Frame *ingoingFrame = _precursorStage->_outGoingChannel.dequeue();
+    ROS_INFO_STREAM( Utils::GetThreadName() << " ingoing Queue: " <<_precursorStage->_outGoingChannel.size());
     LOG_DEBUG("New Frame in PipelineStage: " << ingoingFrame);
     /*Process the new Frame and get an Outgoing Frame*/
     Frame *outgoingFrame = stage(ingoingFrame);
