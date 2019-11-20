@@ -24,6 +24,7 @@
 #include "pipeline/Refiner.hpp"
 #include "pipeline/PipelineBegin.hpp"
 #include "pipeline/PipeLineEnd.hpp"
+#include "pipeline/Scaler.hpp"
 
 #include <eigen3/Eigen/Dense>
 #include <eigen3/Eigen/SVD>
@@ -62,6 +63,7 @@ class MVO : public PipelineBegin {
   TrackerDetector _trackerDetector;
   Merger _merger;
   BaselineEstimator _baseLineEstimator;
+  Scaler _scaler;
   Refiner _refiner;
   PipeLineEnd _end;
 
@@ -71,6 +73,7 @@ class MVO : public PipelineBegin {
   std::thread _trackerThread;
   std::thread _mergerThread;
   std::thread _estimatorThread;
+  std::thread _scalerThread;
   std::thread _refinerThread;
   std::thread _endThread;
 

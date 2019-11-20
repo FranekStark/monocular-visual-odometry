@@ -191,7 +191,7 @@ template<typename T>
 Eigen::Matrix<T, 3, 1> IterativeRefinement::baseLineTemplated(const Eigen::Matrix<T, 3, 1> &vec, const T a, const T b) {
   Eigen::Matrix<T, 3, 3> A;
   A << (T(1.0) - a * a) / (T(1.0) + a * a), (T(-2.0) * a) / (T(1.0) + a * a), T(0),
-      (T(1.0) * a) / (T(1.0) + a * a), (T(1.0) - a * a) / (T(1.0) + a * a), T(0),
+      (T(2.0) * a) / (T(1.0) + a * a), (T(1.0) - a * a) / (T(1.0) + a * a), T(0),
       T(0.0), T(0.0), T(1.0);
 
   Eigen::Matrix<T, 3, 3> B;
@@ -205,7 +205,6 @@ Eigen::Matrix<T, 3, 1> IterativeRefinement::baseLineTemplated(const Eigen::Matri
 
 template<typename T>
 T IterativeRefinement::scaleTemplated(T t, double MAX_LEN, double MIN_LEN) {
-
   T result;
   auto exp = ceres::exp(-1.0 * t);
   if(ceres::IsInfinite(exp)){ //In Case, that this term gets infinite. The whole function is instable for derivations i guess. (It results in "nan" in ceres. Therefore we have to cattch need to know, that 1/Inf ~= 0. So we have to return MIN_VALUE.

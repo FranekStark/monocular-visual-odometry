@@ -48,7 +48,7 @@ add_executable(mvo_node
         src/pipeline/PipeLineEnd.cpp
         src/pipeline/BaselineEstimator.cpp
         src/pipeline/Refiner.cpp
-        src/pipeline/TrackerDetector.cpp src/Utils.cpp src/Utils.hpp src/sliding_window/Frame.cpp)
+        src/pipeline/TrackerDetector.cpp src/Utils.cpp src/Utils.hpp src/sliding_window/Frame.cpp src/pipeline/Scaler.cpp src/pipeline/Scaler.hpp)
 
 target_link_libraries(mvo_node ${catkin_LIBRARIES})
 target_link_libraries(mvo_node ${CERES_LIBRARIES})

@@ -86,8 +86,8 @@ class Frame {
       assert((*outFeatures)->size() == 0);
       (*outFeatures)->reserve(frame->_features.size());
       frame = frame->_preFrame;
-      frame->lock();
       assert(frame != nullptr);
+      frame->lock();
     }
     assert(depth > 0);
     assert(features.size() == (depth + 1));

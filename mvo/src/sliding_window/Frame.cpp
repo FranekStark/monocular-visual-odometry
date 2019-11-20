@@ -111,7 +111,7 @@ void Frame::mergeFrame(Frame &targetFrame, Frame &sourceFrame) {
     targetFrame._features.reserve(difference);
     for (auto feature = sourceFrame._features.begin(); feature != sourceFrame._features.end(); feature++) {
       if (feature->_preFeature == -1) { //If there is no precessor, it is a new Feature
-        targetFrame._features.push_back(Feature(feature->_positionImage, feature->_positionEuclidian, -1, 0));
+        targetFrame._features.push_back(Feature(feature->_positionImage, feature->_positionProjected, -1, 0));
         //Set the connection right
         feature->_preFeature = (targetFrame._features.size() - 1); //The last Index
       }
@@ -203,5 +203,5 @@ ros::Time Frame::getTimeStamp() {
 
 template<>
 const cv::Vec3d &Frame::getFeatureLocation(const Feature &f) {
-  return f._positionEuclidian;
+  return f._positionProjected;
 }
