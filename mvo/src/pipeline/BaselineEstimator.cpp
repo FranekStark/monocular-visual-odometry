@@ -21,6 +21,12 @@ BaselineEstimator::BaselineEstimator(PipelineStage &precursor,
 Frame *BaselineEstimator::stage(Frame *newFrame) {
   if (_prevFrame == nullptr) { //If it is the first Frame
     newFrame->setBaseLineToPrevious(cv::Vec3d(0, 0, 0));
+    newFrame->setScaleToPrevious(0);
+#ifdef RATINGDATA
+    newFrame->_infos.ESTIMATED_baseline = newFrame->getBaseLineToPrevious();
+    newFrame->_infos.RANSAC_outsortet_features = 0;
+    newFrame->_infos.RANSAC_probability = 0;
+#endif
   } else {
     /* Correct Connections, cause by "disband" they wil be wrong*/
     newFrame->calculateFeaturePreCounter();
@@ -96,6 +102,13 @@ Frame *BaselineEstimator::stage(Frame *newFrame) {
     /* Save Movement */
     newFrame->setBaseLineToPrevious(baseLine);
     newFrame->setScaleToPrevious(1.0);
+#ifdef RATINGDATA
+  newFrame->_infos.ESTIMATED_baseline = baseLine;
+  newFrame->_infos.RANSAC_outsortet_features = outlier.size();
+  newFrame->_infos.RANSAC_probability = 0;//TODO: Set!
+#endif
+
+
 #ifdef DEBUGIMAGES
     cv::Mat image(newFrame->getImage().size(), CV_8UC3, cv::Scalar(100, 100, 100));
     VisualisationUtils::drawCorrespondences({&thisCorespFeaturesE, &beforeCorespFeaturesE},

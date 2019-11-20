@@ -16,8 +16,6 @@ class PipelineBegin : public PipelineStage{
  private:
   Frame *stage(Frame *newFrame) override;
 
-
-
 };
 
 #endif //MVO_SRC_PIPELINE_PIPELINEBEGIN_HPP_

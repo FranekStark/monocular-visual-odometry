@@ -10,6 +10,10 @@ class PipeLineEnd : public PipelineStage{
  private:
   Frame * _lastFrame;
   Frame *stage(Frame *newFrame) override;
+#ifdef RATINGDATA
+  static void printRatingData(const Frame *frame);
+#endif
+
  public:
   ~PipeLineEnd() override = default;
   PipeLineEnd(PipelineStage &precursor);

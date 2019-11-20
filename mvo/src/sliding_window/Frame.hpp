@@ -10,6 +10,21 @@
 #include "../Utils.hpp"
 #include <mvo/mvoConfig.h>
 
+
+#ifdef RATINGDATA
+#include <ceres/ceres.h>
+struct Rating_Infos{
+  unsigned int RANSAC_outsortet_features;
+  double RANSAC_probability;
+  double MERGER_disparity;
+  ceres::Solver::Summary CERES_summary;
+  cv::Vec3d ESTIMATED_baseline;
+  double ESTIMATED_scale;
+  std::vector<cv::Vec3d> REFINED_baselines;
+  std::vector<double> REFINED_scales;
+};
+#endif
+
 class Frame {
  private:
   friend class VisualisationUtils;
@@ -30,6 +45,9 @@ class Frame {
   void lock() const;
   void unlock() const;
  public:
+#ifdef RATINGDATA
+  Rating_Infos _infos;
+#endif
   /**
    * Constructs a new Frame
    * @param imagePyramide the imagepyramide of this Frame

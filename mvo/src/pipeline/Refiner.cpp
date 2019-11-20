@@ -94,6 +94,14 @@ Frame *Refiner::stage(Frame *newFrame) {
   }
 
 
+#ifdef RATINGDATA
+  //Iterate through each Refined Frame and Save its current Baseline and Scale
+  for (unsigned int i = 0; i < numberToRefine; i++) {
+    Frame *frame = _frames[(keptFrames - 1) - i];
+    frame->_infos.REFINED_scales.push_back(refinementData[i].scale);
+    frame->_infos.REFINED_baselines.push_back(refinementData[i].vec);
+  }
+#endif
 
   //Pass the frames through
   _prePreFrame = _preFrame;
