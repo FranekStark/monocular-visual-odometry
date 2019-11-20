@@ -10,9 +10,9 @@ Merger::Merger(PipelineStage &precursor,
     _preFrame(nullptr),
     _keepFrame(nullptr) {
 #ifdef DEBUGIMAGES
-  cv::namedWindow("MergerImage", cv::WINDOW_NORMAL);
-  cv::moveWindow("MergerImage", -36, 44);
-  cv::resizeWindow("MergerImage", 638, 475);
+  cv::namedWindow("mvocv-MergerImage", cv::WINDOW_NORMAL);
+  cv::moveWindow("mvocv-MergerImage", -36, 44);
+  cv::resizeWindow("mvocv-MergerImage", 638, 475);
   cv::startWindowThread();
 #endif
 }
@@ -60,6 +60,9 @@ Frame *Merger::stage(Frame *newFrame) {
                                             newFrame->getCameraModel());
     cv::Mat image;
     cv::cvtColor(newFrame->getImage(), image, cv::COLOR_GRAY2BGR);
+    cv::Mat imagePre;
+    cv::cvtColor(_preFrame->getImage(), imagePre, cv::COLOR_GRAY2BGR);
+    cv::addWeighted(image, 0.5, imagePre, 0.5, 0.0, image);
 
     VisualisationUtils::drawFeaturesUnrotated(image, preCorespF, nowCorespF, nowCorespFU);
     auto brightnessVector = cv::mean(image.colRange(10, 100).rowRange(40, 100));
@@ -83,10 +86,10 @@ Frame *Merger::stage(Frame *newFrame) {
                 color,
                 5);
 
-    if((enoughTime || !newFrame->getParameters().useMergeFrequency) && disparity > newFrame->getParameters().movementDisparityThreshold){
-      image = cv::Scalar(255,255,255);
+    if((enoughTime || !newFrame->getParameters().useMergeFrequency) && disparity > newFrame->getParameters().movementDisparityThreshold) {
+      image = cv::Scalar(255, 255, 255);
     }
-    cv::imshow("MergerImage", image);
+    cv::imshow("mvocv-MergerImage", image);
     cv::waitKey(10);
   }
 #endif
@@ -119,7 +122,7 @@ Frame *Merger::stage(Frame *newFrame) {
 
 Merger::~Merger() {
 #ifdef DEBUGIMAGES
-  cv::destroyWindow("MergerImage");
+  cv::destroyWindow("mvocv-MergerImage");
 #endif
 }
 

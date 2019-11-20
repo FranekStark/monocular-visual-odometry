@@ -11,9 +11,9 @@ TrackerDetector::TrackerDetector(PipelineStage &precursor,
     _prevFrame(nullptr),
     _cornerTracking(cornerTracking) {
 #ifdef DEBUGIMAGES
-  cv::namedWindow("TrackerImage", cv::WINDOW_NORMAL);
-  cv::moveWindow("TrackerImage", 605, 51);
-  cv::resizeWindow("TrackerImage", 562, 470);
+  cv::namedWindow("mvocv-TrackerImage", cv::WINDOW_NORMAL);
+  cv::moveWindow("mvocv-TrackerImage", 605, 51);
+  cv::resizeWindow("mvocv-TrackerImage", 562, 470);
   cv::startWindowThread();
 #endif
 
@@ -36,7 +36,7 @@ Frame *TrackerDetector::stage(Frame *newFrame) {
                                getShipMask(newFrame->getImage().size(),
                                            newFrame->getParameters().shipHeight,
                                            newFrame->getParameters().shipWidth));
-  cv::imshow("TrackerImage", image);
+  cv::imshow("mvocv-TrackerImage", image);
   cv::waitKey(10);
 #endif
   //Pass through the new Frame
@@ -111,7 +111,7 @@ void TrackerDetector::detect(Frame &newFrame, unsigned int number) {
   newFrame.addFeaturesToFrame(newFeatures, newFeaturesE);
 }
 TrackerDetector::~TrackerDetector() {
-  cv::destroyWindow("TrackerImage");
+  cv::destroyWindow("mvocv-TrackerImage");
 }
 
 cv::Rect2d TrackerDetector::getShipMask(const cv::Size &imageSize, double shipHeight, double shipWidth) {

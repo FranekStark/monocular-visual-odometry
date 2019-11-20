@@ -9,6 +9,18 @@
 #include <algorithm>
 #include "../Utils.hpp"
 #include <mvo/mvoConfig.h>
+#define RATINGDATA
+
+
+#ifdef RATINGDATA
+#include <ceres/ceres.h>
+struct infos{
+  unsigned int outsortet_features;
+  double RANSAC_probability;
+  ceres::Solver::Summary ceres_summary;
+  double FEEATURE_cover;
+};
+#endif
 
 #define RATINGDATA
 
