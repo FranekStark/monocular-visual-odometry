@@ -65,15 +65,17 @@ Frame *BaselineEstimator::stage(Frame *newFrame) {
     }
     /*Remove Outlier*/
     newFrame->disbandFeatureConnection(outlier); //TODO: don't remove, but delete the connections
-    /* Vote for the sign of the Baseline, which generates the feweset negative Gradients */
-     std::vector<double> depths, depthsNegate;
+    /* Transform the relative BaseLine into WorldCoordinates */
+    baseLine = beforeRotaton * baseLine;
+
+    //Detect a wring BAseline
+    //Vote for the sign of the Baseline, which generates the feweset negative Gradients
+    std::vector<double> depths, depthsNegate;
     auto bnegate = -1.0 * baseLine;
-    FeatureOperations::reconstructDepth(depths, thisCorespFeaturesE, beforeCorespFeaturesE, diffRotation, baseLine);
-    FeatureOperations::reconstructDepth(depthsNegate,
-                                        thisCorespFeaturesE,
-                                        beforeCorespFeaturesE,
-                                        diffRotation,
-                                        bnegate);
+    std::vector<cv::Vec3d> prevFeatureD, nowFeatureD;
+    Frame::getCorrespondingFeatures(*_prevFrame, *newFrame, prevFeatureD, nowFeatureD);
+    FeatureOperations::reconstructDepth(depths, prevFeatureD, nowFeatureD, _prevFrame->getRotation(), newFrame->getRotation(), baseLine);
+    FeatureOperations::reconstructDepth(depthsNegate, prevFeatureD, nowFeatureD, _prevFrame->getRotation(), newFrame->getRotation(), bnegate);
     unsigned int negCountb = 0;
     unsigned int negCountbnegate = 0;
     assert(depths.size() == depthsNegate.size());
@@ -93,13 +95,12 @@ Frame *BaselineEstimator::stage(Frame *newFrame) {
       //baseLine = baseLine;
       ROS_INFO_STREAM("Baseline positive!");
     } else if (negCountbnegate < negCountb) {
-      //baseLine = bnegate;
+      baseLine = bnegate;
       ROS_INFO_STREAM("Baseline negative!");
     } else {
       ROS_WARN_STREAM("Couldn't find unambiguous solution for sign of movement." << std::endl);
     }
-    /* Transform the relative BaseLine into WorldCoordinates */
-    baseLine = beforeRotaton * baseLine;
+
     /* Save Movement */
     newFrame->setBaseLineToPrevious(baseLine);
     newFrame->setScaleToPrevious(1.0);

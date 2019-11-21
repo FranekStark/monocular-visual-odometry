@@ -84,8 +84,10 @@ class MVO : public PipelineBegin {
   Frame *_prevFrame;
 
  public:
-  MVO(std::function<void(cv::Point3d, cv::Matx33d,ros::Time timeStamp)> estimatedPositionCallback,
-      std::function<void(cv::Point3d, cv::Matx33d,ros::Time timeStamp)> refinedPositionCallback, mvo::mvoConfig startConfig);
+  MVO(std::function<void(cv::Point3d, cv::Matx33d, ros::Time timeStamp)> estimatedPositionCallback,
+      std::function<void(cv::Point3d, cv::Matx33d, ros::Time timeStamp)> refinedPositionCallback,
+      std::function<void(std::vector<cv::Vec3d> &, cv::Point3d, cv::Scalar)> projectionCallback,
+      mvo::mvoConfig startConfig);
   ~MVO() override;
 
   void newImage(const cv::Mat &image,

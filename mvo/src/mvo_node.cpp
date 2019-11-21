@@ -104,6 +104,7 @@ void MVO_node::init() {
                    this->publishVectors(position, orientation);
                    this->publishTFTransform(position, orientation, timeStamp);
                  },
+                 std::bind(&MVO_node::publishProjectionMarkers, this, std::placeholders::_1, std::placeholders::_2),
                  _currentConfig
   );
 
@@ -139,6 +140,7 @@ void MVO_node::init() {
   _refined1OdomPublisher = _nodeHandle.advertise<geometry_msgs::PoseStamped>("odom_refined_once", 10, true);
   _refined2OdomPublisher = _nodeHandle.advertise<geometry_msgs::PoseStamped>("odom_refined_twice", 10, true);
   _vectorsPublisher = _nodeHandle.advertise<visualization_msgs::MarkerArray>("odom_refined_twice_vectors", 10, true);
+  _projectionsPublisher = _nodeHandle.advertise<visualization_msgs::Marker>("camera_projections", 10, true);
   _synchronizer->registerCallback(boost::bind(&MVO_node::imageCallback, this, _1, _2, _3));
 
 }
@@ -305,4 +307,31 @@ void MVO_node::publishTFTransform(cv::Point3d position, cv::Matx33d orientation,
   transform.transform.rotation = pose.orientation;
 
   _transformBroadcaster.sendTransform(transform);
+}
+void MVO_node::publishProjectionMarkers(std::vector<cv::Vec3d> & projections, cv::Point3d position, cv::Scalar color) {
+  auto posU = _transformWorldToCamera * position;
+  for(auto proj = projections.begin(); proj < projections.end(); proj++){
+    auto projU = 2 * _transformWorldToCamera * *proj;
+    visualization_msgs::Marker m;
+    m.type = visualization_msgs::Marker::ARROW;
+    m.action = visualization_msgs::Marker::ADD;
+    m.color.a = 1.0;
+    m.color.b = 1.0;
+    m.color.g = 1.0;
+    static int id = 0;
+    m.id = id++;
+    m.header.frame_id = "world";
+    geometry_msgs::Point start, end;
+    start.x = posU.x;
+    start.y = posU.y;
+    start.z = posU.z;
+    end.x = posU.x + (projU)[0];
+    end.y = posU.y + (projU)[1];
+    end.z = posU.z + (projU)[2];
+    m.scale.x = 0.01;//shaft diameter;
+    m.scale.y = 0.05; //head diamaete;
+    m.points.push_back(start);
+    m.points.push_back(end);
+    _projectionsPublisher.publish(m);
+  }
 }

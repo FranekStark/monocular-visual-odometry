@@ -7,6 +7,7 @@
 
 #include <opencv2/core.hpp>
 #include <image_geometry/pinhole_camera_model.h>
+#include <math.h>
 
 class FeatureOperations {
  public:
@@ -58,9 +59,12 @@ class FeatureOperations {
    * @param r the rotation between first and second
    * @param b the baseline between first and second
    */
-  static void reconstructDepth(std::vector<double> &depth, const std::vector<cv::Vec3d> &m2L,
-                               const std::vector<cv::Vec3d> &m1L, const cv::Matx33d &r,
-                               const cv::Vec3d &b);
+  static void reconstructDepth(std::vector<double> &depth,
+                               const std::vector<cv::Vec3d> &vec1,
+                               const std::vector<cv::Vec3d> &vec0,
+                               const cv::Matx33d &R1,
+                               const cv::Matx33d &R0,
+                               const cv::Vec3d &b) ;
 
 
 };

@@ -8,6 +8,7 @@
 
 class PipeLineEnd : public PipelineStage{
  private:
+  std::function<void(std::vector<cv::Vec3d>&, cv::Point3d, cv::Scalar)> _drawProjectionsCallback;
   Frame * _lastFrame;
   Frame *stage(Frame *newFrame) override;
 #ifdef RATINGDATA
@@ -16,7 +17,9 @@ class PipeLineEnd : public PipelineStage{
 
  public:
   ~PipeLineEnd() override = default;
-  PipeLineEnd(PipelineStage &precursor);
+  PipeLineEnd(PipelineStage &precursor,
+              std::function<void(std::vector<cv::Vec3d>&, cv::Point3d, cv::Scalar)> drawProjectionsCallback
+      );
 
 };
 

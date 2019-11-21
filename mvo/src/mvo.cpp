@@ -6,6 +6,7 @@
 
 MVO::MVO(std::function<void(cv::Point3d, cv::Matx33d, ros::Time timeStamp)> estimatedPositionCallback,
          std::function<void(cv::Point3d, cv::Matx33d, ros::Time timeStamp)> refinedPositionCallback,
+         std::function<void(std::vector<cv::Vec3d>&, cv::Point3d, cv::Scalar)> projectionCallback,
          mvo::mvoConfig startConfig) :
     _estimatedPosition(0, 0, 0),
     _refinedPosition(0, 0, 0),
@@ -16,7 +17,7 @@ MVO::MVO(std::function<void(cv::Point3d, cv::Matx33d, ros::Time timeStamp)> esti
     _baseLineEstimator(_merger, 100, _epipolarGeometry),
     _scaler(_baseLineEstimator, 100),
     _refiner(_scaler, 4, _iterativeRefinement, startConfig.numberToRefine, startConfig.numberToNote),
-    _end(_refiner),
+    _end(_refiner, projectionCallback),
     _trackerThread(std::ref(_trackerDetector)),
     _mergerThread(std::ref(_merger)),
     _estimatorThread(std::ref(_baseLineEstimator)),
