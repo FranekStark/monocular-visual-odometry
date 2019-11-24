@@ -43,6 +43,7 @@ class MVO_node {
   ros::Publisher _refined1OdomPublisher;
   ros::Publisher _refined2OdomPublisher;
   ros::Publisher _vectorsPublisher;
+  ros::Publisher _vectorsEstimatedPublisher;
   ros::Publisher _projectionsPublisher;
   tf2_ros::TransformBroadcaster _transformBroadcaster;
 

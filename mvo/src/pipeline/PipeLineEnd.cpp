@@ -24,8 +24,8 @@ Frame *PipeLineEnd::stage(Frame *newFrame) {
     }
     _drawProjectionsCallback(projections, pos, cv::Scalar(255,255,0));
 
-    //LastTwoVIews:
-    if(newFrame->getPreviousFrame(1) != nullptr){
+    //LastTwoViews:
+    if(_lastFrame != nullptr){
       
     }
 #endif

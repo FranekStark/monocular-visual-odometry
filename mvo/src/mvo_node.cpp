@@ -30,7 +30,7 @@ MVO_node::~MVO_node() {
 
 void MVO_node::init() {
   //Get Params
-  std::string _imageTopic = "/pylon_camera_node/image_raw";
+  std::string _imageTopic = "/pylon_camera_node/image_rect";
   std::string _camInfoTopic = "/pylon_camera_node/camera_info";
   std::string _imuTopic = "/imu/data";
   bool _logDebug = false;
@@ -104,7 +104,7 @@ void MVO_node::init() {
                    this->publishVectors(position, orientation);
                    this->publishTFTransform(position, orientation, timeStamp);
                  },
-                 std::bind(&MVO_node::publishProjectionMarkers, this, std::placeholders::_1, std::placeholders::_2),
+                 std::bind(&MVO_node::publishProjectionMarkers, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3),
                  _currentConfig
   );
 
@@ -140,6 +140,7 @@ void MVO_node::init() {
   _refined1OdomPublisher = _nodeHandle.advertise<geometry_msgs::PoseStamped>("odom_refined_once", 10, true);
   _refined2OdomPublisher = _nodeHandle.advertise<geometry_msgs::PoseStamped>("odom_refined_twice", 10, true);
   _vectorsPublisher = _nodeHandle.advertise<visualization_msgs::MarkerArray>("odom_refined_twice_vectors", 10, true);
+  _vectorsEstimatedPublisher = _nodeHandle.advertise<visualization_msgs::Marker>("odom_estimated_vectors", 10, true);
   _projectionsPublisher = _nodeHandle.advertise<visualization_msgs::Marker>("camera_projections", 10, true);
   _synchronizer->registerCallback(boost::bind(&MVO_node::imageCallback, this, _1, _2, _3));
 
@@ -209,6 +210,31 @@ void MVO_node::publishEstimatedPosition(cv::Point3d position, cv::Matx33d orient
   odomMsg.pose = worldPoseFromCameraPosition(position, orientation);
   //Publish
   _estimatedOdomPublisher.publish(odomMsg);
+
+  //Vectors
+  visualization_msgs::Marker m;
+  m.type = visualization_msgs::Marker::ARROW;
+  m.action = visualization_msgs::Marker::MODIFY;
+  m.color.a = 1.0;
+  m.color.r = 1.0;
+  m.header.frame_id = "world";
+  static unsigned int id = 0;
+  m.id = id++;
+  geometry_msgs::Point start;
+  static double x, y, z = 0;
+  start.x = x;
+  start.y = y;
+  start.z = z;
+  geometry_msgs::Point end;
+  x = end.x = odomMsg.pose.position.x;
+  y = end.y = odomMsg.pose.position.y;
+  z = end.z = odomMsg.pose.position.z;
+  m.scale.x = 0.1;//shaft diameter;
+  m.scale.y = 0.2; //head diamaete;
+  m.points.push_back(start);
+  m.points.push_back(end);
+  _vectorsEstimatedPublisher.publish(m);
+
 }
 void MVO_node::publishRefinedPosition(cv::Point3d position, cv::Matx33d orientation, ros::Time timeStamp, int stage) {
   //Pack Message
@@ -316,8 +342,9 @@ void MVO_node::publishProjectionMarkers(std::vector<cv::Vec3d> & projections, cv
     m.type = visualization_msgs::Marker::ARROW;
     m.action = visualization_msgs::Marker::ADD;
     m.color.a = 1.0;
-    m.color.b = 1.0;
-    m.color.g = 1.0;
+    m.color.b = color(0) / 255.0;
+    m.color.g = color(1) / 255.0;
+    m.color.r = color(2) /255.0;
     static int id = 0;
     m.id = id++;
     m.header.frame_id = "world";

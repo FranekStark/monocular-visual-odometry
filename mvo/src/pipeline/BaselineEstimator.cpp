@@ -74,32 +74,45 @@ Frame *BaselineEstimator::stage(Frame *newFrame) {
     auto bnegate = -1.0 * baseLine;
     std::vector<cv::Vec3d> prevFeatureD, nowFeatureD;
     Frame::getCorrespondingFeatures(*_prevFrame, *newFrame, prevFeatureD, nowFeatureD);
-    FeatureOperations::reconstructDepth(depths, prevFeatureD, nowFeatureD, _prevFrame->getRotation(), newFrame->getRotation(), baseLine);
-    FeatureOperations::reconstructDepth(depthsNegate, prevFeatureD, nowFeatureD, _prevFrame->getRotation(), newFrame->getRotation(), bnegate);
-    unsigned int negCountb = 0;
-    unsigned int negCountbnegate = 0;
+    FeatureOperations::calcProjectionsAngleDiff(depths,
+                                                prevFeatureD,
+                                                nowFeatureD,
+                                                _prevFrame->getRotation(),
+                                                newFrame->getRotation(),
+                                                baseLine);
+    FeatureOperations::calcProjectionsAngleDiff(depthsNegate,
+                                                prevFeatureD,
+                                                nowFeatureD,
+                                                _prevFrame->getRotation(),
+                                                newFrame->getRotation(),
+                                                bnegate);
+    double negCountb = 0;
+   double negCountbnegate = 0;
     assert(depths.size() == depthsNegate.size());
     auto depthIt = depths.begin();
     auto depthnegateIt = depthsNegate.begin();
     while (depthIt != depths.end()) {
-      if (*depthIt < 0) { //TODO: Count here also for vanishing depths?
-        negCountb++;
-      }
-      if (*depthnegateIt < 0) {
-        negCountbnegate++;
-      }
+
+
+        negCountb += cos(0.5 * *depthIt);
+        negCountbnegate += cos(0.5 * *depthnegateIt);
+
+      ROS_ERROR_STREAM("depth: " << *depthIt * 180.0 / M_PI << " (" <<   cos(0.5 * *depthIt) << ") | " << *depthnegateIt * 180.0 / M_PI << " (" << cos(0.5 * *depthnegateIt) << ") ");
+
       depthIt++;
       depthnegateIt++;
     }
-    if (negCountb < negCountbnegate) {
+    std::string hint;
+    if (negCountb > 1.0) {
       //baseLine = baseLine;
-      ROS_INFO_STREAM("Baseline positive!");
-    } else if (negCountbnegate < negCountb) {
+      hint = "let" + std::to_string(negCountb) + "|" + std::to_string(negCountbnegate);
+    } else if (negCountbnegate > 1.0) {
       baseLine = bnegate;
-      ROS_INFO_STREAM("Baseline negative!");
+      hint = "negated " + std::to_string(negCountb) + "|" + std::to_string(negCountbnegate);
     } else {
-      ROS_WARN_STREAM("Couldn't find unambiguous solution for sign of movement." << std::endl);
+      hint = "no Info!" + std::to_string(negCountb) + "|" + std::to_string(negCountbnegate);
     }
+ROS_INFO_STREAM("Baseline direction : " << hint);
 
     /* Save Movement */
     newFrame->setBaseLineToPrevious(baseLine);
@@ -115,7 +128,9 @@ Frame *BaselineEstimator::stage(Frame *newFrame) {
     cv::Mat image(newFrame->getImage().size(), CV_8UC3, cv::Scalar(100, 100, 100));
     VisualisationUtils::drawCorrespondences({&thisCorespFeaturesE, &beforeCorespFeaturesE},
                                             newFrame->getCameraModel(), image);
+
     VisualisationUtils::drawMovementDebug(*newFrame, cv::Scalar(0,0,255), image,0);
+    cv::putText(image, hint, cv::Point(10,40), cv::FONT_HERSHEY_PLAIN, 2, cv::Scalar(0,0,255));
     cv::imshow("mvocv-EstimatorImage", image);
     cv::waitKey(10);
 #endif

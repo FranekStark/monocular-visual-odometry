@@ -60,11 +60,20 @@ class FeatureOperations {
    * @param b the baseline between first and second
    */
   static void reconstructDepth(std::vector<double> &depth,
-                               const std::vector<cv::Vec3d> &vec1,
-                               const std::vector<cv::Vec3d> &vec0,
-                               const cv::Matx33d &R1,
-                               const cv::Matx33d &R0,
-                               const cv::Vec3d &b) ;
+  const std::vector<cv::Vec3d> &vec1,
+  const std::vector<cv::Vec3d> &vec0,
+  const cv::Matx33d &R1,
+  const cv::Matx33d &R0,
+  const cv::Vec3d &b);
+
+
+
+  static void calcProjectionsAngleDiff(std::vector<double> &depth,
+                                       const std::vector<cv::Vec3d> &vec1,
+                                       const std::vector<cv::Vec3d> &vec0,
+                                       const cv::Matx33d &R1,
+                                       const cv::Matx33d &R0,
+                                       const cv::Vec3d &b);
 
 
 };
