@@ -28,6 +28,8 @@ void IterativeRefinement::refine(std::vector<RefinementFrame> &refinementData,
   assert(refinementData.size() == numberToNote);
   assert(numberToNote > numberToRefine);
   assert(numberToRefine > 0);
+
+
   ROS_INFO_STREAM(
       "REFINEMENT: " << std::endl << "\trefine: " << numberToRefine << std::endl << "\tnote: " << numberToNote);
   //Convert into EIGEN-Space:
@@ -294,7 +296,7 @@ T IterativeRefinement::scaleTemplated(T t, double MAX_LEN, double MIN_LEN) {
   T exp = ceres::exp(-1.0 * t);
   if (ceres::IsInfinite(exp)) { //In Case, that this term gets infinite. The whole function is instable for derivations i guess. (It results in "nan" in ceres. Therefore we have to catch. We know, that 1/Inf ~= 0. So we have to return MIN_VALUE.
     result = T(MIN_LEN);
-    //ROS_ERROR_STREAM("INfinity Case");
+    ROS_ERROR_STREAM("Infinity Case");
   } else {
     result = MIN_LEN + ((MAX_LEN - MIN_LEN) / (1.0 + exp));
   }
@@ -380,9 +382,9 @@ void IterativeRefinement::addResidualBlocks(const std::vector<Eigen::Vector3d> &
             new CostFunction1(*f1, *f0, R1, R0, highest_len, lowest_len, vect_offset)
         );
         ceres_problem.AddResidualBlock(cost_function,
-            loss_fun,
-            parameter_blocks[0],
-            parameter_blocks[1]);
+                                       loss_fun,
+                                       parameter_blocks[0],
+                                       parameter_blocks[1]);
         break;
       case 4:
         cost_function = new ceres::AutoDiffCostFunction<CostFunction2, 1, 1, 3, 1, 3>(

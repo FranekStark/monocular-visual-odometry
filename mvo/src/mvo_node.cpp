@@ -93,6 +93,12 @@ void MVO_node::init() {
   _privateNodeHandle.param<bool>("useMergeFrequency", _currentConfig.useMergeFrequency, _currentConfig.useMergeFrequency);
   _privateNodeHandle.param<double>("mergeFrequency", _currentConfig.mergeFrequency, _currentConfig.mergeFrequency);
 
+  _privateNodeHandle.param<double>("negativeDepthThreshold", _currentConfig.negativeDepthThreshold, _currentConfig.negativeDepthThreshold);
+  _privateNodeHandle.param<int>("negativeDegreesThreshold", _currentConfig.negativeDegreesThreshold, _currentConfig.negativeDegreesThreshold);
+
+  _privateNodeHandle.param<bool>("useScaler", _currentConfig.useScaler, _currentConfig.useScaler);
+  _privateNodeHandle.param<bool>("useRefiner", _currentConfig.useRefiner, _currentConfig.useRefiner);
+
 
   _dynamicConfigServer.updateConfig(_currentConfig);
 
@@ -105,6 +111,17 @@ void MVO_node::init() {
                    this->publishTFTransform(position, orientation, timeStamp);
                  },
                  std::bind(&MVO_node::publishProjectionMarkers, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3),
+                 [this](Rating_Infos ri, ros::Time timeStamp){
+                    mvo::RatingData msg;
+                    msg.TRACKER_new_features = ri.TRACKER_new_features;
+                    msg.RANSAC_probability = ri.RANSAC_probability;
+                    msg.RANSAC_outsortet_features = ri.RANSAC_outsortet_features;
+                    msg.MERGER_disparity = ri.MERGER_disparity;
+                    msg.TRACKER_sum_features = ri.TRACKER_sum_features;
+                    msg.TRACKER_tracked_features = ri.TRACKER_tracked_features;
+                    msg.header.stamp = timeStamp;
+                    _ratingPublisher.publish(msg);
+                  },
                  _currentConfig
   );
 
@@ -142,13 +159,14 @@ void MVO_node::init() {
   _vectorsPublisher = _nodeHandle.advertise<visualization_msgs::MarkerArray>("odom_refined_twice_vectors", 10, true);
   _vectorsEstimatedPublisher = _nodeHandle.advertise<visualization_msgs::Marker>("odom_estimated_vectors", 10, true);
   _projectionsPublisher = _nodeHandle.advertise<visualization_msgs::Marker>("camera_projections", 10, true);
+  _ratingPublisher = _nodeHandle.advertise<mvo::RatingData>("rating", 10, true);
   _synchronizer->registerCallback(boost::bind(&MVO_node::imageCallback, this, _1, _2, _3));
 
 }
 
 void MVO_node::imageCallback(const sensor_msgs::ImageConstPtr &image, const sensor_msgs::CameraInfoConstPtr &camInfo,
-                             const sensor_msgs::ImuConstPtr &imu) {
-
+                             const sensor_msgs::ImuConstPtr &imu)
+{
   LOG_DEBUG("Image Callback");
   /**
    * Convert the Image and the CameraInfo

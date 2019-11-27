@@ -47,6 +47,9 @@ class MVO : public PipelineBegin {
    */
   std::function<void(cv::Point3d, cv::Matx33d, ros::Time timeStamp)> _estimatedCallbackFunction;
   std::function<void(cv::Point3d, cv::Matx33d, ros::Time timeStamp)> _refinedCallbackFunction;
+#ifdef RATINGDATA
+  std::function<void(Rating_Infos, ros::Time)> _ratingCallbackFunction;
+#endif
 
   /**
    * Algorithms
@@ -87,6 +90,9 @@ class MVO : public PipelineBegin {
   MVO(std::function<void(cv::Point3d, cv::Matx33d, ros::Time timeStamp)> estimatedPositionCallback,
       std::function<void(cv::Point3d, cv::Matx33d, ros::Time timeStamp)> refinedPositionCallback,
       std::function<void(std::vector<cv::Vec3d> &, cv::Point3d, cv::Scalar)> projectionCallback,
+#ifdef RATINGDATA
+      std::function<void(Rating_Infos, ros::Time)> ratingCallbackFunction,
+#endif
       mvo::mvoConfig startConfig);
   ~MVO() override;
 

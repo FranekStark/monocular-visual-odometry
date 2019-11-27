@@ -26,6 +26,7 @@
 #include <message_filters/sync_policies/approximate_time.h>
 #include "mvo.hpp"
 #include "Utils.hpp"
+#include <mvo/RatingData.h>
 
 class MVO_node {
  private:
@@ -45,6 +46,8 @@ class MVO_node {
   ros::Publisher _vectorsPublisher;
   ros::Publisher _vectorsEstimatedPublisher;
   ros::Publisher _projectionsPublisher;
+  ros::Publisher _ratingPublisher;
+
   tf2_ros::TransformBroadcaster _transformBroadcaster;
 
   visualization_msgs::MarkerArray _vectors;

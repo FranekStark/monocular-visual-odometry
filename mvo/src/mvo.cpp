@@ -7,16 +7,28 @@
 MVO::MVO(std::function<void(cv::Point3d, cv::Matx33d, ros::Time timeStamp)> estimatedPositionCallback,
          std::function<void(cv::Point3d, cv::Matx33d, ros::Time timeStamp)> refinedPositionCallback,
          std::function<void(std::vector<cv::Vec3d>&, cv::Point3d, cv::Scalar)> projectionCallback,
+#ifdef RATINGDATA
+         std::function<void(Rating_Infos, ros::Time)> ratingCallbackFunction,
+#endif
          mvo::mvoConfig startConfig) :
     _estimatedPosition(0, 0, 0),
     _refinedPosition(0, 0, 0),
     _estimatedCallbackFunction(estimatedPositionCallback),
     _refinedCallbackFunction(refinedPositionCallback),
+#ifdef RATINGDATA
+    _ratingCallbackFunction(ratingCallbackFunction),
+#endif
     _trackerDetector(*this, 10, _cornerTracking),
     _merger(_trackerDetector, 10),
     _baseLineEstimator(_merger, 100, _epipolarGeometry),
     _scaler(_baseLineEstimator, 100),
-    _refiner(_scaler, 4, _iterativeRefinement, startConfig.numberToRefine, startConfig.numberToNote),
+    _refiner(_scaler, 4, _iterativeRefinement, startConfig.numberToRefine,
+
+#ifdef RATINGDATA
+             ratingCallbackFunction,
+#endif
+startConfig.numberToNote
+        ),
     _end(_refiner, projectionCallback),
     _trackerThread(std::ref(_trackerDetector)),
     _mergerThread(std::ref(_merger)),

@@ -15,6 +15,9 @@
 #ifdef RATINGDATA
 #include <ceres/ceres.h>
 struct Rating_Infos{
+  unsigned int TRACKER_sum_features;
+  unsigned int TRACKER_tracked_features;
+  unsigned int TRACKER_new_features;
   unsigned int RANSAC_outsortet_features;
   double RANSAC_probability;
   double MERGER_disparity;
