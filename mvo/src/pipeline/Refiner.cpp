@@ -108,7 +108,7 @@ Frame *Refiner::stage(Frame *newFrame) {
       frame->_infos.REFINED_scales.push_back(refinementData[i].scale);
       frame->_infos.REFINED_baselines.push_back(refinementData[i].vec);
     }
-    _frames[0]->_infos.REF_Time = ros::Time::now();
+    newFrame->_infos.REF_Time = ros::Time::now();
 #endif
 
   }

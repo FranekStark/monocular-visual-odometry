@@ -122,9 +122,9 @@ void MVO_node::init() {
                     msg.MERGER_disparity = ri.MERGER_disparity;
                     msg.TRACKER_sum_features = ri.TRACKER_sum_features;
                     msg.TRACKER_tracked_features = ri.TRACKER_tracked_features;
-                    msg.DUR_EST = (ri.EST_Time - ri.IN_Time).toNSec();
-                    msg.DUR_REF = (ri.REF_Time - ri.IN_Time).toNSec();
-                    msg.DUR_OUT = (ri.OUT_time - ri.IN_Time).toNSec();
+                    msg.DUR_EST = (ri.EST_Time - ri.IN_Time).toSec();
+                    msg.DUR_REF = (ri.REF_Time - ri.IN_Time).toSec();
+                    msg.DUR_OUT = (ri.OUT_time - ri.IN_Time).toSec();
                     msg.header.stamp = timeStamp;
                     _ratingPublisher.publish(msg);
                   },
