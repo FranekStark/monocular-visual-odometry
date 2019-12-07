@@ -8,3 +8,7 @@ int32 RANSAC_outsortet_features
 float64 RANSAC_probability
 float64 MERGER_disparity
 
+int64 DUR_EST
+int64 DUR_REF
+int64 DUR_OUT
+

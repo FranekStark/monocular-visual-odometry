@@ -108,6 +108,7 @@ Frame *Refiner::stage(Frame *newFrame) {
       frame->_infos.REFINED_scales.push_back(refinementData[i].scale);
       frame->_infos.REFINED_baselines.push_back(refinementData[i].vec);
     }
+    _frames[0]->_infos.REF_Time = ros::Time::now();
 #endif
 
   }
@@ -119,6 +120,7 @@ Frame *Refiner::stage(Frame *newFrame) {
                          mostRefined->getRotation(), mostRefined->getTimeStamp()
                         });
 #ifdef RATINGDATA
+      mostRefined->_infos.OUT_time = ros::Time::now();
       _ratingCallbackFunction(mostRefined->_infos, mostRefined->getTimeStamp());
 #endif
     }

@@ -131,6 +131,7 @@ Frame *BaselineEstimator::stage(Frame *newFrame) {
     newFrame->_infos.ESTIMATED_baseline = baseLine;
     newFrame->_infos.RANSAC_outsortet_features = outlier.size();
     newFrame->_infos.RANSAC_probability = 0;//TODO: Set!
+    newFrame->_infos.EST_Time = ros::Time::now();
 #endif
 
 #ifdef DEBUGIMAGES

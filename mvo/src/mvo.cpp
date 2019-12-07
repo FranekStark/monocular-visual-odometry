@@ -76,11 +76,17 @@ void MVO::newImage(const cv::Mat &image,
                    const image_geometry::PinholeCameraModel &cameraModel,
                    const cv::Matx33d &R,
                    mvo::mvoConfig parameters, const ros::Time &timeStamp) {
+#ifdef RATINGDATA
+   auto time = ros::Time::now();
+#endif
   auto pyramideImage = _cornerTracking.createPyramide(image,
                                                       cv::Size(parameters.windowSizeX, parameters.windowSizeY),
                                                       parameters.pyramidDepth);
   //Creates Frame:
   auto *frame = new Frame(pyramideImage, cameraModel, R, _prevFrame, parameters, timeStamp);
+#ifdef RATINGDATA
+  frame->_infos.IN_Time = time;
+#endif
   _prevFrame = frame;
   pipeIn(frame);
   LOG_DEBUG("New Frame Created and Piped in: " << frame);

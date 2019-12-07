@@ -26,6 +26,10 @@ struct Rating_Infos{
   double ESTIMATED_scale;
   std::vector<cv::Vec3d> REFINED_baselines;
   std::vector<double> REFINED_scales;
+  ros::Time IN_Time;
+  ros::Time EST_Time;
+  ros::Time REF_Time;
+  ros::Time OUT_time;
 };
 #endif
 
