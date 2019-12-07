@@ -98,6 +98,7 @@ Frame *Refiner::stage(Frame *newFrame) {
       frame->setBaseLineToPrevious(refinementData[i].vec);
     }
 
+
 #ifdef DEBUGIMAGES
     //VisualisationUtils::drawCorrespondences(featureVectors, newFrame->getCameraModel(), image);
     cv::imshow("mvocv-RefinerImage", image);
@@ -111,8 +112,12 @@ Frame *Refiner::stage(Frame *newFrame) {
       frame->_infos.REFINED_scales.push_back(refinementData[i].scale);
       frame->_infos.REFINED_baselines.push_back(refinementData[i].vec);
     }
-    newFrame->_infos.REF_Time = ros::Time::now();
 #endif
+
+#ifdef RATINGDATA
+    newFrame->_infos.OUT_time = ros::Time::now();
+#endif
+
 
   }
     //Enqueue the mostRefined, only if there already enough Frames, to prevent double enqueuing
@@ -127,9 +132,7 @@ Frame *Refiner::stage(Frame *newFrame) {
 #endif
     }
   //Pass throuh Frames, but Only, if we don't need more
-#ifdef RATINGDATA
-  newFrame->_infos.OUT_time = ros::Time::now();
-#endif
+
   if (keptFrames >= _numberToNote) { //When that was enough, pass through
     Frame *presFrame = _frames[0];
     _frames.pop();
