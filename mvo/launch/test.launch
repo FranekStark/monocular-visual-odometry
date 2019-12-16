@@ -4,10 +4,11 @@
     <node name = "my_rqt_dashboard" pkg = "rqt_gui" type = "rqt_gui" respawn = "false" output = "screen"/>
     <node name="odom_scale_node" pkg="relative_scaler" type="odom_scale_node" respawn = "false" output="screen"/>
     <node name="timer" pkg="loop_tester" type="timing_node.py" output="screen"/>
-
+    <node name="mvo_node" pkg="mvo" type="mvo_node" output= "screen" />
+    <include file="$(find titanic_launch)/launch/hector_ugv.launch" />
 <!--
-        <node name="mvo_node" pkg="mvo" type="mvo_node" output= "screen" />
-	<include file="$(find titanic_launch)/launch/hector_ugv.launch" />
+
+
 
     <node pkg="hector_mapping" type="hector_mapping" name="hector_mapping" output="screen">
         <param name="scan_topic" value="/scan" />

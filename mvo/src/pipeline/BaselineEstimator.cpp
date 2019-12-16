@@ -99,7 +99,7 @@ Frame *BaselineEstimator::stage(Frame *newFrame) {
 
       if (((abs(180 - (*depthIt * 180.0 / M_PI) )) > (newFrame->getParameters().negativeDegreesThreshold)
           && abs(180 - (*depthnegateIt  * 180.0 / M_PI)) > (newFrame->getParameters().negativeDegreesThreshold))) {
-        negCountb += cos(0.5 * *depthIt);
+         negCountb += cos(0.5 * *depthIt);
         negCountbnegate += cos(0.5 * *depthnegateIt);
       }
 

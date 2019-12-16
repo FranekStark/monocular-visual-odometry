@@ -36,6 +36,9 @@ _baseLine(1)
 
 Frame *Refiner::stage(Frame *newFrame) {
 
+#ifdef RATINGDATA
+  newFrame->_infos.REF_Time = ros::Time::now();
+#endif
   //Add One more to keptFrames, cause we have a 'newFrame'.
   _frames.push(newFrame);
   unsigned int keptFrames = _frames.size();
@@ -120,12 +123,13 @@ Frame *Refiner::stage(Frame *newFrame) {
                          mostRefined->getRotation(), mostRefined->getTimeStamp()
                         });
 #ifdef RATINGDATA
-      mostRefined->_infos.OUT_time = ros::Time::now();
       _ratingCallbackFunction(mostRefined->_infos, mostRefined->getTimeStamp());
 #endif
     }
   //Pass throuh Frames, but Only, if we don't need more
-
+#ifdef RATINGDATA
+  newFrame->_infos.OUT_time = ros::Time::now();
+#endif
   if (keptFrames >= _numberToNote) { //When that was enough, pass through
     Frame *presFrame = _frames[0];
     _frames.pop();

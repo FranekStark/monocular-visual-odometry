@@ -130,7 +130,7 @@ void IterativeRefinement::refine(std::vector<RefinementFrame> &refinementData,
 #endif
 
     //Iterate through each following Frame to create a correspondence to each Frame
-    std::vector<double *> parameter_blocks;
+     std::vector<double *> parameter_blocks;
     for (unsigned int frame1 = (frame0); frame1 < (numberToNote - 1);
          frame1++) {  //Skip Last Frame, cause its vector and scale to prev is unneccecccary. The Last Vector is implicit used, when receiving the Features of it.
 
@@ -256,6 +256,8 @@ T IterativeRefinement::CostFunctionBase::cost(const Eigen::Matrix<T, 3, 1> &base
 
   T cost = (_m1.template cast<T>().dot(
       (_R1.template cast<T>()).transpose() * (u01.cross(((_R0.template cast<T>()) * (_m0.template cast<T>()))))));
+
+
 
   return cost;
 }
