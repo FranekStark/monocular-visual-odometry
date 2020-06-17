@@ -39,6 +39,12 @@ Frame *TrackerDetector::stage(Frame *newFrame) {
   cv::imshow("mvocv-TrackerImage", image);
   cv::waitKey(10);
 #endif
+
+#ifdef RATINGDATA
+  newFrame->_infos.TRACKER_sum_features = newFrame->getNumberOfKnownFeatures();
+  newFrame->_infos.TRACKER_tracked_features = newFrame->_infos.TRACKER_sum_features - newFrame->_infos.TRACKER_new_features;
+#endif
+
   //Pass through the new Frame
   _prevFrame = newFrame;
   return newFrame;
@@ -109,6 +115,9 @@ void TrackerDetector::detect(Frame &newFrame, unsigned int number) {
   std::vector<cv::Vec3d> newFeaturesE;
   FeatureOperations::euclidNormFeatures(newFeatures, newFeaturesE, newFrame.getCameraModel());
   newFrame.addFeaturesToFrame(newFeatures, newFeaturesE);
+#ifdef RATINGDATA
+  newFrame._infos.TRACKER_new_features = newFeatures.size();
+#endif
 }
 TrackerDetector::~TrackerDetector() {
   cv::destroyWindow("mvocv-TrackerImage");

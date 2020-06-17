@@ -57,16 +57,16 @@ void Frame::addFeaturesToFrame(const std::vector<cv::Point2f> &features, const s
   }
   this->unlock();
 }
-const cv::Mat &Frame::getImage() {
+const cv::Mat &Frame::getImage() const{
   return (this->_imagePyramide)[0]; //TODO: Sync-Problems?
 }
-const cv::Matx33d &Frame::getRotation() {
+const cv::Matx33d &Frame::getRotation() const {
   return this->_rotation; //TODO:: Lockproblem?
 }
 const image_geometry::PinholeCameraModel &Frame::getCameraModel() const {
   return this->_cameraModel; //TODO: Lockproblem
 }
-unsigned int Frame::getNumberOfKnownFeatures() {
+unsigned int Frame::getNumberOfKnownFeatures() const{
   this->lock();
   unsigned int size = this->_features.size();
   this->unlock();
@@ -146,13 +146,13 @@ void Frame::calculateFeaturePreCounter() {
   this->_preFrame->unlock();
   this->unlock();
 }
-cv::Vec3d Frame::getBaseLineToPrevious() {
+cv::Vec3d Frame::getBaseLineToPrevious() const{
   this->lock();
   auto baseLine = this->_baseLine;
   this->unlock();
   return baseLine;
 }
-const std::vector<cv::Mat> & Frame::getImagePyramid() {
+const std::vector<cv::Mat> & Frame::getImagePyramid() const{
   return this->_imagePyramide;
 }
 void Frame::setBaseLineToPrevious(const cv::Vec3d &baseLine) {
@@ -165,7 +165,7 @@ template<>
 const cv::Point2f &Frame::getFeatureLocation(const Feature &f) {
   return f._positionImage;
 }
-bool Frame::isFirstFrame() {
+bool Frame::isFirstFrame() const {
   return this->_preFrame == nullptr;
 }
 Frame::Frame(std::vector<cv::Mat> imagePyramide,
@@ -184,7 +184,7 @@ Frame::Frame(std::vector<cv::Mat> imagePyramide,
              _timeStamp(timeStamp)
              {
 }
-const mvo::mvoConfig &Frame::getParameters() {
+const mvo::mvoConfig &Frame::getParameters() const {
   return _parameters;
 }
 
@@ -206,7 +206,7 @@ void Frame::setScaleToPrevious(double scale) {
   _scale = scale;
   this->unlock();
 }
-ros::Time Frame::getTimeStamp() const {
+ros::Time Frame::getTimeStamp() const{
   return _timeStamp;
 }
 const Frame &Frame::getPreviousFrame(unsigned int past) const{

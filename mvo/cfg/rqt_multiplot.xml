@@ -26,8 +26,8 @@
                         <curve_0>
                             <axes>
                                 <x_axis>
-                                    <field></field>
-                                    <field_type>1</field_type>
+                                    <field>header/stamp</field>
+                                    <field_type>0</field_type>
                                     <scale>
                                         <absolute_maximum>1000</absolute_maximum>
                                         <absolute_minimum>0</absolute_minimum>
@@ -77,8 +77,8 @@
                         <curve_1>
                             <axes>
                                 <x_axis>
-                                    <field></field>
-                                    <field_type>1</field_type>
+                                    <field>header/stamp</field>
+                                    <field_type>0</field_type>
                                     <scale>
                                         <absolute_maximum>1000</absolute_maximum>
                                         <absolute_minimum>0</absolute_minimum>
@@ -128,8 +128,8 @@
                         <curve_2>
                             <axes>
                                 <x_axis>
-                                    <field></field>
-                                    <field_type>1</field_type>
+                                    <field>header/stamp</field>
+                                    <field_type>0</field_type>
                                     <scale>
                                         <absolute_maximum>1000</absolute_maximum>
                                         <absolute_minimum>0</absolute_minimum>
@@ -179,8 +179,8 @@
                         <curve_3>
                             <axes>
                                 <x_axis>
-                                    <field></field>
-                                    <field_type>1</field_type>
+                                    <field>header/stamp</field>
+                                    <field_type>0</field_type>
                                     <scale>
                                         <absolute_maximum>1000</absolute_maximum>
                                         <absolute_minimum>0</absolute_minimum>
@@ -230,8 +230,8 @@
                         <curve_4>
                             <axes>
                                 <x_axis>
-                                    <field></field>
-                                    <field_type>1</field_type>
+                                    <field>header/stamp</field>
+                                    <field_type>0</field_type>
                                     <scale>
                                         <absolute_maximum>1000</absolute_maximum>
                                         <absolute_minimum>0</absolute_minimum>
@@ -281,8 +281,8 @@
                         <curve_5>
                             <axes>
                                 <x_axis>
-                                    <field></field>
-                                    <field_type>1</field_type>
+                                    <field>header/stamp</field>
+                                    <field_type>0</field_type>
                                     <scale>
                                         <absolute_maximum>1000</absolute_maximum>
                                         <absolute_minimum>0</absolute_minimum>
@@ -355,8 +355,8 @@
                         <curve_0>
                             <axes>
                                 <x_axis>
-                                    <field></field>
-                                    <field_type>1</field_type>
+                                    <field>header/stamp</field>
+                                    <field_type>0</field_type>
                                     <scale>
                                         <absolute_maximum>1000</absolute_maximum>
                                         <absolute_minimum>0</absolute_minimum>
@@ -406,8 +406,8 @@
                         <curve_1>
                             <axes>
                                 <x_axis>
-                                    <field></field>
-                                    <field_type>1</field_type>
+                                    <field>header/stamp</field>
+                                    <field_type>0</field_type>
                                     <scale>
                                         <absolute_maximum>1000</absolute_maximum>
                                         <absolute_minimum>0</absolute_minimum>
@@ -457,8 +457,8 @@
                         <curve_2>
                             <axes>
                                 <x_axis>
-                                    <field></field>
-                                    <field_type>1</field_type>
+                                    <field>header/stamp</field>
+                                    <field_type>0</field_type>
                                     <scale>
                                         <absolute_maximum>1000</absolute_maximum>
                                         <absolute_minimum>0</absolute_minimum>
@@ -533,8 +533,8 @@
                         <curve_0>
                             <axes>
                                 <x_axis>
-                                    <field></field>
-                                    <field_type>1</field_type>
+                                    <field>header/stamp</field>
+                                    <field_type>0</field_type>
                                     <scale>
                                         <absolute_maximum>1000</absolute_maximum>
                                         <absolute_minimum>0</absolute_minimum>
@@ -569,7 +569,7 @@
                                 <type>0</type>
                             </data>
                             <style>
-                                <lines_interpolate>false</lines_interpolate>
+                                <lines_interpolate>true</lines_interpolate>
                                 <pen_style>1</pen_style>
                                 <pen_width>1</pen_width>
                                 <render_antialias>false</render_antialias>
@@ -584,8 +584,8 @@
                         <curve_1>
                             <axes>
                                 <x_axis>
-                                    <field></field>
-                                    <field_type>1</field_type>
+                                    <field>header/stamp</field>
+                                    <field_type>0</field_type>
                                     <scale>
                                         <absolute_maximum>1000</absolute_maximum>
                                         <absolute_minimum>0</absolute_minimum>
@@ -620,7 +620,7 @@
                                 <type>0</type>
                             </data>
                             <style>
-                                <lines_interpolate>false</lines_interpolate>
+                                <lines_interpolate>true</lines_interpolate>
                                 <pen_style>1</pen_style>
                                 <pen_width>1</pen_width>
                                 <render_antialias>false</render_antialias>
@@ -632,6 +632,57 @@
                             <subscriber_queue_size>100</subscriber_queue_size>
                             <title>Scale Pitch</title>
                         </curve_1>
+                        <curve_2>
+                            <axes>
+                                <x_axis>
+                                    <field>header/stamp</field>
+                                    <field_type>0</field_type>
+                                    <scale>
+                                        <absolute_maximum>1000</absolute_maximum>
+                                        <absolute_minimum>0</absolute_minimum>
+                                        <relative_maximum>0</relative_maximum>
+                                        <relative_minimum>-1000</relative_minimum>
+                                        <type>0</type>
+                                    </scale>
+                                    <topic>/odom_scale_node/rating</topic>
+                                    <type>relative_scaler/Rating</type>
+                                </x_axis>
+                                <y_axis>
+                                    <field>scale_pitch_pitch</field>
+                                    <field_type>0</field_type>
+                                    <scale>
+                                        <absolute_maximum>1000</absolute_maximum>
+                                        <absolute_minimum>0</absolute_minimum>
+                                        <relative_maximum>0</relative_maximum>
+                                        <relative_minimum>-1000</relative_minimum>
+                                        <type>0</type>
+                                    </scale>
+                                    <topic>/odom_scale_node/rating</topic>
+                                    <type>relative_scaler/Rating</type>
+                                </y_axis>
+                            </axes>
+                            <color>
+                                <custom_color>#000000</custom_color>
+                                <type>0</type>
+                            </color>
+                            <data>
+                                <circular_buffer_capacity>1000</circular_buffer_capacity>
+                                <time_frame_length>10</time_frame_length>
+                                <type>0</type>
+                            </data>
+                            <style>
+                                <lines_interpolate>true</lines_interpolate>
+                                <pen_style>1</pen_style>
+                                <pen_width>1</pen_width>
+                                <render_antialias>false</render_antialias>
+                                <steps_invert>false</steps_invert>
+                                <sticks_baseline>0</sticks_baseline>
+                                <sticks_orientation>2</sticks_orientation>
+                                <type>0</type>
+                            </style>
+                            <subscriber_queue_size>100</subscriber_queue_size>
+                            <title>Scale Pitch Pitch</title>
+                        </curve_2>
                     </curves>
                     <legend>
                         <visible>true</visible>
@@ -654,11 +705,166 @@
                             </y_axis>
                         </axes>
                     </axes>
+                    <curves>
+                        <curve_0>
+                            <axes>
+                                <x_axis>
+                                    <field>header/stamp</field>
+                                    <field_type>0</field_type>
+                                    <scale>
+                                        <absolute_maximum>1000</absolute_maximum>
+                                        <absolute_minimum>0</absolute_minimum>
+                                        <relative_maximum>0</relative_maximum>
+                                        <relative_minimum>-1000</relative_minimum>
+                                        <type>0</type>
+                                    </scale>
+                                    <topic>/rating</topic>
+                                    <type>mvo/RatingData</type>
+                                </x_axis>
+                                <y_axis>
+                                    <field>TRACKER_sum_features</field>
+                                    <field_type>0</field_type>
+                                    <scale>
+                                        <absolute_maximum>1000</absolute_maximum>
+                                        <absolute_minimum>0</absolute_minimum>
+                                        <relative_maximum>0</relative_maximum>
+                                        <relative_minimum>-1000</relative_minimum>
+                                        <type>0</type>
+                                    </scale>
+                                    <topic>/rating</topic>
+                                    <type>mvo/RatingData</type>
+                                </y_axis>
+                            </axes>
+                            <color>
+                                <custom_color>#000000</custom_color>
+                                <type>0</type>
+                            </color>
+                            <data>
+                                <circular_buffer_capacity>1000</circular_buffer_capacity>
+                                <time_frame_length>10</time_frame_length>
+                                <type>0</type>
+                            </data>
+                            <style>
+                                <lines_interpolate>false</lines_interpolate>
+                                <pen_style>1</pen_style>
+                                <pen_width>1</pen_width>
+                                <render_antialias>false</render_antialias>
+                                <steps_invert>false</steps_invert>
+                                <sticks_baseline>0</sticks_baseline>
+                                <sticks_orientation>2</sticks_orientation>
+                                <type>0</type>
+                            </style>
+                            <subscriber_queue_size>100</subscriber_queue_size>
+                            <title>Summe</title>
+                        </curve_0>
+                        <curve_1>
+                            <axes>
+                                <x_axis>
+                                    <field>header/stamp</field>
+                                    <field_type>0</field_type>
+                                    <scale>
+                                        <absolute_maximum>1000</absolute_maximum>
+                                        <absolute_minimum>0</absolute_minimum>
+                                        <relative_maximum>0</relative_maximum>
+                                        <relative_minimum>-1000</relative_minimum>
+                                        <type>0</type>
+                                    </scale>
+                                    <topic>/rating</topic>
+                                    <type>mvo/RatingData</type>
+                                </x_axis>
+                                <y_axis>
+                                    <field>RANSAC_outsortet_features</field>
+                                    <field_type>0</field_type>
+                                    <scale>
+                                        <absolute_maximum>1000</absolute_maximum>
+                                        <absolute_minimum>0</absolute_minimum>
+                                        <relative_maximum>0</relative_maximum>
+                                        <relative_minimum>-1000</relative_minimum>
+                                        <type>0</type>
+                                    </scale>
+                                    <topic>/rating</topic>
+                                    <type>mvo/RatingData</type>
+                                </y_axis>
+                            </axes>
+                            <color>
+                                <custom_color>#000000</custom_color>
+                                <type>0</type>
+                            </color>
+                            <data>
+                                <circular_buffer_capacity>1000</circular_buffer_capacity>
+                                <time_frame_length>10</time_frame_length>
+                                <type>0</type>
+                            </data>
+                            <style>
+                                <lines_interpolate>false</lines_interpolate>
+                                <pen_style>1</pen_style>
+                                <pen_width>1</pen_width>
+                                <render_antialias>false</render_antialias>
+                                <steps_invert>false</steps_invert>
+                                <sticks_baseline>0</sticks_baseline>
+                                <sticks_orientation>2</sticks_orientation>
+                                <type>0</type>
+                            </style>
+                            <subscriber_queue_size>100</subscriber_queue_size>
+                            <title>Outsorted</title>
+                        </curve_1>
+                        <curve_2>
+                            <axes>
+                                <x_axis>
+                                    <field>header/stamp</field>
+                                    <field_type>0</field_type>
+                                    <scale>
+                                        <absolute_maximum>1000</absolute_maximum>
+                                        <absolute_minimum>0</absolute_minimum>
+                                        <relative_maximum>0</relative_maximum>
+                                        <relative_minimum>-1000</relative_minimum>
+                                        <type>0</type>
+                                    </scale>
+                                    <topic>/rating</topic>
+                                    <type>mvo/RatingData</type>
+                                </x_axis>
+                                <y_axis>
+                                    <field>TRACKER_tracked_features</field>
+                                    <field_type>0</field_type>
+                                    <scale>
+                                        <absolute_maximum>1000</absolute_maximum>
+                                        <absolute_minimum>0</absolute_minimum>
+                                        <relative_maximum>0</relative_maximum>
+                                        <relative_minimum>-1000</relative_minimum>
+                                        <type>0</type>
+                                    </scale>
+                                    <topic>/rating</topic>
+                                    <type>mvo/RatingData</type>
+                                </y_axis>
+                            </axes>
+                            <color>
+                                <custom_color>#000000</custom_color>
+                                <type>0</type>
+                            </color>
+                            <data>
+                                <circular_buffer_capacity>1000</circular_buffer_capacity>
+                                <time_frame_length>10</time_frame_length>
+                                <type>0</type>
+                            </data>
+                            <style>
+                                <lines_interpolate>false</lines_interpolate>
+                                <pen_style>1</pen_style>
+                                <pen_width>1</pen_width>
+                                <render_antialias>false</render_antialias>
+                                <steps_invert>false</steps_invert>
+                                <sticks_baseline>0</sticks_baseline>
+                                <sticks_orientation>2</sticks_orientation>
+                                <type>0</type>
+                            </style>
+                            <subscriber_queue_size>100</subscriber_queue_size>
+                            <title>Tracked</title>
+                        </curve_2>
+                    </curves>
                     <legend>
                         <visible>true</visible>
                     </legend>
                     <plot_rate>30</plot_rate>
-                    <title>Untitled Plot</title>
+                    <title>Tracked_Features</title>
                 </column_1>
             </row_1>
             <row_2>
@@ -681,8 +887,8 @@
                         <curve_0>
                             <axes>
                                 <x_axis>
-                                    <field></field>
-                                    <field_type>1</field_type>
+                                    <field>header/stamp</field>
+                                    <field_type>0</field_type>
                                     <scale>
                                         <absolute_maximum>1000</absolute_maximum>
                                         <absolute_minimum>0</absolute_minimum>
@@ -751,11 +957,166 @@
                             </y_axis>
                         </axes>
                     </axes>
+                    <curves>
+                        <curve_0>
+                            <axes>
+                                <x_axis>
+                                    <field>header/stamp</field>
+                                    <field_type>0</field_type>
+                                    <scale>
+                                        <absolute_maximum>1000</absolute_maximum>
+                                        <absolute_minimum>0</absolute_minimum>
+                                        <relative_maximum>0</relative_maximum>
+                                        <relative_minimum>-1000</relative_minimum>
+                                        <type>0</type>
+                                    </scale>
+                                    <topic>/odom_scale_node/rating</topic>
+                                    <type>relative_scaler/Rating</type>
+                                </x_axis>
+                                <y_axis>
+                                    <field>DUR_EST</field>
+                                    <field_type>0</field_type>
+                                    <scale>
+                                        <absolute_maximum>1000</absolute_maximum>
+                                        <absolute_minimum>0</absolute_minimum>
+                                        <relative_maximum>0</relative_maximum>
+                                        <relative_minimum>-1000</relative_minimum>
+                                        <type>0</type>
+                                    </scale>
+                                    <topic>/rating</topic>
+                                    <type>mvo/RatingData</type>
+                                </y_axis>
+                            </axes>
+                            <color>
+                                <custom_color>#000000</custom_color>
+                                <type>0</type>
+                            </color>
+                            <data>
+                                <circular_buffer_capacity>1000</circular_buffer_capacity>
+                                <time_frame_length>10</time_frame_length>
+                                <type>0</type>
+                            </data>
+                            <style>
+                                <lines_interpolate>false</lines_interpolate>
+                                <pen_style>1</pen_style>
+                                <pen_width>1</pen_width>
+                                <render_antialias>false</render_antialias>
+                                <steps_invert>false</steps_invert>
+                                <sticks_baseline>0</sticks_baseline>
+                                <sticks_orientation>2</sticks_orientation>
+                                <type>0</type>
+                            </style>
+                            <subscriber_queue_size>100</subscriber_queue_size>
+                            <title>EST_Duration</title>
+                        </curve_0>
+                        <curve_1>
+                            <axes>
+                                <x_axis>
+                                    <field>header/stamp</field>
+                                    <field_type>0</field_type>
+                                    <scale>
+                                        <absolute_maximum>1000</absolute_maximum>
+                                        <absolute_minimum>0</absolute_minimum>
+                                        <relative_maximum>0</relative_maximum>
+                                        <relative_minimum>-1000</relative_minimum>
+                                        <type>0</type>
+                                    </scale>
+                                    <topic>/odom_scale_node/rating</topic>
+                                    <type>relative_scaler/Rating</type>
+                                </x_axis>
+                                <y_axis>
+                                    <field>DUR_REF</field>
+                                    <field_type>0</field_type>
+                                    <scale>
+                                        <absolute_maximum>1000</absolute_maximum>
+                                        <absolute_minimum>0</absolute_minimum>
+                                        <relative_maximum>0</relative_maximum>
+                                        <relative_minimum>-1000</relative_minimum>
+                                        <type>0</type>
+                                    </scale>
+                                    <topic>/rating</topic>
+                                    <type>mvo/RatingData</type>
+                                </y_axis>
+                            </axes>
+                            <color>
+                                <custom_color>#000000</custom_color>
+                                <type>0</type>
+                            </color>
+                            <data>
+                                <circular_buffer_capacity>1000</circular_buffer_capacity>
+                                <time_frame_length>10</time_frame_length>
+                                <type>0</type>
+                            </data>
+                            <style>
+                                <lines_interpolate>false</lines_interpolate>
+                                <pen_style>1</pen_style>
+                                <pen_width>1</pen_width>
+                                <render_antialias>false</render_antialias>
+                                <steps_invert>false</steps_invert>
+                                <sticks_baseline>0</sticks_baseline>
+                                <sticks_orientation>2</sticks_orientation>
+                                <type>0</type>
+                            </style>
+                            <subscriber_queue_size>100</subscriber_queue_size>
+                            <title>REF_Duration</title>
+                        </curve_1>
+                        <curve_2>
+                            <axes>
+                                <x_axis>
+                                    <field>header/stamp</field>
+                                    <field_type>0</field_type>
+                                    <scale>
+                                        <absolute_maximum>1000</absolute_maximum>
+                                        <absolute_minimum>0</absolute_minimum>
+                                        <relative_maximum>0</relative_maximum>
+                                        <relative_minimum>-1000</relative_minimum>
+                                        <type>0</type>
+                                    </scale>
+                                    <topic>/odom_scale_node/rating</topic>
+                                    <type>relative_scaler/Rating</type>
+                                </x_axis>
+                                <y_axis>
+                                    <field>DUR_OUT</field>
+                                    <field_type>0</field_type>
+                                    <scale>
+                                        <absolute_maximum>1000</absolute_maximum>
+                                        <absolute_minimum>0</absolute_minimum>
+                                        <relative_maximum>0</relative_maximum>
+                                        <relative_minimum>-1000</relative_minimum>
+                                        <type>0</type>
+                                    </scale>
+                                    <topic>/rating</topic>
+                                    <type>mvo/RatingData</type>
+                                </y_axis>
+                            </axes>
+                            <color>
+                                <custom_color>#000000</custom_color>
+                                <type>0</type>
+                            </color>
+                            <data>
+                                <circular_buffer_capacity>1000</circular_buffer_capacity>
+                                <time_frame_length>10</time_frame_length>
+                                <type>0</type>
+                            </data>
+                            <style>
+                                <lines_interpolate>false</lines_interpolate>
+                                <pen_style>1</pen_style>
+                                <pen_width>1</pen_width>
+                                <render_antialias>false</render_antialias>
+                                <steps_invert>false</steps_invert>
+                                <sticks_baseline>0</sticks_baseline>
+                                <sticks_orientation>2</sticks_orientation>
+                                <type>0</type>
+                            </style>
+                            <subscriber_queue_size>100</subscriber_queue_size>
+                            <title>OUT_Duration</title>
+                        </curve_2>
+                    </curves>
                     <legend>
                         <visible>true</visible>
                     </legend>
                     <plot_rate>30</plot_rate>
-                    <title>Untitled Plot</title>
+                    <title>Timing</title>
                 </column_1>
             </row_2>
         </plots>

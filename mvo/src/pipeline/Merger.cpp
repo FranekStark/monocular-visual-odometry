@@ -89,6 +89,12 @@ Frame *Merger::stage(Frame *newFrame) {
     if((enoughTime || !newFrame->getParameters().useMergeFrequency) && disparity > newFrame->getParameters().movementDisparityThreshold) {
       image = cv::Scalar(255, 255, 255);
     }
+    //Show Angle-Difference:
+    double angle = acos((cv::trace(diffRotation) -1)/ 2) * 180.0 / M_PI;
+    cv::putText(image, "Angle: " + std::to_string(angle) + " deg", cv::Point( 40, image.rows - 100), cv::FONT_HERSHEY_SIMPLEX,
+                2,
+                color,
+                5);
     cv::imshow("mvocv-MergerImage", image);
     cv::waitKey(10);
   }

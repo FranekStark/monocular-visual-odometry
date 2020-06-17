@@ -26,6 +26,7 @@
 #include <message_filters/sync_policies/approximate_time.h>
 #include "mvo.hpp"
 #include "Utils.hpp"
+#include <mvo/RatingData.h>
 
 class MVO_node {
  private:
@@ -43,6 +44,10 @@ class MVO_node {
   ros::Publisher _refined1OdomPublisher;
   ros::Publisher _refined2OdomPublisher;
   ros::Publisher _vectorsPublisher;
+  ros::Publisher _vectorsEstimatedPublisher;
+  ros::Publisher _projectionsPublisher;
+  ros::Publisher _ratingPublisher;
+
   tf2_ros::TransformBroadcaster _transformBroadcaster;
 
   visualization_msgs::MarkerArray _vectors;
@@ -55,7 +60,7 @@ class MVO_node {
   cv::Matx33d _transformWorldToCamera;
 
 
-  MVO _mvo;
+  MVO * _mvo;
 
   void init();
 
@@ -76,6 +81,7 @@ class MVO_node {
   void publishRefinedPosition(cv::Point3d position, cv::Matx33d orientation, ros::Time timeStamp, int stage);
   void publishVectors(cv::Point3d newPosition, cv::Matx33d orientation);
   void publishTFTransform(cv::Point3d position, cv::Matx33d orientation, ros::Time timeStamp);
+  void publishProjectionMarkers(std::vector<cv::Vec3d> & projections, cv::Point3d position, cv::Scalar color);
 
 };
 #endif //MVO_SRC_MVO_NODE_HPP_

@@ -14,6 +14,8 @@ find_package(catkin REQUIRED COMPONENTS
         dynamic_reconfigure
         tf2_ros
         nav_msgs
+        std_msgs
+        message_generation
         )
 
 include_directories(
@@ -25,7 +27,18 @@ generate_dynamic_reconfigure_options(
         cfg/mvo.cfg
 )
 
-catkin_package()
+add_message_files(
+        FILES
+        RatingData.msg
+)
+
+generate_messages(
+        DEPENDENCIES
+        std_msgs
+)
+
+
+catkin_package(CATKIN_DEPENDS message_runtime)
 find_package(OpenCV 4.1.0 REQUIRED)
 
 find_package(Ceres REQUIRED)

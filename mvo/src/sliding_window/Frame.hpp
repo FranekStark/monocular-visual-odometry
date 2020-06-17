@@ -14,20 +14,10 @@
 
 #ifdef RATINGDATA
 #include <ceres/ceres.h>
-struct infos{
-  unsigned int outsortet_features;
-  double RANSAC_probability;
-  ceres::Solver::Summary ceres_summary;
-  double FEEATURE_cover;
-};
-#endif
-
-#define RATINGDATA
-
-
-#ifdef RATINGDATA
-#include <ceres/ceres.h>
 struct Rating_Infos{
+  unsigned int TRACKER_sum_features;
+  unsigned int TRACKER_tracked_features;
+  unsigned int TRACKER_new_features;
   unsigned int RANSAC_outsortet_features;
   double RANSAC_probability;
   double MERGER_disparity;
@@ -36,6 +26,10 @@ struct Rating_Infos{
   double ESTIMATED_scale;
   std::vector<cv::Vec3d> REFINED_baselines;
   std::vector<double> REFINED_scales;
+  ros::Time IN_Time;
+  ros::Time EST_Time;
+  ros::Time REF_Time;
+  ros::Time OUT_time;
 };
 #endif
 
@@ -103,7 +97,7 @@ class Frame {
  * @tparam T the Type of the Features
  * @param oldestFrame the oldest Frame
  * @param newestFrame the newest Frame
- * @param features the return of the features. Index 0, contains the newest. And the last Index the newest. The Featurevectors have to be empty!
+ * @param features the return of the features. Index 0, contains the newest. And the last Index the oldest. The Featurevectors have to be empty!
  */
   template<typename T>
   static void getCorrespondingFeatures(const Frame &oldestFrame,
@@ -162,13 +156,13 @@ class Frame {
  *
  * @return the image
  */
-  const cv::Mat &getImage();
+  const cv::Mat &getImage() const;
 /**
  * Retrieves Rotation of specific Frame
  *
  * @return the Rotation
  */
-  const cv::Matx33d &getRotation();
+  const cv::Matx33d &getRotation() const;
 /**
  * Retrieves the Cameramodell of specific Frame
  *
@@ -180,7 +174,7 @@ class Frame {
  * Recieves the current tracked and detected Features in that Frame
  * @return the number of features
  */
-  unsigned int getNumberOfKnownFeatures();
+  unsigned int getNumberOfKnownFeatures() const;
 
 
 /**
@@ -268,7 +262,7 @@ class Frame {
     assert(past > 0);
     {
       const Frame *tmpFrame = this;
-      for (unsigned int i = 0; i < past; i++) {
+      for (unsigned int i = 0; i <= past; i++) {
         assert(tmpFrame != nullptr);
         tmpFrame->lock();
         tmpFrame = tmpFrame->_preFrame;
@@ -299,7 +293,7 @@ class Frame {
     }
     {
       const Frame *tmpFrame = this;
-      for (unsigned int i = 0; i < past; i++) {
+      for (unsigned int i = 0; i <= past; i++) {
         tmpFrame->unlock();
         tmpFrame = tmpFrame->_preFrame;
       }
@@ -320,7 +314,7 @@ class Frame {
  * Retrieves the baseline to previous of specific Frame
  * @return baseline to previous
  */
-  cv::Vec3d getBaseLineToPrevious();
+  cv::Vec3d getBaseLineToPrevious() const;
 
   /**
    * Retrieves the Scale of the baseline from this FRame to previous Frame
@@ -336,7 +330,7 @@ class Frame {
    * @param features reference to an empty vector where the features will be placed
    */
   template<typename T>
-  void getFeatures(std::vector<T> &features) {
+  void getFeatures(std::vector<T> &features) const{
     this->lock();
     //Check wether the Vector is empty
     assert(features.size() == 0);
@@ -354,7 +348,7 @@ class Frame {
  *
  * @return the ImagePyramid
  */
-  const std::vector<cv::Mat> &getImagePyramid();
+  const std::vector<cv::Mat> &getImagePyramid() const;
 /**
  * Sets the  baseline to the previous Frame to specific Frame
  * @param baseLine the baseline
@@ -379,13 +373,13 @@ class Frame {
    * Retrieves wether this Frame is the frist Frame (so it has no preframe).
    * @return wether its the first
    */
-  bool isFirstFrame();
+  bool isFirstFrame() const;
 
   /**
    * Retrieves the Parameters which the algorithm needs
    * @return reference to the parameter-set
    */
-  const mvo::mvoConfig &getParameters();
+  const mvo::mvoConfig &getParameters() const;
 
   /**
    * Sets mew Parameters for this Frame

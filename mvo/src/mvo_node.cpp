@@ -16,22 +16,12 @@ MVO_node::MVO_node(ros::NodeHandle &nh, ros::NodeHandle &pnh)
       _privateNodeHandle(pnh),
       _imageTransport(nh),
       _currentConfig(mvo::mvoConfig::__getDefault__()),
-      _transformWorldToCamera(0, 0, 1, -1, 0, 0, 0, -1, 0),
-      _mvo([this](cv::Point3d position, cv::Matx33d orientation, ros::Time timeStamp) {
-             this->publishEstimatedPosition(position, orientation, timeStamp);
-           },
-           [this](cv::Point3d position, cv::Matx33d orientation, ros::Time timeStamp) {
-             this->publishRefinedPosition(position, orientation, timeStamp, 1);
-           },
-           [this](cv::Point3d position, cv::Matx33d orientation, ros::Time timeStamp) {
-             this->publishRefinedPosition(position, orientation, timeStamp, 2);
-             this->publishVectors(position, orientation);
-             this->publishTFTransform(position, orientation, timeStamp);
-           }) {
+      _transformWorldToCamera(0, 0, 1, -1, 0, 0, 0, -1, 0) {
   this->init();
 }
 
 MVO_node::~MVO_node() {
+  delete _mvo;
   delete _synchronizer;
   delete _imuSubscriber;
   delete _cameraInfoSubscriber;
@@ -96,7 +86,50 @@ void MVO_node::init() {
   _privateNodeHandle.param<double>("lowestLength", _currentConfig.lowestLength, _currentConfig.lowestLength);
   _privateNodeHandle.param<double>("highestLength", _currentConfig.highestLength, _currentConfig.highestLength);
 
+  _privateNodeHandle.param<int>("numberToRefine", _currentConfig.numberToRefine, _currentConfig.numberToRefine);
+  _privateNodeHandle.param<int>("numberToNote", _currentConfig.numberToNote, _currentConfig.numberToNote);
+
+
+  _privateNodeHandle.param<bool>("useMergeFrequency", _currentConfig.useMergeFrequency, _currentConfig.useMergeFrequency);
+  _privateNodeHandle.param<double>("mergeFrequency", _currentConfig.mergeFrequency, _currentConfig.mergeFrequency);
+
+  _privateNodeHandle.param<double>("negativeDepthThreshold", _currentConfig.negativeDepthThreshold, _currentConfig.negativeDepthThreshold);
+  _privateNodeHandle.param<int>("negativeDegreesThreshold", _currentConfig.negativeDegreesThreshold, _currentConfig.negativeDegreesThreshold);
+
+  _privateNodeHandle.param<bool>("useScaler", _currentConfig.useScaler, _currentConfig.useScaler);
+  _privateNodeHandle.param<bool>("useRefiner", _currentConfig.useRefiner, _currentConfig.useRefiner);
+  _privateNodeHandle.param<bool>("fixLength", _currentConfig.fixLength, _currentConfig.fixLength);
+
+
+
+
   _dynamicConfigServer.updateConfig(_currentConfig);
+
+  _mvo = new MVO([this](cv::Point3d position, cv::Matx33d orientation, ros::Time timeStamp) {
+                   this->publishEstimatedPosition(position, orientation, timeStamp);
+                 },
+                 [this](cv::Point3d position, cv::Matx33d orientation, ros::Time timeStamp) {
+                   this->publishRefinedPosition(position, orientation, timeStamp, 2);
+                   this->publishVectors(position, orientation);
+                   this->publishTFTransform(position, orientation, timeStamp);
+                 },
+                 std::bind(&MVO_node::publishProjectionMarkers, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3),
+                 [this](Rating_Infos ri, ros::Time timeStamp){
+                    mvo::RatingData msg;
+                    msg.TRACKER_new_features = ri.TRACKER_new_features;
+                    msg.RANSAC_probability = ri.RANSAC_probability;
+                    msg.RANSAC_outsortet_features = ri.RANSAC_outsortet_features;
+                    msg.MERGER_disparity = ri.MERGER_disparity;
+                    msg.TRACKER_sum_features = ri.TRACKER_sum_features;
+                    msg.TRACKER_tracked_features = ri.TRACKER_tracked_features;
+                    msg.DUR_EST = (ri.EST_Time - ri.IN_Time).toSec();
+                    msg.DUR_REF = (ri.OUT_time - ri.REF_Time).toSec();
+                    msg.DUR_OUT = (ri.OUT_time - ri.IN_Time).toSec();
+                    msg.header.stamp = timeStamp;
+                    _ratingPublisher.publish(msg);
+                  },
+                 _currentConfig
+  );
 
 
   //Set Log-Level:
@@ -130,13 +163,16 @@ void MVO_node::init() {
   _refined1OdomPublisher = _nodeHandle.advertise<geometry_msgs::PoseStamped>("odom_refined_once", 10, true);
   _refined2OdomPublisher = _nodeHandle.advertise<geometry_msgs::PoseStamped>("odom_refined_twice", 10, true);
   _vectorsPublisher = _nodeHandle.advertise<visualization_msgs::MarkerArray>("odom_refined_twice_vectors", 10, true);
+  _vectorsEstimatedPublisher = _nodeHandle.advertise<visualization_msgs::Marker>("odom_estimated_vectors", 10, true);
+  _projectionsPublisher = _nodeHandle.advertise<visualization_msgs::Marker>("camera_projections", 10, true);
+  _ratingPublisher = _nodeHandle.advertise<mvo::RatingData>("rating", 10, true);
   _synchronizer->registerCallback(boost::bind(&MVO_node::imageCallback, this, _1, _2, _3));
 
 }
 
 void MVO_node::imageCallback(const sensor_msgs::ImageConstPtr &image, const sensor_msgs::CameraInfoConstPtr &camInfo,
-                             const sensor_msgs::ImuConstPtr &imu) {
-
+                             const sensor_msgs::ImuConstPtr &imu)
+{
   LOG_DEBUG("Image Callback");
   /**
    * Convert the Image and the CameraInfo
@@ -154,16 +190,17 @@ void MVO_node::imageCallback(const sensor_msgs::ImageConstPtr &image, const sens
                                orientationMat[1][0], orientationMat[1][1], orientationMat[1][2],
                                orientationMat[2][0], orientationMat[2][1], orientationMat[2][2]
   );
+
   /**
    * Project To Camera Coordinates
    **/
-  orientationMatCV = _transformWorldToCamera.t() * orientationMatCV * _transformWorldToCamera;
+    orientationMatCV = _transformWorldToCamera.t() * orientationMatCV * _transformWorldToCamera;
 
   /**
    * Call the Algorithm
    **/
   _configLock.lock();
-  _mvo.newImage(bridgeImage->image, model, orientationMatCV, _currentConfig, image->header.stamp);
+  _mvo->newImage(bridgeImage->image, model, orientationMatCV, _currentConfig, image->header.stamp);
   _configLock.unlock();
 /*  *//**
    * Pack DebugImages and Publish
@@ -197,6 +234,31 @@ void MVO_node::publishEstimatedPosition(cv::Point3d position, cv::Matx33d orient
   odomMsg.pose = worldPoseFromCameraPosition(position, orientation);
   //Publish
   _estimatedOdomPublisher.publish(odomMsg);
+
+  //Vectors
+  visualization_msgs::Marker m;
+  m.type = visualization_msgs::Marker::ARROW;
+  m.action = visualization_msgs::Marker::MODIFY;
+  m.color.a = 1.0;
+  m.color.r = 1.0;
+  m.header.frame_id = "world";
+  static unsigned int id = 0;
+  m.id = id++;
+  geometry_msgs::Point start;
+  static double x, y, z = 0;
+  start.x = x;
+  start.y = y;
+  start.z = z;
+  geometry_msgs::Point end;
+  x = end.x = odomMsg.pose.position.x;
+  y = end.y = odomMsg.pose.position.y;
+  z = end.z = odomMsg.pose.position.z;
+  m.scale.x = 0.1;//shaft diameter;
+  m.scale.y = 0.2; //head diamaete;
+  m.points.push_back(start);
+  m.points.push_back(end);
+  _vectorsEstimatedPublisher.publish(m);
+
 }
 void MVO_node::publishRefinedPosition(cv::Point3d position, cv::Matx33d orientation, ros::Time timeStamp, int stage) {
   //Pack Message
@@ -245,7 +307,8 @@ void MVO_node::publishVectors(cv::Point3d newPosition, cv::Matx33d orientation) 
   _vectorsPublisher.publish(_vectors);
 }
 
-geometry_msgs::Pose MVO_node::worldPoseFromCameraPosition(const cv::Point3d &position, const cv::Matx33d &orientation) {
+geometry_msgs::Pose MVO_node::worldPoseFromCameraPosition(const cv::Point3d &position,
+                                                          const cv::Matx33d &orientation) {
   /**
    * Reproject TO World Coordinates
    */
@@ -294,4 +357,32 @@ void MVO_node::publishTFTransform(cv::Point3d position, cv::Matx33d orientation,
   transform.transform.rotation = pose.orientation;
 
   _transformBroadcaster.sendTransform(transform);
+}
+void MVO_node::publishProjectionMarkers(std::vector<cv::Vec3d> & projections, cv::Point3d position, cv::Scalar color) {
+  auto posU = _transformWorldToCamera * position;
+  for(auto proj = projections.begin(); proj < projections.end(); proj++){
+    auto projU = 2 * _transformWorldToCamera * *proj;
+    visualization_msgs::Marker m;
+    m.type = visualization_msgs::Marker::ARROW;
+    m.action = visualization_msgs::Marker::ADD;
+    m.color.a = 1.0;
+    m.color.b = color(0) / 255.0;
+    m.color.g = color(1) / 255.0;
+    m.color.r = color(2) /255.0;
+    static int id = 0;
+    m.id = id++;
+    m.header.frame_id = "world";
+    geometry_msgs::Point start, end;
+    start.x = posU.x;
+    start.y = posU.y;
+    start.z = posU.z;
+    end.x = posU.x + (projU)[0];
+    end.y = posU.y + (projU)[1];
+    end.z = posU.z + (projU)[2];
+    m.scale.x = 0.01;//shaft diameter;
+    m.scale.y = 0.05; //head diamaete;
+    m.points.push_back(start);
+    m.points.push_back(end);
+    _projectionsPublisher.publish(m);
+  }
 }

@@ -10,25 +10,35 @@
 #include "../nils_lib/Ringbuffer.hpp"
 #include "../operations/VisualisationUtils.hpp"
 #include "OdomData.hpp"
+#include "../nils_lib/Ringbuffer.hpp"
+#include "../operations/FeatureOperations.h"
 
 
-class Refiner: public PipelineStage {
+class Refiner : public PipelineStage {
  private:
+  IterativeRefinement &_iterativeRefinement;
+  RingBuffer<Frame *> _frames;
+  unsigned int _numberToNote;
+  unsigned int _numberToRefine;
+#ifdef RATINGDATA
+  std::function<void(Rating_Infos, ros::Time)> _ratingCallbackFunction;
+#endif
 
-  IterativeRefinement & _iterativeRefinement;
-  Frame * _preFrame;
-  Frame * _prePreFrame;
   Frame *stage(Frame *newFrame) override;
 
  public:
   Refiner(PipelineStage &precursor,
           unsigned int out_going_channel_size,
-          IterativeRefinement &iterativeRefinement, unsigned int numberToRefine);
+          IterativeRefinement &iterativeRefinement,
+          unsigned int numberToRefine,
+#ifdef RATINGDATA
+          std::function<void(Rating_Infos, ros::Time)> ratingCallbackFunction,
+#endif
+          unsigned int numberToNote
+  );
   ~Refiner() override;
 
-  Channel<OdomData> _baseLine1;
-  Channel<OdomData> _baseLine2;
-
+  Channel<OdomData> _baseLine;
 
 };
 
