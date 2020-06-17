@@ -4,6 +4,7 @@ project(mvo)
 add_compile_options(-std=c++11)
 set(CMAKE_BUILD_TYPE Debug)
 
+
 find_package(catkin REQUIRED COMPONENTS
         roscpp
         rospy
@@ -13,6 +14,8 @@ find_package(catkin REQUIRED COMPONENTS
         dynamic_reconfigure
         tf2_ros
         nav_msgs
+        std_msgs
+        message_generation
         )
 
 include_directories(
@@ -21,10 +24,21 @@ include_directories(
 
 
 generate_dynamic_reconfigure_options(
-        cfg/dyn_config.cfg
+        cfg/mvo.cfg
 )
 
-catkin_package()
+add_message_files(
+        FILES
+        RatingData.msg
+)
+
+generate_messages(
+        DEPENDENCIES
+        std_msgs
+)
+
+
+catkin_package(CATKIN_DEPENDS message_runtime)
 find_package(OpenCV 4.1.0 REQUIRED)
 
 find_package(Ceres REQUIRED)
@@ -47,7 +61,7 @@ add_executable(mvo_node
         src/pipeline/PipeLineEnd.cpp
         src/pipeline/BaselineEstimator.cpp
         src/pipeline/Refiner.cpp
-        src/pipeline/TrackerDetector.cpp src/Utils.cpp src/Utils.hpp src/sliding_window/Frame.cpp)
+        src/pipeline/TrackerDetector.cpp src/Utils.cpp src/Utils.hpp src/sliding_window/Frame.cpp src/pipeline/Scaler.cpp src/pipeline/Scaler.hpp)
 
 target_link_libraries(mvo_node ${catkin_LIBRARIES})
 target_link_libraries(mvo_node ${CERES_LIBRARIES})
@@ -55,3 +69,4 @@ target_link_libraries(mvo_node Eigen3::Eigen)
 add_dependencies(mvo_node mvo_gencfg)
 
 target_compile_options(mvo_node PRIVATE -Wall -Werror -pedantic -Wextra)
+

@@ -57,16 +57,16 @@ void Frame::addFeaturesToFrame(const std::vector<cv::Point2f> &features, const s
   }
   this->unlock();
 }
-const cv::Mat &Frame::getImage() {
+const cv::Mat &Frame::getImage() const{
   return (this->_imagePyramide)[0]; //TODO: Sync-Problems?
 }
-const cv::Matx33d &Frame::getRotation() {
+const cv::Matx33d &Frame::getRotation() const {
   return this->_rotation; //TODO:: Lockproblem?
 }
-const image_geometry::PinholeCameraModel &Frame::getCameraModel() {
+const image_geometry::PinholeCameraModel &Frame::getCameraModel() const {
   return this->_cameraModel; //TODO: Lockproblem
 }
-unsigned int Frame::getNumberOfKnownFeatures() {
+unsigned int Frame::getNumberOfKnownFeatures() const{
   this->lock();
   unsigned int size = this->_features.size();
   this->unlock();
@@ -111,7 +111,7 @@ void Frame::mergeFrame(Frame &targetFrame, Frame &sourceFrame) {
     targetFrame._features.reserve(difference);
     for (auto feature = sourceFrame._features.begin(); feature != sourceFrame._features.end(); feature++) {
       if (feature->_preFeature == -1) { //If there is no precessor, it is a new Feature
-        targetFrame._features.push_back(Feature(feature->_positionImage, feature->_positionEuclidian, -1, 0));
+        targetFrame._features.push_back(Feature(feature->_positionImage, feature->_positionProjected, -1, 0));
         //Set the connection right
         feature->_preFeature = (targetFrame._features.size() - 1); //The last Index
       }
@@ -138,17 +138,21 @@ void Frame::calculateFeaturePreCounter() {
     if (feature->_preFeature >= 0) {
       feature->_preFeatureCounter = preFrame._features[feature->_preFeature]._preFeatureCounter + 1;
     }
+    else{
+      feature->_preFeatureCounter = 0;
+      feature->_preFeature = -1;
+    }
   }
   this->_preFrame->unlock();
   this->unlock();
 }
-cv::Vec3d Frame::getBaseLineToPrevious() {
+cv::Vec3d Frame::getBaseLineToPrevious() const{
   this->lock();
   auto baseLine = this->_baseLine;
   this->unlock();
   return baseLine;
 }
-const std::vector<cv::Mat> & Frame::getImagePyramid() {
+const std::vector<cv::Mat> & Frame::getImagePyramid() const{
   return this->_imagePyramide;
 }
 void Frame::setBaseLineToPrevious(const cv::Vec3d &baseLine) {
@@ -156,30 +160,67 @@ void Frame::setBaseLineToPrevious(const cv::Vec3d &baseLine) {
   this->_baseLine = baseLine;
   this->unlock();
 }
+
 template<>
 const cv::Point2f &Frame::getFeatureLocation(const Feature &f) {
   return f._positionImage;
 }
-bool Frame::isFirstFrame() {
+bool Frame::isFirstFrame() const {
   return this->_preFrame == nullptr;
 }
 Frame::Frame(std::vector<cv::Mat> imagePyramide,
              image_geometry::PinholeCameraModel camerModel,
              cv::Matx33d rotation,
              Frame *preFrame,
-             mvo::mvoConfig params):
+             mvo::mvoConfig params,
+             ros::Time timeStamp
+             ):
              _imagePyramide(imagePyramide),
              _cameraModel(camerModel),
+             _scale(1.0),
              _rotation(rotation),
              _preFrame(preFrame),
-             _parameters(params)
+             _parameters(params),
+             _timeStamp(timeStamp)
              {
 }
-const mvo::mvoConfig &Frame::getParameters() {
+const mvo::mvoConfig &Frame::getParameters() const {
   return _parameters;
+}
+
+void Frame::setParameters(const mvo::mvoConfig & config){
+  this->_lock.lock();
+  _parameters = config;
+   this->_lock.unlock();
+}
+
+double Frame::getScaleToPrevious() const {
+  this->lock();
+  double scale = _scale;
+  this->unlock();
+  return scale;
+}
+
+void Frame::setScaleToPrevious(double scale) {
+  this->lock();
+  _scale = scale;
+  this->unlock();
+}
+ros::Time Frame::getTimeStamp() const{
+  return _timeStamp;
+}
+const Frame &Frame::getPreviousFrame(unsigned int past) const{
+  _lock.lock();
+  const Frame * frame = this;
+  for(unsigned int i = 0; i < past; i++){
+    frame = frame->_preFrame;
+    assert(frame != nullptr);
+  }
+  _lock.unlock();
+  return *frame;
 }
 
 template<>
 const cv::Vec3d &Frame::getFeatureLocation(const Feature &f) {
-  return f._positionEuclidian;
+  return f._positionProjected;
 }

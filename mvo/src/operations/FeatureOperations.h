@@ -7,6 +7,7 @@
 
 #include <opencv2/core.hpp>
 #include <image_geometry/pinhole_camera_model.h>
+#include <math.h>
 
 class FeatureOperations {
  public:
@@ -35,6 +36,12 @@ class FeatureOperations {
   static void euclidUnNormFeatures(const std::vector<cv::Vec3d> &featuresE, std::vector<cv::Point2f> &features,
                                    const image_geometry::PinholeCameraModel &cameraModel);
 
+/**
+ * Norms every feature INPLACE
+ * @param featuresE the vector of features
+ */
+  static void normFeatures(std::vector<cv::Vec3d> & featuresE);
+
   /**
    * Unrotates features from source- into target-vector
    * @param features source vector
@@ -52,9 +59,21 @@ class FeatureOperations {
    * @param r the rotation between first and second
    * @param b the baseline between first and second
    */
-  static void reconstructDepth(std::vector<double> &depth, const std::vector<cv::Vec3d> &m2L,
-                               const std::vector<cv::Vec3d> &m1L, const cv::Matx33d &r,
-                               const cv::Vec3d &b);
+  static void reconstructDepth(std::vector<double> &depth,
+  const std::vector<cv::Vec3d> &vec1,
+  const std::vector<cv::Vec3d> &vec0,
+  const cv::Matx33d &R1,
+  const cv::Matx33d &R0,
+  const cv::Vec3d &b);
+
+
+
+  static void calcProjectionsAngleDiff(std::vector<double> &depth,
+                                       const std::vector<cv::Vec3d> &vec1,
+                                       const std::vector<cv::Vec3d> &vec0,
+                                       const cv::Matx33d &R1,
+                                       const cv::Matx33d &R0,
+                                       const cv::Vec3d &b);
 
 
 };

@@ -5,16 +5,16 @@
 
 struct Feature {
   cv::Point2f _positionImage;
-  cv::Vec3d _positionEuclidian;
+  cv::Vec3d _positionProjected;
 
   /*Points to feature Before, if no feature Before exists -1*/
   int _preFeature;
   /*Number of Features Before*/
   unsigned int _preFeatureCounter;
 
-  Feature(cv::Point2f positionImage, cv::Vec3d positionEucilidan, int preFeature, unsigned int preFeatureCounter)
+  Feature(cv::Point2f positionImage, cv::Vec3d positionProjected, int preFeature, unsigned int preFeatureCounter)
       : _positionImage(positionImage),
-        _positionEuclidian(positionEucilidan),
+        _positionProjected(positionProjected),
         _preFeature(preFeature),
         _preFeatureCounter(preFeatureCounter) {
   }

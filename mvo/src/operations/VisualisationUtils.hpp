@@ -21,7 +21,7 @@ class VisualisationUtils {
    * @param frame specified frame
    * @param image the image to draw the points to
    */
-  static void drawFeatures(const Frame & frame, cv::Mat & image);
+  static void drawFeatures(const Frame &frame, cv::Mat &image);
 
   /**
    * Draws the Corresponding (tracked) Features (connected with a Line to an image).
@@ -32,11 +32,13 @@ class VisualisationUtils {
    * @param newestFrame this Frame has to be successors of the oldestFrame
    * @param image the image to draw the Points to
    */
-  static void drawCorrespondences(const Frame & oldestFrame, const Frame & newestFrame, cv::Mat & image);
+  static void drawCorrespondences(const Frame &oldestFrame, const Frame &newestFrame, cv::Mat &image);
 
-
-  static void drawCorrespondences(const std::vector<std::vector<cv::Vec3d>*> vectors, const image_geometry::PinholeCameraModel & camera, cv::Mat & image);
-
+  static void drawCorrespondences(const std::vector<const std::vector<cv::Vec3d> *> vectors,
+                                  const image_geometry::PinholeCameraModel &camera,
+                                  cv::Mat &image,
+                                  const cv::Scalar &lineColor = cv::Scalar(255, 255, 255),
+                                  const cv::Scalar &pointColor = cv::Scalar(0, 0, 255));
 
   /**
    * Draws the Movement as an visualisation to an image.
@@ -45,8 +47,7 @@ class VisualisationUtils {
    * @param color the Color of visualisation
    * @param image the image to draw to
    */
-  static void drawMovementDebug(const Frame & frame, const cv::Scalar & color, cv::Mat & image, unsigned int index);
-
+  static void drawMovementDebug(const Frame &frame, const cv::Scalar &color, cv::Mat &image, unsigned int index);
 
   /**
    * Draws the Features of the predecessor frame and this frame. the FEatures of this frame will pe drawed two Times.
@@ -65,9 +66,7 @@ class VisualisationUtils {
    * @param image the Imag eto draw to
    * @param rect the rect to daw
    */
-  static void drawRect(cv::Mat & image, const cv::Rect & rect);
+  static void drawRect(cv::Mat &image, const cv::Rect &rect);
 };
-
-
 
 #endif //MVO_SRC_VISULISATIONUTILS_HPP_

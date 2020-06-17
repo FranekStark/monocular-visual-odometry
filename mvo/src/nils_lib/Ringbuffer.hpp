@@ -19,7 +19,6 @@ class RingBuffer {
   int writePos;
   int readPos;
 
-
  public:
 
   /**
@@ -32,10 +31,20 @@ class RingBuffer {
   }
 
   /**
-   * @brief checks if buffer has at least one item
+  * @brief Constructor
+  * @param size - size of the buffer
+  * @param value - the value to init each element with
+  **/
+  explicit RingBuffer(int size, const T &value)
+      : buffer(size, value), size_(size), cnt_(0), writePos(0), readPos(0) {
+
+  }
+
+  /**
+   * @brief checks the number of elements currently in the Buffer
    * @return number of items in buffer
    **/
-  int size() {
+  unsigned int size() {
     return (size_ + writePos - readPos) % size_;
   }
 
@@ -52,7 +61,7 @@ class RingBuffer {
    * @brief pops items from the buffer
    * @param count - number of items to pop
    **/
-  void pop(int count = 1) {
+  void pop(unsigned int count = 1) {
     if (count > size()) {
       readPos = writePos;
     } else {

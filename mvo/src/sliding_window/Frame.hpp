@@ -9,6 +9,29 @@
 #include <algorithm>
 #include "../Utils.hpp"
 #include <mvo/mvoConfig.h>
+#define RATINGDATA
+
+
+#ifdef RATINGDATA
+#include <ceres/ceres.h>
+struct Rating_Infos{
+  unsigned int TRACKER_sum_features;
+  unsigned int TRACKER_tracked_features;
+  unsigned int TRACKER_new_features;
+  unsigned int RANSAC_outsortet_features;
+  double RANSAC_probability;
+  double MERGER_disparity;
+  ceres::Solver::Summary CERES_summary;
+  cv::Vec3d ESTIMATED_baseline;
+  double ESTIMATED_scale;
+  std::vector<cv::Vec3d> REFINED_baselines;
+  std::vector<double> REFINED_scales;
+  ros::Time IN_Time;
+  ros::Time EST_Time;
+  ros::Time REF_Time;
+  ros::Time OUT_time;
+};
+#endif
 
 class Frame {
  private:
@@ -18,16 +41,21 @@ class Frame {
   const image_geometry::PinholeCameraModel _cameraModel;
 
   cv::Vec3d _baseLine;
+  double _scale;
   const cv::Matx33d _rotation;
 
   Frame *_preFrame;
   mutable std::mutex _lock;
 
   mvo::mvoConfig _parameters;
+  ros::Time _timeStamp;
 
   void lock() const;
   void unlock() const;
  public:
+#ifdef RATINGDATA
+  Rating_Infos _infos;
+#endif
   /**
    * Constructs a new Frame
    * @param imagePyramide the imagepyramide of this Frame
@@ -35,7 +63,12 @@ class Frame {
    * @param rotation the rotation of the camera
    * @param preFrame pointer to the frame before
    */
-  Frame(std::vector<cv::Mat> imagePyramide, image_geometry::PinholeCameraModel camerModel, cv::Matx33d rotation, Frame * preFrame,  mvo::mvoConfig params);
+  Frame(std::vector<cv::Mat> imagePyramide,
+        image_geometry::PinholeCameraModel camerModel,
+        cv::Matx33d rotation,
+        Frame *preFrame,
+        mvo::mvoConfig params,
+        ros::Time timeStamp);
 
   virtual ~Frame() = default;
 /**
@@ -64,7 +97,7 @@ class Frame {
  * @tparam T the Type of the Features
  * @param oldestFrame the oldest Frame
  * @param newestFrame the newest Frame
- * @param features the return of the features. Index 0, contains the newest. And the last Index the newest. The Featurevectors have to be empty!
+ * @param features the return of the features. Index 0, contains the newest. And the last Index the oldest. The Featurevectors have to be empty!
  */
   template<typename T>
   static void getCorrespondingFeatures(const Frame &oldestFrame,
@@ -84,8 +117,8 @@ class Frame {
       assert((*outFeatures)->size() == 0);
       (*outFeatures)->reserve(frame->_features.size());
       frame = frame->_preFrame;
-      frame->lock();
       assert(frame != nullptr);
+      frame->lock();
     }
     assert(depth > 0);
     assert(features.size() == (depth + 1));
@@ -123,25 +156,33 @@ class Frame {
  *
  * @return the image
  */
-  const cv::Mat &getImage();
+  const cv::Mat &getImage() const;
 /**
  * Retrieves Rotation of specific Frame
  *
  * @return the Rotation
  */
-  const cv::Matx33d &getRotation();
+  const cv::Matx33d &getRotation() const;
 /**
  * Retrieves the Cameramodell of specific Frame
  *
  *
  * @return the Cameramodell
  */
-  const image_geometry::PinholeCameraModel &getCameraModel();
+  const image_geometry::PinholeCameraModel &getCameraModel() const;
 /**
  * Recieves the current tracked and detected Features in that Frame
  * @return the number of features
  */
-  unsigned int getNumberOfKnownFeatures();
+  unsigned int getNumberOfKnownFeatures() const;
+
+
+/**
+ * Retrieves the n-previous Frame.
+ * @param past 0 retrieves this Frame. 1 the one Before. 2 the Before-Before...
+ * @return the Frame, if it exists. Otherwise it will fail.
+ */
+  const Frame & getPreviousFrame(unsigned int past) const;
 /**
  * Removes the Features from that Frame and tells that also the previous and following Frame
  * @param indices list of indeces of the to features to remove
@@ -205,6 +246,60 @@ class Frame {
     oldFrame.unlock();
     newFrame.unlock();
   }
+
+/**
+ * Retrieves corresponding Features between this Frame and the n to the past Frame.
+ * There have to be enough Frames to the past.
+ * @tparam T the type of the Featurelocations to retreive
+ * @param past how much frames to the past (0 means , 1 means frame before)
+ * @param oldFeatures where to put the Featurelocations of the "Pastframe" (Has to be empty)
+ * @param newFeatures where to put the Featurelocations of this Frame (Has to be empty)
+ */
+  template<typename T>
+  void getCorrespondingFeatures(unsigned int past,
+                                       std::vector<T> &oldFeatures,
+                                       std::vector<T> &newFeatures) const{
+    assert(past > 0);
+    {
+      const Frame *tmpFrame = this;
+      for (unsigned int i = 0; i <= past; i++) {
+        assert(tmpFrame != nullptr);
+        tmpFrame->lock();
+        tmpFrame = tmpFrame->_preFrame;
+      }
+    }
+    assert(oldFeatures.empty());
+    assert(newFeatures.empty());
+
+    oldFeatures.reserve(this->_features.size());
+    newFeatures.reserve(this->_features.size());
+
+    for (auto newFeature = this->_features.begin(); newFeature != this->_features.end(); newFeature++) {
+      unsigned int preFeatureCounter = newFeature->_preFeatureCounter;
+      if (preFeatureCounter >= past) {
+        assert(preFeatureCounter >= 0);
+        newFeatures.push_back(getFeatureLocation<T>(*newFeature));
+
+        const Feature * oldFeature = &*newFeature;
+        const Frame * oldFrame = this;
+        for(unsigned int i = 0; i < past; i++){
+          oldFrame = oldFrame->_preFrame;
+          oldFeature = &oldFrame->_features[oldFeature->_preFeature];
+        }
+        oldFeatures.push_back(getFeatureLocation<T>(*oldFeature));
+
+      }
+
+    }
+    {
+      const Frame *tmpFrame = this;
+      for (unsigned int i = 0; i <= past; i++) {
+        tmpFrame->unlock();
+        tmpFrame = tmpFrame->_preFrame;
+      }
+    }
+
+  }
 /**
    * Iterates through each feature and sets the correct Precounter based on ONLY the features in the Preframe.
    * So it is necesserry, that the Prefeatures have correct counters.
@@ -219,7 +314,14 @@ class Frame {
  * Retrieves the baseline to previous of specific Frame
  * @return baseline to previous
  */
-  cv::Vec3d getBaseLineToPrevious();
+  cv::Vec3d getBaseLineToPrevious() const;
+
+  /**
+   * Retrieves the Scale of the baseline from this FRame to previous Frame
+   * @return the scale
+   */
+  double getScaleToPrevious() const;
+
 /**
    * Retrieves all known Features in specific Frame
    *
@@ -228,7 +330,7 @@ class Frame {
    * @param features reference to an empty vector where the features will be placed
    */
   template<typename T>
-  void getFeatures(std::vector<T> &features) {
+  void getFeatures(std::vector<T> &features) const{
     this->lock();
     //Check wether the Vector is empty
     assert(features.size() == 0);
@@ -246,12 +348,19 @@ class Frame {
  *
  * @return the ImagePyramid
  */
-  const std::vector<cv::Mat> &getImagePyramid();
+  const std::vector<cv::Mat> &getImagePyramid() const;
 /**
- * Sets the 'temporarelly needed' baseline to the previous Frame to specific Frame
+ * Sets the  baseline to the previous Frame to specific Frame
  * @param baseLine the baseline
  */
   void setBaseLineToPrevious(const cv::Vec3d &baseLine);
+
+  /**
+   * Sets the scale of the baseLine from this to previous Frame
+   * @param scale the scale
+   */
+  void setScaleToPrevious(double scale);
+
 /**
    * Returns the Location of the Feature
    * @tparam T the Featurelocation Type
@@ -264,13 +373,26 @@ class Frame {
    * Retrieves wether this Frame is the frist Frame (so it has no preframe).
    * @return wether its the first
    */
-  bool isFirstFrame();
+  bool isFirstFrame() const;
 
   /**
    * Retrieves the Parameters which the algorithm needs
    * @return reference to the parameter-set
    */
-  const mvo::mvoConfig & getParameters();
+  const mvo::mvoConfig &getParameters() const;
+
+  /**
+   * Sets mew Parameters for this Frame
+   * @param config the new Parameters
+   */
+  void setParameters(const mvo::mvoConfig & config);
+
+  /**
+   * Retrieves the timestamp of the Frame.
+   * @return timestamp, of the the capturingtime of the image
+   */
+  ros::Time getTimeStamp() const;
+
 };
 
 #endif //FRAME_HPP

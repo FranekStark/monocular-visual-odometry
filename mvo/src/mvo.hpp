@@ -24,6 +24,7 @@
 #include "pipeline/Refiner.hpp"
 #include "pipeline/PipelineBegin.hpp"
 #include "pipeline/PipeLineEnd.hpp"
+#include "pipeline/Scaler.hpp"
 
 #include <eigen3/Eigen/Dense>
 #include <eigen3/Eigen/SVD>
@@ -33,24 +34,22 @@
 
 #define PI 3.14159265
 
-#define DEBUGIMAGES
-#define MEASURETIME
-
 class MVO : public PipelineBegin {
  private:
   /**
    * Positions
    */
   cv::Point3d _estimatedPosition;
-  cv::Point3d _refined1Position;
-  cv::Point3d _refined2Position;
+  cv::Point3d _refinedPosition;
 
   /**
    * Callbackfunction
    */
-  std::function<void(cv::Point3d, cv::Matx33d)> _estimatedCallbackFunction;
-  std::function<void(cv::Point3d, cv::Matx33d)> _refined1CallbackFunction;
-  std::function<void(cv::Point3d, cv::Matx33d)> _refined2CallbackFunction;
+  std::function<void(cv::Point3d, cv::Matx33d, ros::Time timeStamp)> _estimatedCallbackFunction;
+  std::function<void(cv::Point3d, cv::Matx33d, ros::Time timeStamp)> _refinedCallbackFunction;
+#ifdef RATINGDATA
+  std::function<void(Rating_Infos, ros::Time)> _ratingCallbackFunction;
+#endif
 
   /**
    * Algorithms
@@ -65,6 +64,7 @@ class MVO : public PipelineBegin {
   TrackerDetector _trackerDetector;
   Merger _merger;
   BaselineEstimator _baseLineEstimator;
+  Scaler _scaler;
   Refiner _refiner;
   PipeLineEnd _end;
 
@@ -74,6 +74,7 @@ class MVO : public PipelineBegin {
   std::thread _trackerThread;
   std::thread _mergerThread;
   std::thread _estimatorThread;
+  std::thread _scalerThread;
   std::thread _refinerThread;
   std::thread _endThread;
 
@@ -81,21 +82,24 @@ class MVO : public PipelineBegin {
    *Callbackthreads
    */
   std::thread _estimatedCallbackThread;
-  std::thread _refined1CallbackThread;
-  std::thread _refined2CallbackThread;
+  std::thread _refinedCallbackThread;
 
   Frame *_prevFrame;
 
  public:
-  MVO(std::function<void(cv::Point3d, cv::Matx33d)> estimatedPositionCallback,
-      std::function<void(cv::Point3d, cv::Matx33d)> refined1PositionCallback,
-      std::function<void(cv::Point3d, cv::Matx33d)> refined2PositionCallback);
+  MVO(std::function<void(cv::Point3d, cv::Matx33d, ros::Time timeStamp)> estimatedPositionCallback,
+      std::function<void(cv::Point3d, cv::Matx33d, ros::Time timeStamp)> refinedPositionCallback,
+      std::function<void(std::vector<cv::Vec3d> &, cv::Point3d, cv::Scalar)> projectionCallback,
+#ifdef RATINGDATA
+      std::function<void(Rating_Infos, ros::Time)> ratingCallbackFunction,
+#endif
+      mvo::mvoConfig startConfig);
   ~MVO() override;
 
   void newImage(const cv::Mat &image,
                 const image_geometry::PinholeCameraModel &cameraModel,
                 const cv::Matx33d &R,
-                mvo::mvoConfig parameters);
+                mvo::mvoConfig parameters, const ros::Time &timeStamp);
 
 };
 

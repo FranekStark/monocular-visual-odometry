@@ -9,12 +9,11 @@ TrackerDetector::TrackerDetector(PipelineStage &precursor,
                                  CornerTracking &cornerTracking) :
     PipelineStage(&precursor, outGoingChannelSize),
     _prevFrame(nullptr),
-    _cornerTracking(cornerTracking)
-   {
+    _cornerTracking(cornerTracking) {
 #ifdef DEBUGIMAGES
-  cv::namedWindow("TrackerImage", cv::WINDOW_NORMAL);
-  cv::moveWindow("TrackerImage", 3360,895);
-  cv::resizeWindow("TrackerImage", 960,988);
+  cv::namedWindow("mvocv-TrackerImage", cv::WINDOW_NORMAL);
+  cv::moveWindow("mvocv-TrackerImage", 605, 51);
+  cv::resizeWindow("mvocv-TrackerImage", 562, 470);
   cv::startWindowThread();
 #endif
 
@@ -33,10 +32,19 @@ Frame *TrackerDetector::stage(Frame *newFrame) {
   cv::Mat image;
   cv::cvtColor(newFrame->getImage(), image, cv::COLOR_GRAY2BGR);
   VisualisationUtils::drawFeatures(*newFrame, image);
-  VisualisationUtils::drawRect(image, getShipMask(newFrame->getImage().size()));
-  cv::imshow("TrackerImage", image);
+  VisualisationUtils::drawRect(image,
+                               getShipMask(newFrame->getImage().size(),
+                                           newFrame->getParameters().shipHeight,
+                                           newFrame->getParameters().shipWidth));
+  cv::imshow("mvocv-TrackerImage", image);
   cv::waitKey(10);
 #endif
+
+#ifdef RATINGDATA
+  newFrame->_infos.TRACKER_sum_features = newFrame->getNumberOfKnownFeatures();
+  newFrame->_infos.TRACKER_tracked_features = newFrame->_infos.TRACKER_sum_features - newFrame->_infos.TRACKER_new_features;
+#endif
+
   //Pass through the new Frame
   _prevFrame = newFrame;
   return newFrame;
@@ -61,18 +69,24 @@ void TrackerDetector::track(Frame &newFrame) {
   /*Track the Features (with guess from Rotation)*/
   std::vector<unsigned char> found;
   auto camInfo = newFrame.getCameraModel();
-  auto shipMask = getShipMask(newFrame.getImage().size());
+  auto shipMask =
+      getShipMask(newFrame.getImage().size(), newFrame.getParameters().shipHeight, newFrame.getParameters().shipWidth);
   /*Check which Frames parameter we use*/
-  int pyramidLevel = std::min(newFrame.getParameters().pyramidDepth, _prevFrame->getParameters().pyramidDepth);//Depends on the flatter pyramide
-  int winSizeX = std::min(newFrame.getParameters().windowSizeX, _prevFrame->getParameters().windowSizeX);  //Also Depends on the smaller
+  int pyramidLevel = std::min(newFrame.getParameters().pyramidDepth,
+                              _prevFrame->getParameters().pyramidDepth);//Depends on the flatter pyramide
+  int winSizeX = std::min(newFrame.getParameters().windowSizeX,
+                          _prevFrame->getParameters().windowSizeX);  //Also Depends on the smaller
   int winSizeY = std::min(newFrame.getParameters().windowSizeY, _prevFrame->getParameters().windowSizeY);   //   "
 
   _cornerTracking.trackFeatures(newFrame.getImagePyramid(),
-                               _prevFrame->getImagePyramid(),
+                                _prevFrame->getImagePyramid(),
                                 prevFeatures,
                                 trackedFeatures,
                                 found,
-                                shipMask, pyramidLevel, cv::Size(winSizeX, winSizeY), newFrame.getParameters().mindDiffPercent);
+                                shipMask,
+                                pyramidLevel,
+                                cv::Size(winSizeX, winSizeY),
+                                newFrame.getParameters().mindDiffPercent);
   /*Project them to Euclidean*/
   std::vector<cv::Vec3d> trackedFeaturesE;
   FeatureOperations::euclidNormFeatures(trackedFeatures, trackedFeaturesE, newFrame.getCameraModel());
@@ -85,29 +99,40 @@ void TrackerDetector::detect(Frame &newFrame, unsigned int number) {
   std::vector<cv::Point2f> existingFeatures, newFeatures;
   newFrame.getFeatures(existingFeatures); //get Current Existing Features
   auto camInfo = newFrame.getCameraModel();
-  auto shipMask = getShipMask(newFrame.getImage().size());
+  auto shipMask =
+      getShipMask(newFrame.getImage().size(), newFrame.getParameters().shipHeight, newFrame.getParameters().shipWidth);
   _cornerTracking.detectFeatures(newFeatures,
                                  std::vector<cv::Mat>(newFrame.getImagePyramid())[0],
                                  number,
                                  existingFeatures,
                                  shipMask,
-                                 false, newFrame.getParameters().qualityLevel, newFrame.getParameters().k, newFrame.getParameters().blockSize, newFrame.getParameters().mindDiffPercent);
+                                 false,
+                                 newFrame.getParameters().qualityLevel,
+                                 newFrame.getParameters().k,
+                                 newFrame.getParameters().blockSize,
+                                 newFrame.getParameters().mindDiffPercent);
   /*Convert them and Put them back*/
   std::vector<cv::Vec3d> newFeaturesE;
   FeatureOperations::euclidNormFeatures(newFeatures, newFeaturesE, newFrame.getCameraModel());
   newFrame.addFeaturesToFrame(newFeatures, newFeaturesE);
+#ifdef RATINGDATA
+  newFrame._infos.TRACKER_new_features = newFeatures.size();
+#endif
 }
 TrackerDetector::~TrackerDetector() {
-  cv::destroyWindow("TrackerImage");
+  cv::destroyWindow("mvocv-TrackerImage");
 }
-cv::Rect2d TrackerDetector::getShipMask(const cv::Size& imageSize) {
+
+cv::Rect2d TrackerDetector::getShipMask(const cv::Size &imageSize, double shipHeight, double shipWidth) {
 
   /* Mask, where Ship is In Image*/
-  cv::Rect2d shipMask((imageSize.width / 2) - (1.6 / 16.0) * imageSize.width,
-                      imageSize.height - (6.5 / 16.0) * imageSize.height, (3.2 / 16.0) * imageSize.width,
-                      (6.5 / 16.0) * imageSize.width);
-  return shipMask;
+  double height = imageSize.height * shipHeight;
+  double width = imageSize.width * shipWidth;
 
+  double topLeftY = imageSize.height - height;
+   double topLeftX = (imageSize.width / 2.0) - width;
+
+  return cv::Rect2d(topLeftX, topLeftY, 2 * width, height);
 }
 
 
